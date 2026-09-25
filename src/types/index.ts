@@ -140,12 +140,13 @@ export interface InvoiceItem {
 
 export type PaymentStatus = 'Draft' | 'Unpaid' | 'Partially Paid' | 'Paid' | 'Overdue' | 'Cancelled';
 export type DeliveryStatus =
+  | 'Dispatched'
+  | 'Delivered'
+  | 'Scheduled'
   | 'Not Prepared'
   | 'Ready for Delivery'
   | 'Partially Delivered'
-  | 'Dispatched'
   | 'In Transit'
-  | 'Delivered'
   | 'Returned'
   | 'Cancelled';
 
@@ -201,16 +202,15 @@ export interface SalesInvoice {
 }
 
 export type DeliveryMethod =
+  | 'Courier'
+  | 'Own Pickup van'
+  | 'Transport'
   | 'Company Transport'
   | 'Customer Pickup'
-  | 'Courier'
   | 'Truck'
   | 'Pickup'
   | 'Van'
-  | 'CNG'
-  | 'Motorcycle'
-  | 'Third-Party Transport'
-  | 'Other';
+  | string;
 
 export interface DeliverySlipItem {
   id: string;
@@ -223,6 +223,9 @@ export interface DeliverySlipItem {
   previouslyDelivered: number;
   deliveredQuantity: number;
   remainingQuantity: number;
+  boxCount?: number | string;
+  boxes?: number | string;
+  weight?: number | string;
   unitPrice?: number;
   amount?: number;
   remarks?: string;
@@ -257,6 +260,9 @@ export interface DeliverySlip {
   deliveryInstructions?: string;
   
   items: DeliverySlipItem[];
+  
+  totalBoxes?: string;
+  totalWeight?: string;
   
   deliveryStatus: DeliveryStatus;
   

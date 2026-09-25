@@ -38,6 +38,7 @@ import { PrintableMoneyReceipt } from '../documents/PrintableMoneyReceipt';
 import { DeliverySlipModal } from '../delivery/DeliverySlipModal';
 import { InvoicePrintModal } from './InvoicePrintModal';
 import { ConfirmModal } from '../common/ConfirmModal';
+import { printElement } from '../../utils/printHelper';
 
 interface Props {
   invoiceId: string;
@@ -78,6 +79,7 @@ export const InvoiceDetails: React.FC<Props> = ({ invoiceId, onBack, onEdit }) =
 
   // Delivery Slip Modal State
   const [showCreateSlipModal, setShowCreateSlipModal] = useState(false);
+  const [customSlipNumber, setCustomSlipNumber] = useState('');
   const [slipDeliveryDate, setSlipDeliveryDate] = useState(getTodayDateString());
   const [slipStatus, setSlipStatus] = useState<DeliveryStatus>('Dispatched');
   const [slipReceiverName, setSlipReceiverName] = useState('');
@@ -85,7 +87,7 @@ export const InvoiceDetails: React.FC<Props> = ({ invoiceId, onBack, onEdit }) =
   const [slipVehicle, setSlipVehicle] = useState('');
   const [slipDriverName, setSlipDriverName] = useState('');
   const [slipDriverPhone, setSlipDriverPhone] = useState('');
-  const [slipMethod, setSlipMethod] = useState('Truck');
+  const [slipMethod, setSlipMethod] = useState('Courier');
   const [slipWarehouse, setSlipWarehouse] = useState('Mirpur Central Depot, Dhaka');
   const [slipRemarks, setSlipRemarks] = useState('');
   const [slipInstructions, setSlipInstructions] = useState('');
@@ -95,8 +97,12 @@ export const InvoiceDetails: React.FC<Props> = ({ invoiceId, onBack, onEdit }) =
   const [selectedSlipForPdf, setSelectedSlipForPdf] = useState<DeliverySlip | null>(null);
   const [isDownloadingPdf, setIsDownloadingPdf] = useState(false);
 
-  // Item quantities to deliver in this slip
+  // Item quantities, boxes, weights to deliver in this slip
   const [deliveryQuantities, setDeliveryQuantities] = useState<Record<string, number>>({});
+  const [itemBoxCounts, setItemBoxCounts] = useState<Record<string, string>>({});
+  const [itemWeights, setItemWeights] = useState<Record<string, string>>({});
+  const [slipTotalBoxes, setSlipTotalBoxes] = useState('');
+  const [slipTotalWeight, setSlipTotalWeight] = useState('');
 
   // Payment Modal State
   const [showPaymentModal, setShowPaymentModal] = useState(false);
@@ -151,6 +157,19 @@ export const InvoiceDetails: React.FC<Props> = ({ invoiceId, onBack, onEdit }) =
     setSlipAddress(invoice.customerAddress);
     setSlipContactPerson(invoice.customerName);
     setSlipPhone(invoice.customerPhone);
+
+    // Initialize custom slip number with next sequential or invoice-linked number
+    let defaultSlipNumber = '';
+    if (settings.deliverySlipNumbering === 'linked_to_invoice') {
+      const existingSlipsForInvoice = deliverySlips.filter(d => d.invoiceId === invoice.id);
+      const subIndex = String(existingSlipsForInvoice.length + 1).padStart(2, '0');
+      const invNumClean = invoice.invoiceNumber.replace('INV-', 'DS-');
+      defaultSlipNumber = `${invNumClean}-${subIndex}`;
+    } else {
+      defaultSlipNumber = getNextNumber('delivery_slip');
+    }
+    setCustomSlipNumber(defaultSlipNumber);
+
     setShowCreateSlipModal(true);
   };
 
@@ -189,12 +208,16 @@ export const InvoiceDetails: React.FC<Props> = ({ invoiceId, onBack, onEdit }) =
         unit: item.unit,
         orderedQuantity: item.quantity,
         deliveredQuantity: Number(deliveryQuantities[item.productId] || 0),
+        boxCount: itemBoxCounts[item.productId] || '',
+        boxes: itemBoxCounts[item.productId] || '',
+        weight: itemWeights[item.productId] || '',
         unitPrice: item.unitPrice,
         amount: (Number(deliveryQuantities[item.productId] || 0)) * item.unitPrice
       }))
       .filter(i => i.deliveredQuantity > 0);
 
     const createdSlip = createDeliverySlipForInvoice({
+      deliverySlipNumber: customSlipNumber.trim() || undefined,
       invoiceId: invoice.id,
       invoiceNumber: invoice.invoiceNumber,
       deliveryDate: slipDeliveryDate,
@@ -209,6 +232,8 @@ export const InvoiceDetails: React.FC<Props> = ({ invoiceId, onBack, onEdit }) =
       warehouse: slipWarehouse,
       remarks: slipRemarks,
       deliveryInstructions: slipInstructions,
+      totalBoxes: slipTotalBoxes.trim(),
+      totalWeight: slipTotalWeight.trim(),
       items: slipItems as any,
       deliveryStatus: slipStatus
     });
@@ -297,7 +322,11 @@ export const InvoiceDetails: React.FC<Props> = ({ invoiceId, onBack, onEdit }) =
   const triggerPrint = (mode: 'invoice' | 'slip' | 'combo' | 'receipt', slip?: DeliverySlip, payment?: PaymentRecord) => {
     setPrintMode(mode);
     if (slip) {
+      setSelectedSlipForPrint(slip);
       setActiveSlipModal({ slip, mode: 'view' });
+      setTimeout(() => {
+        printElement(`printable-delivery-slip-${slip.id}`);
+      }, 250);
       return;
     }
     if (mode === 'invoice') {
@@ -307,6 +336,7 @@ export const InvoiceDetails: React.FC<Props> = ({ invoiceId, onBack, onEdit }) =
     if (payment) setSelectedPaymentForPrint(payment);
     setTimeout(() => {
       try {
+        window.focus();
         window.print();
       } catch (err) {
         console.error('Print trigger error:', err);
@@ -1175,7 +1205,22 @@ export const InvoiceDetails: React.FC<Props> = ({ invoiceId, onBack, onEdit }) =
 
             <form onSubmit={handleConfirmDeliverySlip} className="space-y-4 text-xs">
               {/* Delivery Meta Fields */}
-              <div className="grid grid-cols-1 sm:grid-cols-3 gap-3">
+              <div className="grid grid-cols-1 sm:grid-cols-2 lg:grid-cols-4 gap-3">
+                <div>
+                  <label className="block text-zinc-400 mb-1 font-semibold flex items-center justify-between">
+                    <span>Challan / Slip No *</span>
+                    <span className="text-[10px] text-amber-400 font-normal">Custom</span>
+                  </label>
+                  <input
+                    type="text"
+                    required
+                    value={customSlipNumber}
+                    onChange={(e) => setCustomSlipNumber(e.target.value)}
+                    placeholder="e.g. DS-2026-0001"
+                    className="w-full bg-zinc-950 border border-zinc-700 rounded-lg px-3 py-1.5 text-zinc-100 font-mono font-bold focus:border-amber-500 focus:outline-none"
+                  />
+                </div>
+
                 <div>
                   <label className="block text-zinc-400 mb-1">Delivery Date *</label>
                   <input
@@ -1194,11 +1239,22 @@ export const InvoiceDetails: React.FC<Props> = ({ invoiceId, onBack, onEdit }) =
                     onChange={(e) => setSlipMethod(e.target.value)}
                     className="w-full bg-zinc-950 border border-zinc-700 rounded-lg px-3 py-1.5 text-zinc-100"
                   >
-                    <option value="Truck">Truck (Company Vehicle)</option>
-                    <option value="Van">Covered Van</option>
-                    <option value="Pickup">Pickup Van</option>
-                    <option value="Courier / Sundarban">Courier / Sundarban / SA Paribahan</option>
-                    <option value="Customer Pickup">Customer Self-Pickup</option>
+                    <option value="Courier">Courier</option>
+                    <option value="Own Pickup van">Own Pickup van</option>
+                    <option value="Transport">Transport</option>
+                  </select>
+                </div>
+
+                <div>
+                  <label className="block text-zinc-400 mb-1">Delivery Status</label>
+                  <select
+                    value={slipStatus}
+                    onChange={(e) => setSlipStatus(e.target.value as DeliveryStatus)}
+                    className="w-full bg-zinc-950 border border-zinc-700 rounded-lg px-3 py-1.5 text-zinc-100"
+                  >
+                    <option value="Dispatched">Dispatched</option>
+                    <option value="Delivered">Delivered</option>
+                    <option value="Scheduled">Scheduled</option>
                   </select>
                 </div>
 
@@ -1297,11 +1353,13 @@ export const InvoiceDetails: React.FC<Props> = ({ invoiceId, onBack, onEdit }) =
                     <thead>
                       <tr className="bg-zinc-950 text-zinc-400 border-b border-zinc-800">
                         <th className="p-2">Product</th>
-                        <th className="p-2 w-24 text-right">Invoice Qty</th>
-                        <th className="p-2 w-24 text-right">Prev. Del.</th>
-                        <th className="p-2 w-24 text-right">Remaining</th>
-                        <th className="p-2 w-32 text-right bg-blue-950 text-blue-200">This Delivery Qty</th>
-                        <th className="p-2 w-16 text-center">Unit</th>
+                        <th className="p-2 w-20 text-right">Invoice Qty</th>
+                        <th className="p-2 w-20 text-right">Prev. Del.</th>
+                        <th className="p-2 w-20 text-right">Remaining</th>
+                        <th className="p-2 w-28 text-right bg-blue-950 text-blue-200">Delivery Qty</th>
+                        <th className="p-2 w-24 text-center">Box</th>
+                        <th className="p-2 w-24 text-center">Weight</th>
+                        <th className="p-2 w-14 text-center">Unit</th>
                       </tr>
                     </thead>
                     <tbody className="divide-y divide-zinc-800">
@@ -1333,7 +1391,31 @@ export const InvoiceDetails: React.FC<Props> = ({ invoiceId, onBack, onEdit }) =
                                     [item.productId]: val
                                   }));
                                 }}
-                                className="w-24 bg-zinc-950 border border-blue-500 rounded px-2 py-1 text-right font-mono font-bold text-zinc-100"
+                                className="w-20 bg-zinc-950 border border-blue-500 rounded px-2 py-1 text-right font-mono font-bold text-zinc-100"
+                              />
+                            </td>
+                            <td className="p-2 text-center">
+                              <input
+                                type="text"
+                                placeholder="e.g. 5 Box"
+                                value={itemBoxCounts[item.productId] ?? ''}
+                                onChange={(e) => {
+                                  const val = e.target.value;
+                                  setItemBoxCounts(prev => ({ ...prev, [item.productId]: val }));
+                                }}
+                                className="w-20 bg-zinc-950 border border-zinc-700 rounded px-2 py-1 text-xs font-mono text-zinc-100"
+                              />
+                            </td>
+                            <td className="p-2 text-center">
+                              <input
+                                type="text"
+                                placeholder="e.g. 25 kg"
+                                value={itemWeights[item.productId] ?? ''}
+                                onChange={(e) => {
+                                  const val = e.target.value;
+                                  setItemWeights(prev => ({ ...prev, [item.productId]: val }));
+                                }}
+                                className="w-20 bg-zinc-950 border border-zinc-700 rounded px-2 py-1 text-xs font-mono text-zinc-100"
                               />
                             </td>
                             <td className="p-2 text-center text-zinc-400">{item.unit}</td>
@@ -1341,6 +1423,34 @@ export const InvoiceDetails: React.FC<Props> = ({ invoiceId, onBack, onEdit }) =
                         );
                       })}
                     </tbody>
+                    <tfoot>
+                      <tr className="bg-zinc-950 border-t border-zinc-800 text-zinc-300 font-bold">
+                        <td colSpan={5} className="p-2 text-right text-xs uppercase text-zinc-400">
+                          Total (Manual Entry):
+                        </td>
+                        <td className="p-2 text-center">
+                          <input
+                            type="text"
+                            placeholder="e.g. 10 Box"
+                            value={slipTotalBoxes}
+                            onChange={(e) => setSlipTotalBoxes(e.target.value)}
+                            className="w-20 bg-zinc-900 border border-amber-500/50 rounded px-2 py-1 text-center text-xs font-mono font-bold text-amber-400 focus:outline-none focus:border-amber-500"
+                            title="Total Box (Manual Entry)"
+                          />
+                        </td>
+                        <td className="p-2 text-center">
+                          <input
+                            type="text"
+                            placeholder="e.g. 150 kg"
+                            value={slipTotalWeight}
+                            onChange={(e) => setSlipTotalWeight(e.target.value)}
+                            className="w-20 bg-zinc-900 border border-amber-500/50 rounded px-2 py-1 text-center text-xs font-mono font-bold text-amber-400 focus:outline-none focus:border-amber-500"
+                            title="Total Weight (Manual Entry)"
+                          />
+                        </td>
+                        <td className="p-2 text-center text-xs text-zinc-400 font-semibold">Total</td>
+                      </tr>
+                    </tfoot>
                   </table>
                 </div>
               </div>

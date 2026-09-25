@@ -62,8 +62,9 @@ export function getTodayDateString(): string {
 }
 
 /**
- * Converts a number to words in English (with Taka and Paisa).
- * Example: 110750 -> "One Hundred Ten Thousand Seven Hundred Fifty Taka Only."
+ * Converts a number to words in English using the Bangladeshi numbering system (Crore, Lac, Thousand, Hundred, Taka, Paisa).
+ * Example: 100000 -> "One Lac Taka Only."
+ * Example: 110750 -> "One Lac Ten Thousand Seven Hundred Fifty Taka Only."
  */
 export function numberToWordsBDT(num: number): string {
   if (num === 0) return 'Zero Taka Only.';
@@ -77,22 +78,22 @@ export function numberToWordsBDT(num: number): string {
 
   function convertNumber(n: number): string {
     let str = '';
-    if (n >= 1000000000) {
-      str += convertNumber(Math.floor(n / 1000000000)) + 'Billion ';
-      n %= 1000000000;
+    // 1 Crore = 10,000,000 (100 Lac)
+    if (n >= 10000000) {
+      str += convertNumber(Math.floor(n / 10000000)) + 'Crore ';
+      n %= 10000000;
     }
-    if (n >= 1000000) {
-      str += convertNumber(Math.floor(n / 1000000)) + 'Million ';
-      n %= 1000000;
-    }
+    // 1 Lac = 100,000
     if (n >= 100000) {
-      // Lakh or hundred thousand
-      str += convertNumber(Math.floor(n / 1000)) + 'Thousand ';
-      n %= 1000;
-    } else if (n >= 1000) {
+      str += convertNumber(Math.floor(n / 100000)) + 'Lac ';
+      n %= 100000;
+    }
+    // 1 Thousand = 1,000
+    if (n >= 1000) {
       str += convertNumber(Math.floor(n / 1000)) + 'Thousand ';
       n %= 1000;
     }
+    // 1 Hundred = 100
     if (n >= 100) {
       str += a[Math.floor(n / 100)] + 'Hundred ';
       n %= 100;
@@ -101,7 +102,9 @@ export function numberToWordsBDT(num: number): string {
       if (n < 20) {
         str += a[n];
       } else {
-        str += b[Math.floor(n / 10)] + (n % 10 !== 0 ? ' ' + a[n % 10] : ' ');
+        const ten = Math.floor(n / 10);
+        const unit = n % 10;
+        str += b[ten] + (unit !== 0 ? ' ' + a[unit] : ' ');
       }
     }
     return str;

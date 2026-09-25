@@ -20,6 +20,7 @@ import { formatDate, formatCurrency } from '../../utils/formatters';
 import { PrintableDeliverySlip } from '../documents/PrintableDeliverySlip';
 import { exportToExcel } from '../../utils/exportImport';
 import { downloadElementAsPdf } from '../../utils/pdfExport';
+import { printElement } from '../../utils/printHelper';
 import { DeliverySlipModal } from './DeliverySlipModal';
 import { ConfirmModal } from '../common/ConfirmModal';
 
@@ -55,8 +56,8 @@ export const DeliverySlipList: React.FC<Props> = ({ onSelectInvoice }) => {
   const handlePrint = (slip: DeliverySlip) => {
     setPrintingSlip(slip);
     setTimeout(() => {
-      window.print();
-    }, 200);
+      printElement(`printable-delivery-slip-${slip.id}`);
+    }, 150);
   };
 
   const handleDownloadPdf = async (slip: DeliverySlip) => {

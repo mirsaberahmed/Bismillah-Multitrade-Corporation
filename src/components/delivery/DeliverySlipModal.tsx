@@ -18,6 +18,7 @@ import { DeliverySlip, DeliveryStatus, DeliveryMethod } from '../../types';
 import { useData } from '../../context/DataContext';
 import { PrintableDeliverySlip } from '../documents/PrintableDeliverySlip';
 import { downloadElementAsPdf } from '../../utils/pdfExport';
+import { printElement } from '../../utils/printHelper';
 import { ConfirmModal } from '../common/ConfirmModal';
 
 interface Props {
@@ -43,6 +44,7 @@ export const DeliverySlipModal: React.FC<Props> = ({
   const [isDownloadingPdf, setIsDownloadingPdf] = useState(false);
 
   // Edit form state
+  const [slipNumber, setSlipNumber] = useState('');
   const [deliveryDate, setDeliveryDate] = useState('');
   const [status, setStatus] = useState<DeliveryStatus>('Dispatched');
   const [vehicleNumber, setVehicleNumber] = useState('');
@@ -56,11 +58,16 @@ export const DeliverySlipModal: React.FC<Props> = ({
   const [receiverPhone, setReceiverPhone] = useState('');
   const [receiverDesignation, setReceiverDesignation] = useState('');
   const [itemsQuantities, setItemsQuantities] = useState<Record<string, number>>({});
+  const [itemsBoxes, setItemsBoxes] = useState<Record<string, string>>({});
+  const [itemsWeights, setItemsWeights] = useState<Record<string, string>>({});
+  const [totalBoxes, setTotalBoxes] = useState('');
+  const [totalWeight, setTotalWeight] = useState('');
   const [showDeleteConfirm, setShowDeleteConfirm] = useState(false);
 
   useEffect(() => {
     if (slip) {
       setMode(initialMode);
+      setSlipNumber(slip.deliverySlipNumber || '');
       setDeliveryDate(slip.deliveryDate || '');
       setStatus(slip.deliveryStatus || 'Dispatched');
       setVehicleNumber(slip.vehicleNumber || '');
@@ -73,23 +80,33 @@ export const DeliverySlipModal: React.FC<Props> = ({
       setReceiverName(slip.receiverName || '');
       setReceiverPhone(slip.receiverPhone || '');
       setReceiverDesignation(slip.receiverDesignation || '');
+      setTotalBoxes(slip.totalBoxes || '');
+      setTotalWeight(slip.totalWeight || '');
 
       const qtys: Record<string, number> = {};
+      const boxes: Record<string, string> = {};
+      const weights: Record<string, string> = {};
       slip.items.forEach(item => {
-        qtys[item.id || item.productId] = item.deliveredQuantity;
+        const key = item.id || item.productId;
+        qtys[key] = item.deliveredQuantity;
+        boxes[key] = String(item.boxCount || item.boxes || '');
+        weights[key] = String(item.weight || '');
       });
       setItemsQuantities(qtys);
+      setItemsBoxes(boxes);
+      setItemsWeights(weights);
     }
   }, [slip, initialMode, isOpen]);
 
   if (!isOpen || !slip) return null;
 
   const handlePrint = () => {
-    try {
-      window.print();
-    } catch (err) {
-      console.error('Print trigger error:', err);
+    if (mode !== 'view') {
+      setMode('view');
     }
+    setTimeout(() => {
+      printElement(`printable-delivery-slip-${slip.id}`);
+    }, 150);
   };
 
   const handleDownloadPdf = async () => {
@@ -123,12 +140,16 @@ export const DeliverySlipModal: React.FC<Props> = ({
       const qty = itemsQuantities[key] !== undefined ? itemsQuantities[key] : item.deliveredQuantity;
       return {
         ...item,
-        deliveredQuantity: Math.max(0, qty)
+        deliveredQuantity: Math.max(0, qty),
+        boxCount: itemsBoxes[key] ?? item.boxCount,
+        boxes: itemsBoxes[key] ?? item.boxes,
+        weight: itemsWeights[key] ?? item.weight
       };
     });
 
     const updatedSlip: DeliverySlip = {
       ...slip,
+      deliverySlipNumber: slipNumber.trim() || slip.deliverySlipNumber,
       deliveryDate,
       deliveryStatus: status,
       vehicleNumber: vehicleNumber.trim(),
@@ -141,6 +162,8 @@ export const DeliverySlipModal: React.FC<Props> = ({
       receiverName: receiverName.trim(),
       receiverPhone: receiverPhone.trim(),
       receiverDesignation: receiverDesignation.trim(),
+      totalBoxes: totalBoxes.trim(),
+      totalWeight: totalWeight.trim(),
       items: updatedItems
     };
 
@@ -150,10 +173,10 @@ export const DeliverySlipModal: React.FC<Props> = ({
   };
 
   return (
-    <div className="fixed inset-0 z-50 flex items-center justify-center p-3 sm:p-6 bg-black/80 backdrop-blur-xs overflow-y-auto">
-      <div className="relative w-full max-w-4xl bg-zinc-900 border border-zinc-700 rounded-2xl shadow-2xl flex flex-col max-h-[92vh] overflow-hidden">
-        {/* Top Modal Bar */}
-        <div className="flex items-center justify-between px-5 py-3.5 border-b border-zinc-800 bg-zinc-950">
+    <div className="fixed inset-0 z-50 flex items-center justify-center p-3 sm:p-6 bg-black/80 backdrop-blur-xs overflow-y-auto print:static print:p-0 print:m-0 print:bg-white print:overflow-visible print:w-full">
+      <div className="relative w-full max-w-4xl bg-zinc-900 border border-zinc-700 rounded-2xl shadow-2xl flex flex-col max-h-[92vh] overflow-hidden print:border-none print:shadow-none print:bg-white print:max-h-none print:overflow-visible print:w-full print:m-0 print:rounded-none">
+        {/* Top Modal Bar - Strictly hidden when printing */}
+        <div className="print:hidden flex items-center justify-between px-5 py-3.5 border-b border-zinc-800 bg-zinc-950">
           <div className="flex items-center gap-3">
             <div className="p-2 rounded-lg bg-blue-500/10 text-blue-400 border border-blue-500/20">
               <Truck size={18} />
@@ -187,7 +210,7 @@ export const DeliverySlipModal: React.FC<Props> = ({
               <button
                 type="button"
                 onClick={() => setMode('edit')}
-                className="flex items-center gap-1 px-3 py-1.5 rounded-lg bg-zinc-800 hover:bg-zinc-700 text-zinc-200 text-xs font-semibold border border-zinc-700 transition-colors"
+                className="flex items-center gap-1 px-3 py-1.5 rounded-lg bg-zinc-800 hover:bg-zinc-700 text-zinc-200 text-xs font-semibold border border-zinc-700 transition-colors cursor-pointer"
                 title="Edit Delivery Slip Details"
               >
                 <Edit2 size={13} className="text-blue-400" />
@@ -197,7 +220,7 @@ export const DeliverySlipModal: React.FC<Props> = ({
               <button
                 type="button"
                 onClick={() => setMode('view')}
-                className="flex items-center gap-1 px-3 py-1.5 rounded-lg bg-zinc-800 hover:bg-zinc-700 text-zinc-200 text-xs font-semibold border border-zinc-700 transition-colors"
+                className="flex items-center gap-1 px-3 py-1.5 rounded-lg bg-zinc-800 hover:bg-zinc-700 text-zinc-200 text-xs font-semibold border border-zinc-700 transition-colors cursor-pointer"
                 title="View Document Preview"
               >
                 <Eye size={13} className="text-emerald-400" />
@@ -209,7 +232,7 @@ export const DeliverySlipModal: React.FC<Props> = ({
             <button
               type="button"
               onClick={handlePrint}
-              className="flex items-center gap-1 px-3 py-1.5 rounded-lg bg-amber-500 hover:bg-amber-400 text-zinc-950 text-xs font-bold shadow-xs transition-colors"
+              className="flex items-center gap-1 px-3 py-1.5 rounded-lg bg-amber-500 hover:bg-amber-400 text-zinc-950 text-xs font-bold shadow-xs transition-colors cursor-pointer"
               title="Print Delivery Slip"
             >
               <Printer size={14} />
@@ -221,7 +244,7 @@ export const DeliverySlipModal: React.FC<Props> = ({
               type="button"
               onClick={handleDownloadPdf}
               disabled={isDownloadingPdf}
-              className="flex items-center gap-1 px-3 py-1.5 rounded-lg bg-zinc-800 hover:bg-zinc-700 text-amber-400 text-xs font-semibold border border-zinc-700 transition-colors disabled:opacity-50"
+              className="flex items-center gap-1 px-3 py-1.5 rounded-lg bg-zinc-800 hover:bg-zinc-700 text-amber-400 text-xs font-semibold border border-zinc-700 transition-colors disabled:opacity-50 cursor-pointer"
               title="Download PDF"
             >
               <Download size={14} />
@@ -232,7 +255,7 @@ export const DeliverySlipModal: React.FC<Props> = ({
             <button
               type="button"
               onClick={handleDelete}
-              className="p-1.5 rounded-lg bg-red-950/40 hover:bg-red-900/60 text-red-400 border border-red-900/40 transition-colors"
+              className="p-1.5 rounded-lg bg-red-950/40 hover:bg-red-900/60 text-red-400 border border-red-900/40 transition-colors cursor-pointer"
               title="Delete Delivery Slip"
             >
               <Trash2 size={16} />
@@ -242,7 +265,7 @@ export const DeliverySlipModal: React.FC<Props> = ({
             <button
               type="button"
               onClick={onClose}
-              className="p-1.5 rounded-lg bg-zinc-800 hover:bg-zinc-700 text-zinc-400 hover:text-zinc-100 transition-colors ml-1"
+              className="p-1.5 rounded-lg bg-zinc-800 hover:bg-zinc-700 text-zinc-400 hover:text-zinc-100 transition-colors ml-1 cursor-pointer"
               title="Close"
             >
               <X size={17} />
@@ -251,24 +274,38 @@ export const DeliverySlipModal: React.FC<Props> = ({
         </div>
 
         {/* Modal Body: Either Document Preview or Edit Form */}
-        <div className="flex-1 overflow-y-auto p-4 sm:p-6 custom-scrollbar">
+        <div className="flex-1 overflow-y-auto p-4 sm:p-6 custom-scrollbar print:p-0 print:m-0 print:bg-white print:overflow-visible">
           {mode === 'view' ? (
-            <div className="bg-white rounded-xl shadow-xl overflow-hidden border border-zinc-200">
-              <div id={`modal-printable-slip-${slip.id}`}>
+            <div className="bg-white rounded-xl shadow-xl overflow-hidden border border-zinc-200 print:border-none print:shadow-none print:rounded-none print:p-0 print:m-0 print:max-w-none">
+              <div id={`modal-printable-slip-${slip.id}`} className="print:m-0 print:p-0">
                 <PrintableDeliverySlip deliverySlip={slip} settings={settings} />
               </div>
             </div>
           ) : (
-            <form onSubmit={handleSaveEdit} className="space-y-5 text-xs">
+            <form onSubmit={handleSaveEdit} className="space-y-5 text-xs print:hidden">
               <div className="bg-zinc-950 border border-zinc-800 rounded-xl p-4 space-y-4">
                 <h4 className="font-bold text-zinc-200 uppercase tracking-tight text-xs flex items-center gap-2">
                   <Truck size={15} className="text-amber-500" />
                   Dispatch &amp; Transit Details
                 </h4>
 
-                <div className="grid grid-cols-1 sm:grid-cols-3 gap-3">
+                <div className="grid grid-cols-1 sm:grid-cols-2 lg:grid-cols-4 gap-3">
                   <div>
-                    <label className="block text-zinc-400 mb-1">Delivery Date</label>
+                    <label className="block text-zinc-400 mb-1 font-semibold flex items-center justify-between">
+                      <span>Challan / Slip No *</span>
+                      <span className="text-[10px] text-amber-400 font-normal">Custom</span>
+                    </label>
+                    <input
+                      type="text"
+                      value={slipNumber}
+                      onChange={(e) => setSlipNumber(e.target.value)}
+                      className="w-full bg-zinc-900 border border-zinc-700 rounded-lg px-3 py-2 text-zinc-100 font-mono font-bold focus:outline-none focus:border-amber-500"
+                      required
+                    />
+                  </div>
+
+                  <div>
+                    <label className="block text-zinc-400 mb-1">Delivery Date *</label>
                     <input
                       type="date"
                       value={deliveryDate}
@@ -285,11 +322,9 @@ export const DeliverySlipModal: React.FC<Props> = ({
                       onChange={(e) => setStatus(e.target.value as DeliveryStatus)}
                       className="w-full bg-zinc-900 border border-zinc-700 rounded-lg px-3 py-2 text-zinc-200 focus:outline-none focus:border-amber-500"
                     >
-                      <option value="Pending">Pending</option>
-                      <option value="Dispatched">Dispatched (In Transit)</option>
-                      <option value="Delivered">Delivered (Completed)</option>
-                      <option value="Returned">Returned</option>
-                      <option value="Cancelled">Cancelled</option>
+                      <option value="Dispatched">Dispatched</option>
+                      <option value="Delivered">Delivered</option>
+                      <option value="Scheduled">Scheduled</option>
                     </select>
                   </div>
 
@@ -300,12 +335,9 @@ export const DeliverySlipModal: React.FC<Props> = ({
                       onChange={(e) => setDeliveryMethod(e.target.value as DeliveryMethod)}
                       className="w-full bg-zinc-900 border border-zinc-700 rounded-lg px-3 py-2 text-zinc-200 focus:outline-none focus:border-amber-500"
                     >
-                      <option value="Truck">Truck</option>
-                      <option value="Covered Van">Covered Van</option>
-                      <option value="Pickup">Pickup / Mini Truck</option>
                       <option value="Courier">Courier</option>
-                      <option value="Customer Pickup">Customer Self-Pickup</option>
-                      <option value="Company Transport">Company Transport</option>
+                      <option value="Own Pickup van">Own Pickup van</option>
+                      <option value="Transport">Transport</option>
                     </select>
                   </div>
                 </div>
@@ -368,9 +400,11 @@ export const DeliverySlipModal: React.FC<Props> = ({
                     <thead>
                       <tr className="bg-zinc-900 border-b border-zinc-800 text-zinc-400">
                         <th className="p-2.5">Product Name</th>
-                        <th className="p-2.5 w-24 text-right">Invoiced Qty</th>
-                        <th className="p-2.5 w-32 text-right">Delivered in this Slip</th>
-                        <th className="p-2.5 w-20 text-center">Unit</th>
+                        <th className="p-2.5 w-20 text-right">Invoiced Qty</th>
+                        <th className="p-2.5 w-28 text-right">Delivered Qty</th>
+                        <th className="p-2.5 w-24 text-center">Box</th>
+                        <th className="p-2.5 w-24 text-center">Weight</th>
+                        <th className="p-2.5 w-16 text-center">Unit</th>
                       </tr>
                     </thead>
                     <tbody className="divide-y divide-zinc-800">
@@ -395,7 +429,31 @@ export const DeliverySlipModal: React.FC<Props> = ({
                                   const val = parseInt(e.target.value) || 0;
                                   setItemsQuantities(prev => ({ ...prev, [key]: val }));
                                 }}
-                                className="w-24 bg-zinc-900 border border-zinc-700 rounded px-2 py-1 text-right text-xs font-mono font-bold text-amber-400 focus:outline-none focus:border-amber-500"
+                                className="w-20 bg-zinc-900 border border-zinc-700 rounded px-2 py-1 text-right text-xs font-mono font-bold text-amber-400 focus:outline-none focus:border-amber-500"
+                              />
+                            </td>
+                            <td className="p-2.5 text-center">
+                              <input
+                                type="text"
+                                placeholder="e.g. 5 Box"
+                                value={itemsBoxes[key] ?? ''}
+                                onChange={(e) => {
+                                  const val = e.target.value;
+                                  setItemsBoxes(prev => ({ ...prev, [key]: val }));
+                                }}
+                                className="w-20 bg-zinc-900 border border-zinc-700 rounded px-2 py-1 text-xs font-mono text-zinc-200 focus:outline-none focus:border-amber-500"
+                              />
+                            </td>
+                            <td className="p-2.5 text-center">
+                              <input
+                                type="text"
+                                placeholder="e.g. 25 kg"
+                                value={itemsWeights[key] ?? ''}
+                                onChange={(e) => {
+                                  const val = e.target.value;
+                                  setItemsWeights(prev => ({ ...prev, [key]: val }));
+                                }}
+                                className="w-20 bg-zinc-900 border border-zinc-700 rounded px-2 py-1 text-xs font-mono text-zinc-200 focus:outline-none focus:border-amber-500"
                               />
                             </td>
                             <td className="p-2.5 text-center text-zinc-400">{item.unit}</td>
@@ -403,6 +461,34 @@ export const DeliverySlipModal: React.FC<Props> = ({
                         );
                       })}
                     </tbody>
+                    <tfoot>
+                      <tr className="bg-zinc-900 border-t border-zinc-800 text-zinc-300 font-bold">
+                        <td colSpan={3} className="p-2.5 text-right text-xs uppercase text-zinc-400">
+                          Total (Manual Entry):
+                        </td>
+                        <td className="p-2 text-center">
+                          <input
+                            type="text"
+                            placeholder="e.g. 10 Box"
+                            value={totalBoxes}
+                            onChange={(e) => setTotalBoxes(e.target.value)}
+                            className="w-24 bg-zinc-950 border border-amber-500/50 rounded px-2 py-1 text-center text-xs font-mono font-bold text-amber-400 focus:outline-none focus:border-amber-500"
+                            title="Total Box (Manual Entry)"
+                          />
+                        </td>
+                        <td className="p-2 text-center">
+                          <input
+                            type="text"
+                            placeholder="e.g. 150 kg"
+                            value={totalWeight}
+                            onChange={(e) => setTotalWeight(e.target.value)}
+                            className="w-24 bg-zinc-950 border border-amber-500/50 rounded px-2 py-1 text-center text-xs font-mono font-bold text-amber-400 focus:outline-none focus:border-amber-500"
+                            title="Total Weight (Manual Entry)"
+                          />
+                        </td>
+                        <td className="p-2 text-center text-xs text-zinc-400 font-semibold">Total</td>
+                      </tr>
+                    </tfoot>
                   </table>
                 </div>
               </div>

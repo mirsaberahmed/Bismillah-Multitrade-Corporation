@@ -1,6 +1,6 @@
 import React from 'react';
 import { SalesInvoice, CompanySettings } from '../../types';
-import { formatCurrency, formatDate } from '../../utils/formatters';
+import { formatCurrency, formatDate, numberToWordsBDT } from '../../utils/formatters';
 
 interface Props {
   invoice: SalesInvoice;
@@ -10,28 +10,33 @@ interface Props {
 
 export const PrintableInvoice: React.FC<Props> = ({ invoice, settings, showPaymentDetails }) => {
   const shouldShowPayment = showPaymentDetails !== undefined ? showPaymentDetails : (invoice.showPaymentDetails === true);
+  const totalInWords = numberToWordsBDT(invoice.grandTotal);
+
   return (
-    <div className="bg-white text-zinc-900 w-full max-w-4xl mx-auto p-8 font-sans print:p-0 print:max-w-none text-sm leading-normal">
+    <div
+      id={`printable-invoice-${invoice.id}`}
+      className="printable-sheet bg-white text-black w-full max-w-4xl mx-auto p-8 font-sans print:p-0 print:max-w-[185mm] print:mx-auto text-sm leading-normal"
+    >
       {/* Header */}
-      <div className="border-b-2 border-amber-500 pb-4 mb-6">
+      <div className="border-b border-black pb-4 mb-6">
         <div className="flex justify-between items-start gap-4">
           {/* Company Info */}
           <div className="flex-1">
-            <h1 className="text-2xl font-black tracking-tight text-zinc-950 uppercase mb-0.5">
+            <h1 className="text-2xl font-black tracking-tight text-black uppercase mb-0.5">
               {settings.companyName}
             </h1>
-            <p className="text-amber-700 font-semibold text-xs tracking-wider uppercase mb-2">
+            <p className="text-black font-semibold text-xs tracking-wider uppercase mb-2">
               {settings.businessType}
             </p>
-            <div className="text-zinc-600 text-xs space-y-0.5 leading-relaxed">
+            <div className="text-black text-xs space-y-0.5 leading-relaxed">
               <p>{settings.address}</p>
               <p>
-                <span className="font-medium text-zinc-800">Phone:</span> {settings.phonePrimary}
+                <span className="font-semibold">Phone:</span> {settings.phonePrimary}
                 {settings.phoneSecondary && ` | ${settings.phoneSecondary}`}
               </p>
               {settings.email && (
                 <p>
-                  <span className="font-medium text-zinc-800">Email:</span> {settings.email}
+                  <span className="font-semibold">Email:</span> {settings.email}
                   {settings.website && ` | ${settings.website}`}
                 </p>
               )}
@@ -40,32 +45,32 @@ export const PrintableInvoice: React.FC<Props> = ({ invoice, settings, showPayme
 
           {/* Invoice Label & Details */}
           <div className="text-right">
-            <div className="inline-block bg-amber-500 text-zinc-950 px-4 py-1.5 font-extrabold text-xl tracking-widest uppercase mb-3">
+            <div className="inline-block border border-black bg-white text-black px-4 py-1.5 font-bold text-lg tracking-widest uppercase mb-3">
               INVOICE
             </div>
-            <div className="space-y-1 text-xs">
+            <div className="space-y-1 text-xs text-black">
               <p>
-                <span className="text-zinc-500">Invoice No:</span>{' '}
-                <strong className="font-mono text-sm text-zinc-900">{invoice.invoiceNumber}</strong>
+                <span className="font-medium">Invoice No:</span>{' '}
+                <strong className="font-mono text-sm">{invoice.invoiceNumber}</strong>
               </p>
               <p>
-                <span className="text-zinc-500">Date:</span>{' '}
-                <strong className="text-zinc-900">{formatDate(invoice.invoiceDate)}</strong>
+                <span className="font-medium">Date:</span>{' '}
+                <strong>{formatDate(invoice.invoiceDate)}</strong>
               </p>
               <p>
-                <span className="text-zinc-500">Due Date:</span>{' '}
-                <strong className="text-zinc-900">{formatDate(invoice.dueDate)}</strong>
+                <span className="font-medium">Due Date:</span>{' '}
+                <strong>{formatDate(invoice.dueDate)}</strong>
               </p>
               {invoice.poNumber && (
                 <p>
-                  <span className="text-zinc-500">PO No:</span>{' '}
-                  <strong className="text-zinc-900">{invoice.poNumber}</strong>
+                  <span className="font-medium">PO No:</span>{' '}
+                  <strong>{invoice.poNumber}</strong>
                 </p>
               )}
               {invoice.currency && invoice.currency !== 'BDT' && (
                 <p>
-                  <span className="text-zinc-500">Currency:</span>{' '}
-                  <strong className="text-zinc-900">{invoice.currency} (Rate: ৳{invoice.exchangeRate})</strong>
+                  <span className="font-medium">Currency:</span>{' '}
+                  <strong>{invoice.currency} (Rate: ৳{invoice.exchangeRate})</strong>
                 </p>
               )}
             </div>
@@ -73,163 +78,138 @@ export const PrintableInvoice: React.FC<Props> = ({ invoice, settings, showPayme
         </div>
       </div>
 
-      {/* Two Column Bill To & Invoice Info */}
+      {/* Two Column Bill To & Invoice Info (Normal 1px border) */}
       <div className="grid grid-cols-2 gap-6 mb-6">
         {/* Bill To */}
-        <div className="bg-zinc-50 p-3.5 rounded border border-zinc-200">
-          <div className="text-[11px] font-bold tracking-wider text-amber-700 uppercase mb-1">
-            BILL TO
+        <div className="border border-black bg-white p-4 flex flex-col justify-between">
+          <div>
+            <div className="text-xs font-bold tracking-wider text-black uppercase mb-1.5">
+              BILL TO
+            </div>
+            <p className="font-bold text-black text-sm">{invoice.customerName}</p>
+            {invoice.companyName && invoice.companyName !== invoice.customerName && (
+              <p className="text-xs font-semibold text-black">{invoice.companyName}</p>
+            )}
+            <p className="text-xs text-black mt-1 whitespace-pre-line leading-relaxed">
+              {invoice.customerAddress || 'Address on file'}
+            </p>
           </div>
-          <p className="font-bold text-zinc-900 text-sm">{invoice.customerName}</p>
-          {invoice.companyName && invoice.companyName !== invoice.customerName && (
-            <p className="text-xs font-semibold text-zinc-700">{invoice.companyName}</p>
-          )}
-          <p className="text-xs text-zinc-600 mt-1 whitespace-pre-line leading-relaxed">
-            {invoice.customerAddress || 'Address on file'}
-          </p>
-          <div className="mt-2 pt-2 border-t border-zinc-200 text-xs space-y-0.5 text-zinc-600">
-            {invoice.customerPhone && <p><span className="text-zinc-500">Phone:</span> {invoice.customerPhone}</p>}
-            {invoice.customerEmail && <p><span className="text-zinc-500">Email:</span> {invoice.customerEmail}</p>}
+          <div className="mt-3 pt-2 border-t border-black text-xs space-y-0.5 text-black">
+            {invoice.customerPhone && <p><span className="font-medium">Phone:</span> {invoice.customerPhone}</p>}
+            {invoice.customerEmail && <p><span className="font-medium">Email:</span> {invoice.customerEmail}</p>}
           </div>
         </div>
 
         {/* Invoice Information */}
-        <div className="bg-zinc-50 p-3.5 rounded border border-zinc-200">
-          <div className="text-[11px] font-bold tracking-wider text-amber-700 uppercase mb-1">
-            INVOICE INFORMATION
-          </div>
-          <div className="grid grid-cols-2 gap-y-1.5 text-xs text-zinc-700">
-            <span className="text-zinc-500">Payment Terms:</span>
-            <span className="font-medium text-zinc-900">{invoice.paymentTerms || '15 Days Net'}</span>
+        <div className="border border-black bg-white p-4 flex flex-col justify-between">
+          <div>
+            <div className="text-xs font-bold tracking-wider text-black uppercase mb-1.5">
+              INVOICE INFORMATION
+            </div>
+            <div className="grid grid-cols-2 gap-y-1.5 text-xs text-black">
+              <span className="font-medium">Payment Terms:</span>
+              <span className="font-bold">{invoice.paymentTerms || '15 Days Net'}</span>
 
-            {invoice.salesPerson && (
-              <>
-                <span className="text-zinc-500">Sales Representative:</span>
-                <span className="font-medium text-zinc-900">{invoice.salesPerson}</span>
-              </>
-            )}
+              {invoice.salesPerson && (
+                <>
+                  <span className="font-medium">Sales Representative:</span>
+                  <span className="font-bold">{invoice.salesPerson}</span>
+                </>
+              )}
 
-            {invoice.referenceNumber && (
-              <>
-                <span className="text-zinc-500">Reference No:</span>
-                <span className="font-medium text-zinc-900">{invoice.referenceNumber}</span>
-              </>
-            )}
+              {invoice.referenceNumber && (
+                <>
+                  <span className="font-medium">Reference No:</span>
+                  <span className="font-bold">{invoice.referenceNumber}</span>
+                </>
+              )}
 
-            {shouldShowPayment && (
-              <>
-                <span className="text-zinc-500">Payment Status:</span>
-                <span>
-                  <span className={`inline-block px-2 py-0.5 rounded text-[11px] font-bold uppercase ${
-                    invoice.paymentStatus === 'Paid'
-                      ? 'bg-emerald-100 text-emerald-800'
-                      : invoice.paymentStatus === 'Partially Paid'
-                      ? 'bg-blue-100 text-blue-800'
-                      : invoice.paymentStatus === 'Overdue'
-                      ? 'bg-red-100 text-red-800'
-                      : 'bg-amber-100 text-amber-800'
-                  }`}>
-                    {invoice.paymentStatus}
-                  </span>
-                </span>
-              </>
-            )}
+              {shouldShowPayment && (
+                <>
+                  <span className="font-medium">Payment Status:</span>
+                  <span className="font-bold uppercase">{invoice.paymentStatus}</span>
+                </>
+              )}
 
-            <span className="text-zinc-500">Delivery Status:</span>
-            <span className="font-medium text-zinc-900">{invoice.deliveryStatus}</span>
+              <span className="font-medium">Delivery Status:</span>
+              <span className="font-bold uppercase">{invoice.deliveryStatus}</span>
+            </div>
           </div>
           {invoice.remarks && (
-            <div className="mt-2 pt-2 border-t border-zinc-200 text-xs text-zinc-600">
-              <span className="text-zinc-500 font-medium">Remarks: </span>
+            <div className="mt-2 pt-2 border-t border-black text-xs text-black">
+              <span className="font-medium">Remarks: </span>
               {invoice.remarks}
             </div>
           )}
         </div>
       </div>
 
-      {/* Invoice Items Table */}
+      {/* Invoice Items Table - Only Product Details, Qty, Unit, Unit Price, Amount (Normal 1px lines) */}
       <div className="mb-6">
-        <table className="w-full border-collapse text-left text-xs">
+        <table className="w-full border-collapse text-left text-xs border border-black">
           <thead>
-            <tr className="bg-zinc-900 text-white font-semibold border border-zinc-900">
-              <th className="p-2 w-10 text-center">SL</th>
-              <th className="p-2">Description / Product Details</th>
-              <th className="p-2 w-24">HS Code</th>
-              <th className="p-2 w-16 text-right">Qty</th>
-              <th className="p-2 w-14 text-center">Unit</th>
-              <th className="p-2 w-24 text-right">Unit Price</th>
-              <th className="p-2 w-20 text-right">Disc.</th>
-              <th className="p-2 w-16 text-right">VAT</th>
-              <th className="p-2 w-28 text-right">Amount</th>
+            <tr className="bg-white text-black font-bold border-b border-black">
+              <th className="p-2.5 w-12 text-center border-r border-black">SL</th>
+              <th className="p-2.5 border-r border-black">Product Details</th>
+              <th className="p-2.5 w-24 text-right border-r border-black">Qty</th>
+              <th className="p-2.5 w-20 text-center border-r border-black">Unit</th>
+              <th className="p-2.5 w-32 text-right border-r border-black">Unit Price</th>
+              <th className="p-2.5 w-36 text-right">Total Amount</th>
             </tr>
           </thead>
           <tbody>
-            {invoice.items.map((item, index) => {
-              const lineBase = item.quantity * item.unitPrice;
-              const discount = item.discountType === 'percentage'
-                ? (lineBase * item.discountValue) / 100
-                : item.discountValue;
-
-              return (
-                <tr
-                  key={item.id || index}
-                  className={`border border-zinc-200 ${index % 2 === 1 ? 'bg-zinc-50/60' : 'bg-white'}`}
-                >
-                  <td className="p-2 text-center text-zinc-500 font-medium">{index + 1}</td>
-                  <td className="p-2">
-                    <p className="font-bold text-zinc-900 text-xs">{item.productName}</p>
-                    {item.description && (
-                      <p className="text-[11px] text-zinc-500 leading-snug mt-0.5">{item.description}</p>
-                    )}
-                  </td>
-                  <td className="p-2 font-mono text-[11px] text-zinc-600">{item.hsCode || '-'}</td>
-                  <td className="p-2 text-right font-medium text-zinc-800">{item.quantity}</td>
-                  <td className="p-2 text-center text-zinc-600 text-[11px]">{item.unit}</td>
-                  <td className="p-2 text-right font-mono text-zinc-700">{formatCurrency(item.unitPrice, invoice.currency)}</td>
-                  <td className="p-2 text-right font-mono text-zinc-500">
-                    {discount > 0 ? `-${formatCurrency(discount, invoice.currency)}` : '-'}
-                  </td>
-                  <td className="p-2 text-right font-mono text-zinc-500">
-                    {item.vatRate > 0 ? `${item.vatRate}%` : '-'}
-                  </td>
-                  <td className="p-2 text-right font-mono font-bold text-zinc-900">
-                    {formatCurrency(item.amount, invoice.currency)}
-                  </td>
-                </tr>
-              );
-            })}
+            {invoice.items.map((item, index) => (
+              <tr
+                key={item.id || index}
+                className="border-b border-black bg-white"
+              >
+                <td className="p-2.5 text-center text-black font-medium border-r border-black">{index + 1}</td>
+                <td className="p-2.5 border-r border-black">
+                  <p className="font-bold text-black text-xs">{item.productName}</p>
+                  {item.description && (
+                    <p className="text-[11px] text-black leading-snug mt-0.5 font-normal">{item.description}</p>
+                  )}
+                </td>
+                <td className="p-2.5 text-right font-bold font-mono text-black border-r border-black">{item.quantity}</td>
+                <td className="p-2.5 text-center text-black font-medium text-xs border-r border-black">{item.unit}</td>
+                <td className="p-2.5 text-right font-mono text-black border-r border-black">{formatCurrency(item.unitPrice, invoice.currency)}</td>
+                <td className="p-2.5 text-right font-mono font-bold text-black">
+                  {formatCurrency(item.amount, invoice.currency)}
+                </td>
+              </tr>
+            ))}
           </tbody>
         </table>
       </div>
 
-      {/* Summary Area */}
+      {/* Summary Area (Normal 1px borders) */}
       <div className="grid grid-cols-12 gap-6 mb-6">
         {/* Left: Amount in words & Bank info */}
         <div className="col-span-7 space-y-4">
-          <div className="bg-amber-50/70 border border-amber-200 p-3 rounded">
-            <span className="text-[11px] font-bold text-amber-800 uppercase tracking-wider block mb-0.5">
+          <div className="border border-black bg-white p-4">
+            <span className="text-xs font-bold text-black uppercase tracking-wider block mb-1">
               Amount in Words
             </span>
-            <p className="text-xs font-semibold text-zinc-800 italic">
-              {invoice.amountInWords}
+            <p className="text-xs font-bold text-black italic">
+              {totalInWords}
             </p>
           </div>
 
-          {/* Payment Details - Only shown when Payment Option is ticked and bank info exists */}
+          {/* Payment Details (Only shown when requested) */}
           {shouldShowPayment && (settings.bankName || settings.accountNumber || settings.bkashNumber) && (
-            <div className="border border-zinc-200 rounded p-3 text-xs bg-zinc-50">
-              <span className="font-bold text-zinc-900 uppercase tracking-wider text-[11px] block mb-1.5 text-amber-800">
+            <div className="border border-black bg-white p-4 text-xs text-black">
+              <span className="font-bold text-black uppercase tracking-wider text-xs block mb-2">
                 Payment Information
               </span>
-              <div className="grid grid-cols-2 gap-x-2 gap-y-1 text-zinc-700">
-                {settings.bankName && <p><span className="text-zinc-500">Bank:</span> <strong>{settings.bankName}</strong></p>}
-                {settings.accountName && <p><span className="text-zinc-500">A/C Name:</span> {settings.accountName}</p>}
-                {settings.accountNumber && <p><span className="text-zinc-500">A/C No:</span> <strong className="font-mono text-zinc-900">{settings.accountNumber}</strong></p>}
-                {settings.branchName && <p><span className="text-zinc-500">Branch:</span> {settings.branchName}</p>}
-                {settings.routingNumber && <p><span className="text-zinc-500">Routing:</span> {settings.routingNumber}</p>}
-                {settings.swiftCode && <p><span className="text-zinc-500">SWIFT:</span> {settings.swiftCode}</p>}
-                {settings.bkashNumber && <p><span className="text-zinc-500">bKash:</span> {settings.bkashNumber}</p>}
-                {settings.nagadNumber && <p><span className="text-zinc-500">Nagad:</span> {settings.nagadNumber}</p>}
+              <div className="grid grid-cols-2 gap-x-3 gap-y-1.5 text-black">
+                {settings.bankName && <p><span className="font-medium">Bank:</span> <strong>{settings.bankName}</strong></p>}
+                {settings.accountName && <p><span className="font-medium">A/C Name:</span> {settings.accountName}</p>}
+                {settings.accountNumber && <p><span className="font-medium">A/C No:</span> <strong className="font-mono">{settings.accountNumber}</strong></p>}
+                {settings.branchName && <p><span className="font-medium">Branch:</span> {settings.branchName}</p>}
+                {settings.routingNumber && <p><span className="font-medium">Routing:</span> {settings.routingNumber}</p>}
+                {settings.swiftCode && <p><span className="font-medium">SWIFT:</span> {settings.swiftCode}</p>}
+                {settings.bkashNumber && <p><span className="font-medium">bKash:</span> {settings.bkashNumber}</p>}
+                {settings.nagadNumber && <p><span className="font-medium">Nagad:</span> {settings.nagadNumber}</p>}
               </div>
             </div>
           )}
@@ -237,92 +217,85 @@ export const PrintableInvoice: React.FC<Props> = ({ invoice, settings, showPayme
 
         {/* Right: Calculations */}
         <div className="col-span-5">
-          <div className="border border-zinc-300 rounded overflow-hidden text-xs">
-            <div className="flex justify-between p-1.5 px-3 border-b border-zinc-200">
-              <span className="text-zinc-600">Subtotal:</span>
-              <span className="font-mono font-medium">{formatCurrency(invoice.subtotal, invoice.currency)}</span>
+          <div className="border border-black bg-white text-xs text-black">
+            <div className="flex justify-between p-2 px-3 border-b border-black">
+              <span className="font-medium">Subtotal:</span>
+              <span className="font-mono font-bold">{formatCurrency(invoice.subtotal, invoice.currency)}</span>
             </div>
 
-            {invoice.itemDiscount > 0 && (
-              <div className="flex justify-between p-1.5 px-3 border-b border-zinc-200 text-zinc-600">
-                <span>Item Discount:</span>
-                <span className="font-mono text-red-600">-{formatCurrency(invoice.itemDiscount, invoice.currency)}</span>
-              </div>
-            )}
-
-            {invoice.overallDiscount > 0 && (
-              <div className="flex justify-between p-1.5 px-3 border-b border-zinc-200 text-zinc-600">
-                <span>Overall Discount:</span>
-                <span className="font-mono text-red-600">-{formatCurrency(invoice.overallDiscount, invoice.currency)}</span>
+            {(invoice.itemDiscount > 0 || invoice.overallDiscount > 0) && (
+              <div className="flex justify-between p-2 px-3 border-b border-black">
+                <span className="font-medium">Discount:</span>
+                <span className="font-mono font-bold">-{formatCurrency(invoice.itemDiscount + invoice.overallDiscount, invoice.currency)}</span>
               </div>
             )}
 
             {invoice.vatAmount > 0 && (
-              <div className="flex justify-between p-1.5 px-3 border-b border-zinc-200 text-zinc-600">
-                <span>VAT:</span>
-                <span className="font-mono">{formatCurrency(invoice.vatAmount, invoice.currency)}</span>
+              <div className="flex justify-between p-2 px-3 border-b border-black">
+                <span className="font-medium">VAT:</span>
+                <span className="font-mono font-bold">{formatCurrency(invoice.vatAmount, invoice.currency)}</span>
               </div>
             )}
 
             {invoice.taxAmount > 0 && (
-              <div className="flex justify-between p-1.5 px-3 border-b border-zinc-200 text-zinc-600">
-                <span>Tax:</span>
-                <span className="font-mono">{formatCurrency(invoice.taxAmount, invoice.currency)}</span>
+              <div className="flex justify-between p-2 px-3 border-b border-black">
+                <span className="font-medium">Tax:</span>
+                <span className="font-mono font-bold">{formatCurrency(invoice.taxAmount, invoice.currency)}</span>
               </div>
             )}
 
             {invoice.transportCharge > 0 && (
-              <div className="flex justify-between p-1.5 px-3 border-b border-zinc-200 text-zinc-600">
-                <span>Transport Charge:</span>
-                <span className="font-mono">{formatCurrency(invoice.transportCharge, invoice.currency)}</span>
+              <div className="flex justify-between p-2 px-3 border-b border-black">
+                <span className="font-medium">Transport Charge:</span>
+                <span className="font-mono font-bold">{formatCurrency(invoice.transportCharge, invoice.currency)}</span>
               </div>
             )}
 
             {invoice.shippingCharge > 0 && (
-              <div className="flex justify-between p-1.5 px-3 border-b border-zinc-200 text-zinc-600">
-                <span>Shipping Charge:</span>
-                <span className="font-mono">{formatCurrency(invoice.shippingCharge, invoice.currency)}</span>
+              <div className="flex justify-between p-2 px-3 border-b border-black">
+                <span className="font-medium">Shipping Charge:</span>
+                <span className="font-mono font-bold">{formatCurrency(invoice.shippingCharge, invoice.currency)}</span>
               </div>
             )}
 
             {invoice.loadingCharge > 0 && (
-              <div className="flex justify-between p-1.5 px-3 border-b border-zinc-200 text-zinc-600">
-                <span>Loading Charge:</span>
-                <span className="font-mono">{formatCurrency(invoice.loadingCharge, invoice.currency)}</span>
+              <div className="flex justify-between p-2 px-3 border-b border-black">
+                <span className="font-medium">Loading Charge:</span>
+                <span className="font-mono font-bold">{formatCurrency(invoice.loadingCharge, invoice.currency)}</span>
               </div>
             )}
 
             {invoice.previousDue > 0 && (
-              <div className="flex justify-between p-1.5 px-3 border-b border-zinc-200 text-zinc-600 bg-amber-50/50">
-                <span className="font-medium text-amber-900">Previous Due:</span>
-                <span className="font-mono font-medium">{formatCurrency(invoice.previousDue, invoice.currency)}</span>
+              <div className="flex justify-between p-2 px-3 border-b border-black">
+                <span className="font-bold">Previous Due:</span>
+                <span className="font-mono font-bold">{formatCurrency(invoice.previousDue, invoice.currency)}</span>
               </div>
             )}
 
             {invoice.roundAdjustment !== 0 && (
-              <div className="flex justify-between p-1.5 px-3 border-b border-zinc-200 text-zinc-500 text-[11px]">
+              <div className="flex justify-between p-2 px-3 border-b border-black text-xs">
                 <span>Round Adjustment:</span>
-                <span className="font-mono">{formatCurrency(invoice.roundAdjustment, invoice.currency)}</span>
+                <span className="font-mono font-bold">{formatCurrency(invoice.roundAdjustment, invoice.currency)}</span>
               </div>
             )}
 
-            {/* Highlight Grand Total in golden/yellow color as specified */}
-            <div className="flex justify-between p-2.5 px-3 bg-amber-400 text-zinc-950 font-black text-sm border-y-2 border-amber-600">
+            {/* GRAND TOTAL: Normal 1px lines */}
+            <div className="flex justify-between p-2.5 px-3 bg-white text-black font-black text-sm border-t border-b border-black">
               <span>GRAND TOTAL:</span>
               <span className="font-mono text-base tracking-tight">{formatCurrency(invoice.grandTotal, invoice.currency)}</span>
             </div>
 
-            {/* Paid Amount and Balance Due - Only shown when Payment Option is ticked */}
+            {/* Paid Amount and Balance Due */}
             {shouldShowPayment && (
               <>
-                <div className="flex justify-between p-1.5 px-3 border-b border-zinc-200 text-emerald-800 bg-emerald-50/40">
+                <div className="flex justify-between p-2 px-3 border-b border-black">
                   <span className="font-medium">Paid Amount:</span>
                   <span className="font-mono font-bold">{formatCurrency(invoice.paidAmount, invoice.currency)}</span>
                 </div>
 
-                <div className="flex justify-between p-2 px-3 bg-zinc-100 font-bold text-zinc-900">
+                <div className="flex justify-between p-2 px-3 bg-white font-bold text-black">
                   <span>Balance Due:</span>
-                  <span className={`font-mono text-sm ${invoice.balanceDue > 0 ? 'text-red-600 font-black' : 'text-emerald-700'}`}>
+                  <span className="font-mono text-sm">
                     {formatCurrency(invoice.balanceDue, invoice.currency)}
                   </span>
                 </div>
@@ -332,28 +305,28 @@ export const PrintableInvoice: React.FC<Props> = ({ invoice, settings, showPayme
         </div>
       </div>
 
-      {/* Terms and Signatures Footer - Strictly at the bottom */}
-      <div className="border-t border-zinc-300 pt-4 mt-auto">
+      {/* Terms and Signatures Footer - Signature on Top, Name Below */}
+      <div className="border-t border-black pt-4 mt-auto">
         {settings.termsAndConditions && (
-          <div className="mb-6 text-[11px] text-zinc-500 whitespace-pre-line leading-relaxed">
-            <span className="font-bold text-zinc-700 uppercase tracking-wider block mb-1">Terms &amp; Conditions:</span>
+          <div className="mb-6 text-xs text-black whitespace-pre-line leading-relaxed">
+            <span className="font-bold uppercase tracking-wider block mb-1">Terms &amp; Conditions:</span>
             {settings.termsAndConditions}
           </div>
         )}
 
-        <div className="flex justify-between items-end pt-8 px-4 text-center text-xs text-zinc-700">
+        <div className="flex justify-between items-end pt-8 mt-[1in] px-4 text-center text-xs text-black">
           <div>
             <div className="h-16 flex items-end justify-center pb-1">
-              <div className="w-48 border-b border-zinc-500"></div>
+              <div className="w-52 border-b border-black"></div>
             </div>
-            <div className="pt-2 font-bold text-zinc-900 uppercase tracking-wide">CUSTOMER SIGNATURE</div>
+            <div className="pt-1.5 font-bold text-black uppercase tracking-wide">CUSTOMER SIGNATURE</div>
           </div>
 
           <div>
             <div className="h-16 flex flex-col items-center justify-end pb-1">
-              <div className="w-56 border-b border-zinc-600 mt-1"></div>
+              <div className="w-64 border-b border-black mt-1"></div>
             </div>
-            <div className="pt-2 font-bold text-zinc-900 uppercase tracking-wide">
+            <div className="pt-1.5 font-bold text-black uppercase tracking-wide">
               BISMILLAH MULTITRADE CORPORATION
             </div>
           </div>

@@ -1,6 +1,6 @@
 import React from 'react';
 import { DeliverySlip, CompanySettings } from '../../types';
-import { formatDate, formatCurrency } from '../../utils/formatters';
+import { formatDate } from '../../utils/formatters';
 
 interface Props {
   deliverySlip: DeliverySlip;
@@ -8,28 +8,36 @@ interface Props {
 }
 
 export const PrintableDeliverySlip: React.FC<Props> = ({ deliverySlip, settings }) => {
+  const totalDeliveredQty = deliverySlip.items.reduce(
+    (sum, item) => sum + (Number(item.deliveredQuantity) || 0),
+    0
+  );
+
   return (
-    <div className="bg-white text-zinc-900 w-full max-w-4xl mx-auto p-8 font-sans print:p-0 print:max-w-none text-sm leading-normal">
+    <div
+      id={`printable-delivery-slip-${deliverySlip.id}`}
+      className="printable-sheet bg-white text-black w-full max-w-4xl mx-auto p-6 font-sans print:p-0 print:max-w-[185mm] print:mx-auto text-xs leading-normal select-none"
+    >
       {/* Header */}
-      <div className="border-b-2 border-amber-500 pb-4 mb-6">
+      <div className="border-b border-black pb-3 mb-4">
         <div className="flex justify-between items-start gap-4">
           {/* Company Details */}
           <div className="flex-1">
-            <h1 className="text-2xl font-black tracking-tight text-zinc-950 uppercase mb-0.5">
+            <h1 className="text-xl font-black tracking-tight text-black uppercase mb-0.5">
               {settings.companyName}
             </h1>
-            <p className="text-amber-700 font-semibold text-xs tracking-wider uppercase mb-2">
+            <p className="text-black font-bold text-[11px] tracking-wider uppercase mb-1.5">
               {settings.businessType}
             </p>
-            <div className="text-zinc-600 text-xs space-y-0.5 leading-relaxed">
+            <div className="text-black text-[11px] space-y-0.5 leading-tight">
               <p>{settings.address}</p>
               <p>
-                <span className="font-medium text-zinc-800">Phone:</span> {settings.phonePrimary}
+                <span className="font-semibold">Phone:</span> {settings.phonePrimary}
                 {settings.phoneSecondary && ` | ${settings.phoneSecondary}`}
               </p>
               {settings.email && (
                 <p>
-                  <span className="font-medium text-zinc-800">Email:</span> {settings.email}
+                  <span className="font-semibold">Email:</span> {settings.email}
                   {settings.website && ` | ${settings.website}`}
                 </p>
               )}
@@ -38,26 +46,26 @@ export const PrintableDeliverySlip: React.FC<Props> = ({ deliverySlip, settings 
 
           {/* Delivery Slip Label & Core Reference */}
           <div className="text-right">
-            <div className="inline-block bg-amber-500 text-zinc-950 px-4 py-1.5 font-extrabold text-xl tracking-widest uppercase mb-3">
+            <div className="inline-block border border-black bg-white text-black px-4 py-1.5 font-bold text-lg tracking-widest uppercase mb-3">
               DELIVERY SLIP
             </div>
-            <div className="space-y-1 text-xs">
+            <div className="space-y-1 text-xs text-black">
               <p>
-                <span className="text-zinc-500">Delivery Slip No:</span>{' '}
-                <strong className="font-mono text-sm text-zinc-900">{deliverySlip.deliverySlipNumber}</strong>
+                <span className="font-medium">Delivery Slip No:</span>{' '}
+                <strong className="font-mono text-sm">{deliverySlip.deliverySlipNumber}</strong>
               </p>
               <p>
-                <span className="text-zinc-500">Invoice No:</span>{' '}
-                <strong className="font-mono text-zinc-900">{deliverySlip.invoiceNumber}</strong>
+                <span className="font-medium">Invoice No:</span>{' '}
+                <strong className="font-mono">{deliverySlip.invoiceNumber}</strong>
               </p>
               <p>
-                <span className="text-zinc-500">Delivery Date:</span>{' '}
-                <strong className="text-zinc-900">{formatDate(deliverySlip.deliveryDate)}</strong>
+                <span className="font-medium">Delivery Date:</span>{' '}
+                <strong>{formatDate(deliverySlip.deliveryDate)}</strong>
               </p>
               {deliverySlip.poNumber && (
                 <p>
-                  <span className="text-zinc-500">PO No:</span>{' '}
-                  <strong className="text-zinc-900">{deliverySlip.poNumber}</strong>
+                  <span className="font-medium">PO No:</span>{' '}
+                  <strong>{deliverySlip.poNumber}</strong>
                 </p>
               )}
             </div>
@@ -65,212 +73,148 @@ export const PrintableDeliverySlip: React.FC<Props> = ({ deliverySlip, settings 
         </div>
       </div>
 
-      {/* Two-Column Deliver To & Delivery Information */}
-      <div className="grid grid-cols-2 gap-6 mb-6">
+      {/* Two-Column Deliver To & Delivery Information (Normal 1px border) */}
+      <div className="grid grid-cols-2 gap-4 mb-4">
         {/* Deliver To */}
-        <div className="bg-zinc-50 p-3.5 rounded border border-zinc-200">
-          <div className="text-[11px] font-bold tracking-wider text-amber-700 uppercase mb-1">
-            DELIVER TO
+        <div className="border border-black bg-white p-3 flex flex-col justify-between">
+          <div>
+            <div className="text-[11px] font-bold tracking-wider text-black uppercase mb-1">
+              DELIVER TO
+            </div>
+            <p className="font-bold text-black text-sm">{deliverySlip.customerName}</p>
+            {deliverySlip.companyName && deliverySlip.companyName !== deliverySlip.customerName && (
+              <p className="text-xs font-semibold text-black">{deliverySlip.companyName}</p>
+            )}
+            <p className="text-xs text-black mt-1 whitespace-pre-line leading-relaxed">
+              {deliverySlip.deliveryAddress || 'Address on file'}
+            </p>
           </div>
-          <p className="font-bold text-zinc-900 text-sm">{deliverySlip.customerName}</p>
-          {deliverySlip.companyName && deliverySlip.companyName !== deliverySlip.customerName && (
-            <p className="text-xs font-semibold text-zinc-700">{deliverySlip.companyName}</p>
-          )}
-          <p className="text-xs text-zinc-600 mt-1 whitespace-pre-line leading-relaxed">
-            {deliverySlip.deliveryAddress || 'Address on file'}
-          </p>
-          <div className="mt-2 pt-2 border-t border-zinc-200 text-xs space-y-0.5 text-zinc-600">
+          <div className="mt-2.5 pt-2 border-t border-black text-xs space-y-0.5 text-black">
             {deliverySlip.contactPerson && (
-              <p><span className="text-zinc-500">Contact Person:</span> {deliverySlip.contactPerson}</p>
+              <p><span className="font-medium">Contact Person:</span> {deliverySlip.contactPerson}</p>
             )}
             {deliverySlip.phone && (
-              <p><span className="text-zinc-500">Phone:</span> {deliverySlip.phone}</p>
+              <p><span className="font-medium">Phone:</span> {deliverySlip.phone}</p>
             )}
           </div>
         </div>
 
         {/* Delivery Information */}
-        <div className="bg-zinc-50 p-3.5 rounded border border-zinc-200">
-          <div className="text-[11px] font-bold tracking-wider text-amber-700 uppercase mb-1">
-            DELIVERY INFORMATION
-          </div>
-          <div className="grid grid-cols-2 gap-y-1.5 text-xs text-zinc-700">
-            <span className="text-zinc-500">Delivery Method:</span>
-            <span className="font-medium text-zinc-900">{deliverySlip.deliveryMethod || 'Company Transport'}</span>
+        <div className="border border-black bg-white p-3 flex flex-col justify-between">
+          <div>
+            <div className="text-[11px] font-bold tracking-wider text-black uppercase mb-2">
+              DELIVERY INFORMATION
+            </div>
+            <div className="space-y-2.5 text-xs text-black">
+              <div>
+                <span className="font-medium block text-[11px] uppercase mb-0.5">Delivery Method:</span>
+                <span className="text-sm font-bold">{deliverySlip.deliveryMethod || 'Courier'}</span>
+              </div>
 
-            {deliverySlip.vehicleNumber && (
-              <>
-                <span className="text-zinc-500">Vehicle No:</span>
-                <span className="font-mono font-medium text-zinc-900">{deliverySlip.vehicleNumber}</span>
-              </>
-            )}
-
-            {deliverySlip.driverName && (
-              <>
-                <span className="text-zinc-500">Driver Name:</span>
-                <span className="font-medium text-zinc-900">
-                  {deliverySlip.driverName}
-                  {deliverySlip.driverPhone && ` (${deliverySlip.driverPhone})`}
+              <div>
+                <span className="font-medium block text-[11px] uppercase mb-0.5">Delivery Status:</span>
+                <span className="text-sm font-bold uppercase tracking-wide">
+                  {deliverySlip.deliveryStatus === 'Delivered'
+                    ? 'Delivered'
+                    : deliverySlip.deliveryStatus === 'Scheduled'
+                    ? 'Scheduled'
+                    : 'Dispatched'}
                 </span>
-              </>
-            )}
-
-            {deliverySlip.deliveryPerson && (
-              <>
-                <span className="text-zinc-500">Dispatched By:</span>
-                <span className="font-medium text-zinc-900">{deliverySlip.deliveryPerson}</span>
-              </>
-            )}
-
-            {deliverySlip.warehouse && (
-              <>
-                <span className="text-zinc-500">Dispatch Depot:</span>
-                <span className="text-zinc-800">{deliverySlip.warehouse}</span>
-              </>
-            )}
-
-            <span className="text-zinc-500">Status:</span>
-            <span>
-              <span className="inline-block px-2 py-0.5 rounded text-[11px] font-bold uppercase bg-amber-100 text-amber-900">
-                {deliverySlip.deliveryStatus}
-              </span>
-            </span>
+              </div>
+            </div>
           </div>
         </div>
       </div>
 
-      {/* Delivery Items Table */}
-      <div className="mb-6">
-        <table className="w-full border-collapse text-left text-xs">
+      {/* Delivery Items Table - Description, Box, Weight, Delivered Qty, Unit in separate columns/boxes */}
+      <div className="mb-4">
+        <table className="w-full border-collapse text-left text-xs border border-black">
           <thead>
-            <tr className="bg-zinc-900 text-white font-semibold border border-zinc-900">
-              <th className="p-2 w-10 text-center">SL</th>
-              <th className="p-2">Product / Description</th>
-              <th className="p-2 w-20 text-right">Invoice Qty</th>
-              <th className="p-2 w-20 text-right">Prev. Del.</th>
-              <th className="p-2 w-24 text-right bg-amber-500 text-zinc-950 font-bold">Delivered Qty</th>
-              <th className="p-2 w-20 text-right">Pending</th>
-              <th className="p-2 w-14 text-center">Unit</th>
-              {settings.showPriceOnDeliverySlip && (
-                <>
-                  <th className="p-2 w-24 text-right">Unit Price</th>
-                  <th className="p-2 w-28 text-right">Amount</th>
-                </>
-              )}
-              <th className="p-2">Remarks / Batch / Serial</th>
+            <tr className="bg-white text-black font-bold border-b border-black">
+              <th className="p-2 w-10 text-center border-r border-black">SL</th>
+              <th className="p-2 border-r border-black">Description</th>
+              <th className="p-2 w-20 text-center border-r border-black">Box</th>
+              <th className="p-2 w-20 text-center border-r border-black">Weight</th>
+              <th className="p-2 w-28 text-right border-r border-black">Delivered Qty</th>
+              <th className="p-2 w-16 text-center">Unit</th>
             </tr>
           </thead>
           <tbody>
             {deliverySlip.items.map((item, index) => (
               <tr
                 key={item.id || index}
-                className={`border border-zinc-200 ${index % 2 === 1 ? 'bg-zinc-50/60' : 'bg-white'}`}
+                className="border-b border-black bg-white"
               >
-                <td className="p-2 text-center text-zinc-500 font-medium">{index + 1}</td>
-                <td className="p-2">
-                  <p className="font-bold text-zinc-900 text-xs">{item.productName}</p>
+                <td className="p-2 text-center text-black font-medium border-r border-black">{index + 1}</td>
+                <td className="p-2 border-r border-black">
+                  <p className="font-bold text-black text-xs">{item.productName}</p>
                   {item.description && (
-                    <p className="text-[11px] text-zinc-500 leading-snug mt-0.5">{item.description}</p>
+                    <p className="text-[11px] text-black leading-snug mt-0.5 font-normal">{item.description}</p>
                   )}
                 </td>
-                <td className="p-2 text-right font-medium text-zinc-600">{item.orderedQuantity}</td>
-                <td className="p-2 text-right font-medium text-zinc-500">{item.previouslyDelivered}</td>
-                <td className="p-2 text-right font-bold text-sm bg-amber-50 text-amber-900">
+                <td className="p-2 text-center text-black font-semibold text-xs border-r border-black">
+                  {item.boxCount || item.boxes || '-'}
+                </td>
+                <td className="p-2 text-center text-black font-semibold text-xs border-r border-black">
+                  {item.weight ? (typeof item.weight === 'number' ? `${item.weight} kg` : item.weight) : '-'}
+                </td>
+                <td className="p-2 text-right font-mono font-bold text-black text-sm border-r border-black">
                   {item.deliveredQuantity}
                 </td>
-                <td className="p-2 text-right font-medium text-zinc-500">
-                  {item.remainingQuantity > 0 ? (
-                    <span className="text-amber-700 font-semibold">{item.remainingQuantity}</span>
-                  ) : (
-                    <span className="text-emerald-600">0</span>
-                  )}
-                </td>
-                <td className="p-2 text-center text-zinc-600 text-[11px]">{item.unit}</td>
-                {settings.showPriceOnDeliverySlip && (
-                  <>
-                    <td className="p-2 text-right font-mono text-zinc-700">
-                      {formatCurrency(item.unitPrice || 0)}
-                    </td>
-                    <td className="p-2 text-right font-mono font-bold text-zinc-900">
-                      {formatCurrency(item.amount || 0)}
-                    </td>
-                  </>
-                )}
-                <td className="p-2 text-[11px] text-zinc-600 italic">
-                  {item.remarks || '-'}
-                </td>
+                <td className="p-2 text-center text-black font-medium text-xs">{item.unit}</td>
               </tr>
             ))}
           </tbody>
+          <tfoot>
+            <tr className="bg-white font-bold border-t border-black">
+              <td colSpan={2} className="p-2 text-right text-xs uppercase tracking-wider text-black border-r border-black">
+                Total Delivered:
+              </td>
+              <td className="p-2 text-center text-xs font-bold text-black border-r border-black">
+                {deliverySlip.totalBoxes || '-'}
+              </td>
+              <td className="p-2 text-center text-xs font-bold text-black border-r border-black">
+                {deliverySlip.totalWeight || '-'}
+              </td>
+              <td className="p-2 text-right font-mono text-sm font-bold text-black border-r border-black">
+                {totalDeliveredQty}
+              </td>
+              <td className="p-2 text-center text-xs text-black font-medium">Units</td>
+            </tr>
+          </tfoot>
         </table>
       </div>
 
-      {/* Instructions & Declarations */}
-      <div className="bg-amber-50/60 border border-amber-200 p-3 rounded mb-6 text-xs text-zinc-700 space-y-1">
-        <p className="font-semibold text-amber-900">
-          Declaration: {settings.deliverySlipNote || 'Goods received in good condition unless otherwise stated.'}
-        </p>
-        {deliverySlip.deliveryInstructions && (
-          <p className="text-zinc-600">
-            <strong className="text-zinc-800">Special Instructions:</strong> {deliverySlip.deliveryInstructions}
-          </p>
-        )}
-        {deliverySlip.remarks && (
-          <p className="text-zinc-600">
-            <strong className="text-zinc-800">Delivery Remarks:</strong> {deliverySlip.remarks}
-          </p>
-        )}
-      </div>
-
-      {/* Receiver Information & Signatures */}
-      <div className="border border-zinc-200 rounded p-4 bg-zinc-50 mb-6 text-xs">
-        <span className="text-[11px] font-bold text-amber-800 uppercase tracking-wider block mb-2">
+      {/* Receiver Information (Only Name, Phone, Designation - No line underneath) */}
+      <div className="border border-black bg-white p-3 mb-4 text-xs">
+        <span className="text-[11px] font-bold text-black uppercase tracking-wider block mb-2">
           DELIVERY RECEIVER ACKNOWLEDGEMENT
         </span>
-        <div className="grid grid-cols-2 sm:grid-cols-4 gap-4 text-zinc-700">
+        <div className="grid grid-cols-3 gap-4 text-black">
           <div>
-            <span className="text-zinc-500 block text-[11px]">Receiver Name:</span>
-            <span className="font-bold text-zinc-900">{deliverySlip.receiverName || '____________________'}</span>
+            <span className="font-medium block text-[11px] uppercase mb-0.5">Name:</span>
+            <span className="font-bold text-black text-xs">{deliverySlip.receiverName || '-'}</span>
           </div>
           <div>
-            <span className="text-zinc-500 block text-[11px]">Receiver Phone:</span>
-            <span className="font-medium text-zinc-900">{deliverySlip.receiverPhone || '____________________'}</span>
+            <span className="font-medium block text-[11px] uppercase mb-0.5">Phone:</span>
+            <span className="font-bold text-black text-xs">{deliverySlip.receiverPhone || '-'}</span>
           </div>
           <div>
-            <span className="text-zinc-500 block text-[11px]">Designation:</span>
-            <span className="font-medium text-zinc-900">{deliverySlip.receiverDesignation || '____________________'}</span>
-          </div>
-          <div>
-            <span className="text-zinc-500 block text-[11px]">Received Date &amp; Time:</span>
-            <span className="font-medium text-zinc-900">
-              {deliverySlip.receivedDate ? `${formatDate(deliverySlip.receivedDate)} ${deliverySlip.receivedTime || ''}` : '____ / ____ / 2026'}
-            </span>
+            <span className="font-medium block text-[11px] uppercase mb-0.5">Designation:</span>
+            <span className="font-bold text-black text-xs">{deliverySlip.receiverDesignation || '-'}</span>
           </div>
         </div>
       </div>
 
-      {/* Signature Block - Positioned at bottom */}
-      <div className="grid grid-cols-3 gap-6 pt-8 items-end text-center text-xs text-zinc-700 border-t border-zinc-200 mt-6">
-        <div>
-          <div className="h-16 flex items-end justify-center pb-1">
-            <div className="w-40 border-b border-zinc-400"></div>
+      {/* Signature Block - Signature on Top, Name Below (Moved 1 inch lower) */}
+      <div className="pt-3 mt-[1in] flex justify-end">
+        <div className="text-center w-64">
+          {/* Signature Space on Top */}
+          <div className="h-12 flex items-end justify-center pb-1">
+            <div className="w-56 border-b border-black"></div>
           </div>
-          <div className="pt-2 font-bold text-zinc-900 uppercase tracking-wide">CUSTOMER SIGNATURE</div>
-        </div>
-
-        <div>
-          <div className="h-16 flex items-end justify-center pb-1">
-            <div className="w-40 border-b border-zinc-400"></div>
-          </div>
-          <div className="pt-2 font-bold text-zinc-800">Delivery Person</div>
-          <p className="text-[10px] text-zinc-400">{deliverySlip.driverName || 'Driver / Dispatcher'}</p>
-        </div>
-
-        <div>
-          <div className="h-16 flex flex-col items-center justify-end pb-1">
-            <div className="w-48 border-b border-zinc-500 mt-1"></div>
-          </div>
-          <div className="pt-2 font-bold text-zinc-900 uppercase tracking-wide">
+          {/* Name Underneath */}
+          <div className="pt-1.5 font-bold text-black uppercase text-[11px] tracking-wider">
             BISMILLAH MULTITRADE CORPORATION
           </div>
         </div>
