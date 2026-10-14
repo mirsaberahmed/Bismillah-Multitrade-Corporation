@@ -62,9 +62,11 @@ interface SidebarProps {
   activeTab: ActiveTab;
   setActiveTab?: (tab: ActiveTab) => void;
   onSelectTab?: (tab: ActiveTab) => void;
+  isOpen?: boolean;
   mobileOpen?: boolean;
   mobileMenuOpen?: boolean;
   setMobileOpen?: (open: boolean) => void;
+  onClose?: () => void;
   onCloseMobile?: () => void;
   onNewInvoice?: () => void;
   onLogout?: () => void;
@@ -74,16 +76,19 @@ export const Sidebar: React.FC<SidebarProps> = ({
   activeTab,
   setActiveTab,
   onSelectTab,
+  isOpen,
   mobileOpen,
   mobileMenuOpen,
   setMobileOpen,
+  onClose,
   onCloseMobile,
   onLogout
 }) => {
-  const isMobileOpen = mobileOpen || mobileMenuOpen || false;
-  const [collapsed, setCollapsed] = useState(false);
+  const isMenuOpen = isOpen ?? (mobileOpen || mobileMenuOpen || false);
+  const [collapsed] = useState(false);
 
-  const closeMobile = () => {
+  const closeMenu = () => {
+    if (onClose) onClose();
     if (setMobileOpen) setMobileOpen(false);
     if (onCloseMobile) onCloseMobile();
   };
@@ -91,7 +96,7 @@ export const Sidebar: React.FC<SidebarProps> = ({
   const selectTab = (tab: ActiveTab) => {
     if (setActiveTab) setActiveTab(tab);
     if (onSelectTab) onSelectTab(tab);
-    closeMobile();
+    closeMenu();
   };
 
   const { invoices, deliverySlips, currentUser } = useData();
@@ -107,20 +112,18 @@ export const Sidebar: React.FC<SidebarProps> = ({
 
   return (
     <>
-      {/* Mobile Backdrop */}
-      {isMobileOpen && (
+      {/* Universal Backdrop (Closes sidebar on click outside) */}
+      {isMenuOpen && (
         <div
-          onClick={closeMobile}
-          className="fixed inset-0 bg-black/60 backdrop-blur-xs z-40 lg:hidden transition-opacity print:hidden"
+          onClick={closeMenu}
+          className="fixed inset-0 bg-black/50 backdrop-blur-xs z-40 transition-opacity duration-300 print:hidden"
         />
       )}
 
-      {/* Main Sidebar (Desktop fixed left, Mobile drawer) - Off-White with shadow */}
+      {/* Main Sidebar Drawer - Starts CLOSED by default on initial app open, opens when Menu is clicked */}
       <aside
-        className={`fixed top-0 bottom-0 left-0 z-50 lg:static flex flex-col bg-[#F8F9FA] border-r border-slate-200/90 text-slate-800 shadow-2xl lg:shadow-xl lg:shadow-slate-300/40 transition-all duration-300 ease-in-out print:hidden ${
-          collapsed ? 'lg:w-[72px]' : 'lg:w-[246px]'
-        } w-[246px] ${
-          isMobileOpen ? 'translate-x-0' : '-translate-x-full lg:translate-x-0'
+        className={`fixed top-0 bottom-0 left-0 z-50 flex flex-col bg-[#F8F9FA] border-r border-slate-200/90 text-slate-800 shadow-2xl transition-transform duration-300 ease-in-out print:hidden w-[260px] ${
+          isMenuOpen ? 'translate-x-0' : '-translate-x-full'
         }`}
       >
         {/* Top Logo Section */}
@@ -142,21 +145,13 @@ export const Sidebar: React.FC<SidebarProps> = ({
             )}
           </div>
 
-          {/* Mobile close button */}
+          {/* Close button (Active on all screen sizes) */}
           <button
-            onClick={closeMobile}
-            className="lg:hidden p-1.5 text-slate-500 hover:text-slate-900 rounded-lg hover:bg-slate-200 transition-colors cursor-pointer"
+            onClick={closeMenu}
+            className="p-1.5 text-slate-500 hover:text-slate-900 rounded-lg hover:bg-slate-200 transition-colors cursor-pointer"
+            title="Close Menu"
           >
             <X size={18} />
-          </button>
-
-          {/* Desktop collapse toggle */}
-          <button
-            onClick={() => setCollapsed(!collapsed)}
-            className="hidden lg:flex p-1.5 text-slate-500 hover:text-slate-900 rounded-md hover:bg-slate-200/80 transition-colors cursor-pointer"
-            title={collapsed ? 'Expand Sidebar' : 'Collapse Sidebar'}
-          >
-            {collapsed ? <ChevronRight size={16} /> : <ChevronLeft size={16} />}
           </button>
         </div>
 

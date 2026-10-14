@@ -29,7 +29,7 @@ import {
   X
 } from 'lucide-react';
 import { useData } from '../../context/DataContext';
-import { formatCurrency, formatDate, getTodayDateString } from '../../utils/formatters';
+import { formatCurrency, formatDate, getTodayDateString, isDateInPeriod } from '../../utils/formatters';
 import { ActiveTab } from '../layout/Sidebar';
 import { WhatsAppSendModal } from '../common/WhatsAppSendModal';
 import { generateInvoiceWhatsAppText, generateDeliverySlipWhatsAppText } from '../../utils/whatsapp';
@@ -61,17 +61,27 @@ export const Dashboard: React.FC<DashboardProps> = ({
     products,
     deliverySlips,
     deliveryReturns,
-    settings
+    settings,
+    dateFilterPeriod
   } = useData();
 
   // Active Dropdowns / Menus
   const [activeInvoiceMenu, setActiveInvoiceMenu] = useState<string | null>(null);
   const [activeSlipMenu, setActiveSlipMenu] = useState<string | null>(null);
 
-  // Interactive Chart Period Filters
+  // Interactive Chart Period Filters (Synchronized with global header filter)
   const [salesPeriod, setSalesPeriod] = useState<'Today' | 'This Week' | 'This Month' | 'This Year'>('This Month');
   const [revenuePeriod, setRevenuePeriod] = useState<'Today' | 'This Week' | 'This Month' | 'This Year'>('This Month');
   const [profitPeriod, setProfitPeriod] = useState<'Today' | 'This Week' | 'This Month' | 'This Year'>('This Month');
+
+  // Synchronize chart periods whenever header calendar filter changes
+  useEffect(() => {
+    if (dateFilterPeriod === 'Today' || dateFilterPeriod === 'This Week' || dateFilterPeriod === 'This Month' || dateFilterPeriod === 'This Year') {
+      setSalesPeriod(dateFilterPeriod);
+      setRevenuePeriod(dateFilterPeriod);
+      setProfitPeriod(dateFilterPeriod);
+    }
+  }, [dateFilterPeriod]);
 
   const [showSalesMenu, setShowSalesMenu] = useState(false);
   const [showRevenueMenu, setShowRevenueMenu] = useState(false);
@@ -133,15 +143,46 @@ export const Dashboard: React.FC<DashboardProps> = ({
     setActiveSlipMenu(null);
   };
 
-  // Real Database Financial Metric Calculations
-  const totalSales = invoices.reduce((sum, inv) => sum + inv.grandTotal, 0);
-  const totalPurchases = purchaseInvoices.reduce((sum, pinv) => sum + pinv.grandTotal, 0);
-  const totalExpenses = expenses.reduce((sum, exp) => sum + exp.amount, 0);
-  const totalCollections = payments
-    .filter(p => p.type === 'Customer Collection')
-    .reduce((sum, p) => sum + p.amount, 0);
+  // Reactive date-filtered arrays based on global header calendar dateFilterPeriod
+  const filteredInvoices = useMemo(() => {
+    return invoices.filter(inv => isDateInPeriod(inv.invoiceDate || inv.createdAt, dateFilterPeriod));
+  }, [invoices, dateFilterPeriod]);
 
-  const totalReceivables = invoices.reduce((sum, inv) => sum + inv.balanceDue, 0);
+  const filteredPurchaseInvoices = useMemo(() => {
+    return purchaseInvoices.filter(pinv => isDateInPeriod(pinv.purchaseDate || pinv.createdAt, dateFilterPeriod));
+  }, [purchaseInvoices, dateFilterPeriod]);
+
+  const filteredExpenses = useMemo(() => {
+    return expenses.filter(exp => isDateInPeriod(exp.date || exp.createdAt, dateFilterPeriod));
+  }, [expenses, dateFilterPeriod]);
+
+  const filteredPayments = useMemo(() => {
+    return payments.filter(p => isDateInPeriod(p.paymentDate || p.createdAt, dateFilterPeriod));
+  }, [payments, dateFilterPeriod]);
+
+  // Real Database Financial Metric Calculations (Strictly reactive to dateFilterPeriod)
+  const totalSales = useMemo(() => {
+    return filteredInvoices.reduce((sum, inv) => sum + (Number(inv.grandTotal) || 0), 0);
+  }, [filteredInvoices]);
+
+  const totalPurchases = useMemo(() => {
+    return filteredPurchaseInvoices.reduce((sum, pinv) => sum + (Number(pinv.grandTotal) || 0), 0);
+  }, [filteredPurchaseInvoices]);
+
+  const totalExpenses = useMemo(() => {
+    return filteredExpenses.reduce((sum, exp) => sum + (Number(exp.amount) || 0), 0);
+  }, [filteredExpenses]);
+
+  const totalCollections = useMemo(() => {
+    return filteredPayments
+      .filter(p => p.type === 'Customer Collection')
+      .reduce((sum, p) => sum + (Number(p.amount) || 0), 0);
+  }, [filteredPayments]);
+
+  const totalReceivables = useMemo(() => {
+    return filteredInvoices.reduce((sum, inv) => sum + (Number(inv.balanceDue) || 0), 0);
+  }, [filteredInvoices]);
+
   const netProfit = totalSales - totalPurchases - totalExpenses;
 
   // Inventory value
@@ -188,10 +229,11 @@ export const Dashboard: React.FC<DashboardProps> = ({
     return list;
   }, [invoices, lowStockCount, deliverySlips]);
 
-  // Real Database Calculation: Top selling products by summing quantity across all sales invoices
+  // Real Database Calculation: Top selling products by summing quantity across sales invoices in the selected period
   const topProductsList = useMemo(() => {
     const productSalesMap: Record<string, { name: string; qty: number; total: number; invoiceCount: number }> = {};
-    (invoices || []).forEach(inv => {
+    const invoicesToUse = filteredInvoices.length > 0 ? filteredInvoices : invoices;
+    (invoicesToUse || []).forEach(inv => {
       (inv.items || []).forEach(item => {
         const rawName = (item.productName || item.description || '').trim();
         if (!rawName) return;
@@ -213,14 +255,15 @@ export const Dashboard: React.FC<DashboardProps> = ({
       });
     });
     return Object.values(productSalesMap).sort((a, b) => b.qty - a.qty);
-  }, [invoices]);
+  }, [filteredInvoices, invoices]);
 
   const maxQty = Math.max(...topProductsList.map(p => p.qty), 1);
 
-  // Latest created invoices and delivery slips sorted date-wise on top
+  // Latest created invoices and delivery slips sorted date-wise on top (prioritizing filtered period)
   const sortedInvoices = useMemo(() => {
-    return [...invoices].sort((a, b) => new Date(b.invoiceDate || b.createdAt).getTime() - new Date(a.invoiceDate || a.createdAt).getTime());
-  }, [invoices]);
+    const list = filteredInvoices.length > 0 ? filteredInvoices : invoices;
+    return [...list].sort((a, b) => new Date(b.invoiceDate || b.createdAt).getTime() - new Date(a.invoiceDate || a.createdAt).getTime());
+  }, [filteredInvoices, invoices]);
 
   const sortedSlips = useMemo(() => {
     return [...deliverySlips].sort((a, b) => new Date(b.deliveryDate || b.createdAt).getTime() - new Date(a.deliveryDate || a.createdAt).getTime());

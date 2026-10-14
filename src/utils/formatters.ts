@@ -2,6 +2,8 @@
  * Currency and Number formatters for Bismillah Multitrade ERP
  */
 
+export type DatePeriod = 'Today' | 'This Week' | 'This Month' | 'Last Month' | 'This Quarter' | 'This Year' | 'All Time';
+
 export function formatCurrency(
   amount: number,
   currency: string = 'BDT',
@@ -11,7 +13,8 @@ export function formatCurrency(
     amount = 0;
   }
 
-  const symbol = currency === 'BDT' ? 'BDT ' : currency + ' ';
+  // Always use Bangladeshi Taka symbol ৳
+  const symbol = '৳ ';
   
   // Format with commas and 2 decimals
   const parts = Math.abs(amount).toFixed(2).split('.');
@@ -20,7 +23,7 @@ export function formatCurrency(
 
   // Bangladeshi comma grouping: 3 digits from right, then groups of 2 digits
   // e.g. 10000000 -> 1,00,00,000
-  if (currency === 'BDT' && integerPart.length > 3) {
+  if (integerPart.length > 3) {
     const lastThree = integerPart.substring(integerPart.length - 3);
     const otherNumbers = integerPart.substring(0, integerPart.length - 3);
     const formattedOther = otherNumbers.replace(/\B(?=(\d{2})+(?!\d))/g, ',');
@@ -146,4 +149,84 @@ export function getDateRangePreset(preset: string): { start?: string; end?: stri
     return { start, end };
   }
   return {};
+}
+
+/**
+ * Parses date safely without UTC offset shifts
+ */
+export function parseDateSafe(dateInput: string | Date | undefined): Date | null {
+  if (!dateInput) return null;
+  if (dateInput instanceof Date) return isNaN(dateInput.getTime()) ? null : dateInput;
+  if (typeof dateInput === 'string') {
+    const trimmed = dateInput.trim();
+    const match = trimmed.match(/^(\d{4})-(\d{2})-(\d{2})/);
+    if (match) {
+      const year = parseInt(match[1], 10);
+      const month = parseInt(match[2], 10) - 1;
+      const day = parseInt(match[3], 10);
+      return new Date(year, month, day, 12, 0, 0);
+    }
+    const d = new Date(trimmed);
+    return isNaN(d.getTime()) ? null : d;
+  }
+  return null;
+}
+
+/**
+ * Checks if a given date string or object falls inside the requested period
+ */
+export function isDateInPeriod(
+  dateInput: string | Date | undefined,
+  period: DatePeriod | string,
+  referenceDate: Date = new Date()
+): boolean {
+  if (!dateInput) return false;
+  if (period === 'All Time') return true;
+
+  const d = parseDateSafe(dateInput);
+  if (!d) return false;
+
+  const now = referenceDate;
+  const nowYear = now.getFullYear();
+  const nowMonth = now.getMonth();
+  const nowDate = now.getDate();
+
+  const dYear = d.getFullYear();
+  const dMonth = d.getMonth();
+  const dDate = d.getDate();
+
+  switch (period) {
+    case 'Today': {
+      return dYear === nowYear && dMonth === nowMonth && dDate === nowDate;
+    }
+    case 'This Week': {
+      // Week from Monday to Sunday
+      const dayOfWeek = now.getDay(); // 0 is Sun, 1 is Mon...
+      const diffToMonday = dayOfWeek === 0 ? 6 : dayOfWeek - 1;
+      const startOfWeek = new Date(nowYear, nowMonth, nowDate - diffToMonday, 0, 0, 0);
+      const endOfWeek = new Date(startOfWeek);
+      endOfWeek.setDate(startOfWeek.getDate() + 7);
+
+      const targetMidday = new Date(dYear, dMonth, dDate, 12, 0, 0).getTime();
+      return targetMidday >= startOfWeek.getTime() && targetMidday < endOfWeek.getTime();
+    }
+    case 'This Month': {
+      return dYear === nowYear && dMonth === nowMonth;
+    }
+    case 'Last Month': {
+      const lastMonthYear = nowMonth === 0 ? nowYear - 1 : nowYear;
+      const lastMonth = nowMonth === 0 ? 11 : nowMonth - 1;
+      return dYear === lastMonthYear && dMonth === lastMonth;
+    }
+    case 'This Quarter': {
+      const nowQuarter = Math.floor(nowMonth / 3);
+      const dQuarter = Math.floor(dMonth / 3);
+      return dYear === nowYear && dQuarter === nowQuarter;
+    }
+    case 'This Year': {
+      return dYear === nowYear;
+    }
+    default:
+      return true;
+  }
 }

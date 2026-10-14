@@ -42,7 +42,7 @@ export const Navbar: React.FC<NavbarProps> = ({
   onOpenProfile
 }) => {
   const toggleMobileMenu = onOpenMobileMenu || onToggleSidebar || (() => {});
-  const { invoices, products, deliverySlips, customers, currentUser } = useData();
+  const { invoices, products, deliverySlips, customers, currentUser, dateFilterPeriod, setDateFilterPeriod } = useData();
 
   // Search & Results
   const [searchQuery, setSearchQuery] = useState('');
@@ -52,7 +52,6 @@ export const Navbar: React.FC<NavbarProps> = ({
   const [showNotifications, setShowNotifications] = useState(false);
   const [showUserMenu, setShowUserMenu] = useState(false);
   const [showDateMenu, setShowDateMenu] = useState(false);
-  const [selectedDateRange, setSelectedDateRange] = useState('This Month');
   const [notificationsReadAll, setNotificationsReadAll] = useState(false);
 
   // Live Today Date & Time Clock
@@ -138,23 +137,24 @@ export const Navbar: React.FC<NavbarProps> = ({
     return { datePart, timePart };
   };
 
-  const { datePart, timePart } = formatLiveDateTime(currentTime);
+  const { datePart } = formatLiveDateTime(currentTime);
 
   return (
     <header className="sticky top-0 z-30 bg-white border-b border-slate-200 shadow-xs print:hidden h-16">
       <div className="h-full px-3 sm:px-6 flex items-center justify-between gap-3">
-        {/* Left Side: Date & Period Filter beside Sidebar */}
+        {/* Left Side: Sidebar Toggle Menu + Date & Period Filter */}
         <div className="flex items-center gap-2 min-w-0">
           <button
             onClick={toggleMobileMenu}
-            className="lg:hidden p-2 text-slate-600 hover:text-slate-900 rounded-lg hover:bg-slate-100 transition-colors cursor-pointer"
+            className="flex items-center gap-1.5 px-2.5 py-1.5 text-slate-700 hover:text-slate-900 rounded-lg border border-slate-200 bg-slate-50 hover:bg-slate-100 transition-colors cursor-pointer shadow-xs"
             title="Toggle Menu"
           >
-            <Menu size={20} />
+            <Menu size={18} className="text-orange-500 shrink-0" />
+            <span className="text-xs font-bold text-slate-800 hidden sm:inline">Menu</span>
           </button>
 
           {/* Date & Period (Positioned on the Left Beside Sidebar) */}
-          <div className="relative hidden sm:block" ref={dateRef}>
+          <div className="relative" ref={dateRef}>
             <button
               onClick={() => setShowDateMenu(!showDateMenu)}
               className="flex items-center gap-2 px-2.5 py-1.5 rounded-lg border border-slate-200 bg-slate-50 hover:bg-white text-slate-700 text-xs font-medium shadow-xs transition-colors cursor-pointer"
@@ -166,27 +166,27 @@ export const Navbar: React.FC<NavbarProps> = ({
                   {datePart}
                 </span>
                 <span className="text-[9px] text-slate-500 block">
-                  Period: <strong className="text-slate-700">{selectedDateRange}</strong>
+                  Period: <strong className="text-orange-600 font-bold">{dateFilterPeriod}</strong>
                 </span>
               </div>
               <ChevronDown size={12} className="text-slate-400 ml-1" />
             </button>
 
-            {/* Dropdown Options: Today, This Week, This Month, Last Month, This Quarter, This Year */}
+            {/* Dropdown Options: Today, This Week, This Month, Last Month, This Quarter, This Year, All Time */}
             {showDateMenu && (
               <div className="absolute left-0 mt-1.5 w-48 bg-white border border-slate-200 rounded-xl shadow-xl py-1 text-xs z-50 animate-in fade-in zoom-in-95">
                 <div className="px-3 py-1.5 border-b border-slate-100 text-[10px] font-bold text-slate-400 uppercase tracking-wider">
                   Select Filter Period
                 </div>
-                {['Today', 'This Week', 'This Month', 'Last Month', 'This Quarter', 'This Year'].map(range => (
+                {(['Today', 'This Week', 'This Month', 'Last Month', 'This Quarter', 'This Year', 'All Time'] as const).map(range => (
                   <button
                     key={range}
                     onClick={() => {
-                      setSelectedDateRange(range);
+                      setDateFilterPeriod(range);
                       setShowDateMenu(false);
                     }}
                     className={`w-full text-left px-3.5 py-2 hover:bg-orange-50 hover:text-orange-600 transition-colors ${
-                      selectedDateRange === range ? 'font-bold text-orange-600 bg-orange-50/60' : 'text-slate-700'
+                      dateFilterPeriod === range ? 'font-bold text-orange-600 bg-orange-50/60' : 'text-slate-700'
                     }`}
                   >
                     {range}

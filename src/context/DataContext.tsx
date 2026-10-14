@@ -59,9 +59,13 @@ import {
   initialUsers,
   initialActivityLogs
 } from '../data/initialData';
-import { numberToWordsBDT, getTodayDateString } from '../utils/formatters';
+import { numberToWordsBDT, getTodayDateString, DatePeriod } from '../utils/formatters';
 
 interface DataContextType {
+  // Global Period Filter (controlled from header calendar)
+  dateFilterPeriod: DatePeriod;
+  setDateFilterPeriod: (period: DatePeriod) => void;
+
   // State
   settings: CompanySettings;
   updateSettings: (newSettings: CompanySettings) => void;
@@ -329,6 +333,9 @@ export const DataProvider: React.FC<{ children: React.ReactNode }> = ({ children
     const saved = localStorage.getItem(STORAGE_PREFIX + 'activity_logs');
     return saved ? JSON.parse(saved) : initialActivityLogs;
   });
+
+  // Global Calendar Period Filter (defaults to 'This Month', synchronized from Navbar to Dashboard)
+  const [dateFilterPeriod, setDateFilterPeriod] = useState<DatePeriod>('This Month');
 
   // Sync to localStorage
   useEffect(() => {
@@ -1173,7 +1180,7 @@ export const DataProvider: React.FC<{ children: React.ReactNode }> = ({ children
         }).catch(() => {});
       }
 
-      logActivity('Invoice Created', `Created invoice ${fullInvoice.invoiceNumber} for ${fullInvoice.customerName} (Grand Total: BDT ${fullInvoice.grandTotal.toLocaleString()})`);
+      logActivity('Invoice Created', `Created invoice ${fullInvoice.invoiceNumber} for ${fullInvoice.customerName} (Grand Total: ৳ ${fullInvoice.grandTotal.toLocaleString()})`);
     } else {
       setInvoices(prev => prev.map(i => i.id === fullInvoice.id ? fullInvoice : i));
       logActivity('Invoice Updated', `Updated invoice ${fullInvoice.invoiceNumber}`);
@@ -1944,7 +1951,7 @@ export const DataProvider: React.FC<{ children: React.ReactNode }> = ({ children
       return exists ? prev.map(i => i.id === fullImp.id ? fullImp : i) : [fullImp, ...prev];
     });
 
-    logActivity('Import Record Saved', `Import Reference ${fullImp.importReference} calculated. Total Landed Cost: BDT ${totalLandedCost.toLocaleString()}`);
+    logActivity('Import Record Saved', `Import Reference ${fullImp.importReference} calculated. Total Landed Cost: ৳ ${totalLandedCost.toLocaleString()}`);
   };
 
   const saveExportRecord = (exp: ExportRecord) => {
@@ -2016,7 +2023,7 @@ export const DataProvider: React.FC<{ children: React.ReactNode }> = ({ children
         } : s));
       }
 
-      logActivity('Payment Recorded', `Recorded ${fullPayment.type} of BDT ${fullPayment.amount.toLocaleString()} (Receipt: ${fullPayment.receiptNumber})`);
+      logActivity('Payment Recorded', `Recorded ${fullPayment.type} of ৳ ${fullPayment.amount.toLocaleString()} (Receipt: ${fullPayment.receiptNumber})`);
     } else {
       setPayments(prev => prev.map(p => p.id === fullPayment.id ? fullPayment : p));
     }
@@ -2028,7 +2035,7 @@ export const DataProvider: React.FC<{ children: React.ReactNode }> = ({ children
       const exists = prev.some(e => e.id === expense.id);
       return exists ? prev.map(e => e.id === expense.id ? expense : e) : [expense, ...prev];
     });
-    logActivity('Expense Recorded', `Recorded ${expense.category} expense of BDT ${expense.amount.toLocaleString()} (${expense.expenseNumber})`);
+    logActivity('Expense Recorded', `Recorded ${expense.category} expense of ৳ ${expense.amount.toLocaleString()} (${expense.expenseNumber})`);
   };
 
   const deleteExpense = (id: string): boolean => {
@@ -2254,6 +2261,8 @@ export const DataProvider: React.FC<{ children: React.ReactNode }> = ({ children
   return (
     <DataContext.Provider
       value={{
+        dateFilterPeriod,
+        setDateFilterPeriod,
         settings,
         updateSettings,
         categories,

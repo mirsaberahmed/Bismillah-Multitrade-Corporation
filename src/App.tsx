@@ -116,8 +116,8 @@ const AppContent: React.FC = () => {
       <Sidebar
         activeTab={activeTab}
         onSelectTab={handleNavigate}
-        mobileMenuOpen={mobileMenuOpen}
-        onCloseMobile={() => setMobileMenuOpen(false)}
+        isOpen={mobileMenuOpen}
+        onClose={() => setMobileMenuOpen(false)}
         onNewInvoice={handleOpenCreateInvoice}
         onLogout={handleLogout}
       />
