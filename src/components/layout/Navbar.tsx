@@ -143,8 +143,8 @@ export const Navbar: React.FC<NavbarProps> = ({
   return (
     <header className="sticky top-0 z-30 bg-white border-b border-slate-200 shadow-xs print:hidden h-16">
       <div className="h-full px-3 sm:px-6 flex items-center justify-between gap-3">
-        {/* Left Side: Empty on desktop (no 3-dot bar), mobile drawer toggle on mobile */}
-        <div className="flex items-center min-w-0 lg:w-48">
+        {/* Left Side: Date & Period Filter beside Sidebar */}
+        <div className="flex items-center gap-2 min-w-0">
           <button
             onClick={toggleMobileMenu}
             className="lg:hidden p-2 text-slate-600 hover:text-slate-900 rounded-lg hover:bg-slate-100 transition-colors cursor-pointer"
@@ -152,45 +152,29 @@ export const Navbar: React.FC<NavbarProps> = ({
           >
             <Menu size={20} />
           </button>
-        </div>
 
-        {/* Middle Header Branding: Centered Balm Bottle Logo + Brand Titles */}
-        <div className="flex items-center justify-center gap-3 text-center mx-auto min-w-0">
-          <BalmBottleLogo size={32} className="shrink-0 drop-shadow-xs" />
-          <div className="text-center min-w-0">
-            <h1 className="text-xs sm:text-sm md:text-base font-black text-[#0B1B2E] tracking-tight uppercase leading-tight font-sans truncate">
-              BISMILLAH MULTITRADE CORPORATION
-            </h1>
-            <p className="text-[10px] sm:text-xs font-bold text-orange-600 leading-tight truncate">
-              Import and export concern.
-            </p>
-          </div>
-        </div>
-
-        {/* Right Side: Live Date/Time, Compact Search, Notification Bell, User Avatar */}
-        <div className="flex items-center justify-end gap-2 sm:gap-3 shrink-0 lg:w-auto">
-          {/* Live Date and Time with Dropdown Arrow */}
-          <div className="relative hidden md:block" ref={dateRef}>
+          {/* Date & Period (Positioned on the Left Beside Sidebar) */}
+          <div className="relative hidden sm:block" ref={dateRef}>
             <button
               onClick={() => setShowDateMenu(!showDateMenu)}
               className="flex items-center gap-2 px-2.5 py-1.5 rounded-lg border border-slate-200 bg-slate-50 hover:bg-white text-slate-700 text-xs font-medium shadow-xs transition-colors cursor-pointer"
               title="Click to select period filter"
             >
-              <Clock size={14} className="text-orange-500 shrink-0" />
+              <Calendar size={14} className="text-orange-500 shrink-0" />
               <div className="text-left font-sans leading-tight">
                 <span className="font-bold text-slate-900 block text-[11px]">
-                  {datePart} • <span className="font-mono text-orange-600">{timePart}</span>
+                  {datePart}
                 </span>
                 <span className="text-[9px] text-slate-500 block">
                   Period: <strong className="text-slate-700">{selectedDateRange}</strong>
                 </span>
               </div>
-              <ChevronDown size={13} className="text-slate-400 ml-1" />
+              <ChevronDown size={12} className="text-slate-400 ml-1" />
             </button>
 
             {/* Dropdown Options: Today, This Week, This Month, Last Month, This Quarter, This Year */}
             {showDateMenu && (
-              <div className="absolute right-0 mt-1.5 w-48 bg-white border border-slate-200 rounded-xl shadow-xl py-1 text-xs z-50 animate-in fade-in zoom-in-95">
+              <div className="absolute left-0 mt-1.5 w-48 bg-white border border-slate-200 rounded-xl shadow-xl py-1 text-xs z-50 animate-in fade-in zoom-in-95">
                 <div className="px-3 py-1.5 border-b border-slate-100 text-[10px] font-bold text-slate-400 uppercase tracking-wider">
                   Select Filter Period
                 </div>
@@ -211,6 +195,23 @@ export const Navbar: React.FC<NavbarProps> = ({
               </div>
             )}
           </div>
+        </div>
+
+        {/* Middle Header Branding: Centered Balm Bottle Logo on Left of Title + Subtitle */}
+        <div className="flex items-center justify-center gap-3 text-center mx-auto min-w-0">
+          <BalmBottleLogo size={32} className="shrink-0 drop-shadow-xs" />
+          <div className="text-center min-w-0">
+            <h1 className="text-xs sm:text-sm md:text-base font-black text-[#0B1B2E] tracking-tight uppercase leading-tight font-sans truncate">
+              BISMILLAH MULTITRADE CORPORATION
+            </h1>
+            <p className="text-[10px] sm:text-xs font-bold text-orange-600 leading-tight truncate">
+              Import and export concern.
+            </p>
+          </div>
+        </div>
+
+        {/* Right Side: Compact Search, Notification Bell, User Avatar */}
+        <div className="flex items-center justify-end gap-2 sm:gap-3 shrink-0">
 
           {/* Compact Search Box (strictly "Search" placeholder, extra compact, positioned right) */}
           <div className="relative" ref={searchRef}>

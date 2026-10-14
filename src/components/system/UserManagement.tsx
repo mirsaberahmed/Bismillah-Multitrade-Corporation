@@ -409,20 +409,14 @@ export const UserManagement: React.FC<UserManagementProps> = ({ initialTab = 'us
   return (
     <div className="space-y-5 text-slate-900 font-sans pb-10">
       {/* Top Header Card */}
-      <div className="bg-[#0B1B2E] text-white rounded-2xl p-5 sm:p-6 border border-slate-800 shadow-md flex flex-col md:flex-row md:items-center justify-between gap-4">
+      <div className="bg-white rounded-2xl p-5 border border-slate-200/90 shadow-xs flex flex-col sm:flex-row sm:items-center justify-between gap-4">
         <div>
-          <div className="flex items-center gap-2 mb-1.5">
-            <span className="px-2.5 py-0.5 rounded-full bg-orange-500/20 text-orange-400 font-bold text-[10px] tracking-wider uppercase border border-orange-500/30">
-              Enterprise Access Control
-            </span>
-            <span className="text-slate-400 text-xs font-mono">BISMILLAH MULTITRADE CORP</span>
-          </div>
-          <h1 className="text-xl sm:text-2xl font-black tracking-tight text-white flex items-center gap-2.5">
+          <h1 className="text-xl sm:text-2xl font-black tracking-tight text-slate-900 flex items-center gap-2.5">
             <Shield className="text-orange-500" size={24} />
             User Management &amp; Security Roles
           </h1>
-          <p className="text-xs text-slate-300 mt-1 max-w-2xl">
-            Comprehensive role-based access control (RBAC), new user registration approval workflow, permission assignment, and tamper-resistant audit logs.
+          <p className="text-xs text-slate-500 mt-1">
+            Manage user accounts, roles, access permissions, and approval workflows.
           </p>
         </div>
 
@@ -810,13 +804,15 @@ export const UserManagement: React.FC<UserManagementProps> = ({ initialTab = 'us
                                   </button>
                                 )}
 
-                                <button
-                                  onClick={() => setUserToDelete(user)}
-                                  className="p-1.5 text-slate-400 hover:text-red-600 hover:bg-red-50 rounded-lg transition-colors cursor-pointer"
-                                  title="Delete User"
-                                >
-                                  <Trash2 size={14} />
-                                </button>
+                                {currentUser?.role === 'Super Admin' && user.id !== currentUser.id && (
+                                  <button
+                                    onClick={() => setUserToDelete(user)}
+                                    className="p-1.5 text-slate-400 hover:text-red-600 hover:bg-red-50 rounded-lg transition-colors cursor-pointer"
+                                    title="Delete User (Super Admin only)"
+                                  >
+                                    <Trash2 size={14} />
+                                  </button>
+                                )}
                               </>
                             )}
                           </div>

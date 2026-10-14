@@ -315,7 +315,7 @@ export const PrintableInvoice: React.FC<Props> = ({ invoice, settings, showPayme
           </div>
         )}
 
-        <div className="flex justify-between items-end pt-8 mt-[1in] px-4 text-center text-xs text-black">
+        <div className="flex justify-between items-end pt-2 mt-4 print:mt-2 px-4 text-center text-xs text-black">
           <div>
             <div className="h-[32mm] flex items-end justify-center pb-1">
               <div className="w-52 border-b border-black"></div>

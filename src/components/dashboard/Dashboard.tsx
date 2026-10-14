@@ -1,4 +1,4 @@
-import React, { useState, useMemo } from 'react';
+import React, { useState, useMemo, useEffect } from 'react';
 import {
   TrendingUp,
   CreditCard,
@@ -80,6 +80,33 @@ export const Dashboard: React.FC<DashboardProps> = ({
   // Notifications Read All state
   const [notificationsRead, setNotificationsRead] = useState(false);
 
+  // Live clock state for Dashboard right-hand banner box
+  const [currentLiveTime, setCurrentLiveTime] = useState(new Date());
+
+  useEffect(() => {
+    const timer = setInterval(() => {
+      setCurrentLiveTime(new Date());
+    }, 1000);
+    return () => clearInterval(timer);
+  }, []);
+
+  const formattedLiveClock = currentLiveTime.toLocaleTimeString('en-US', {
+    hour: '2-digit',
+    minute: '2-digit',
+    second: '2-digit',
+    hour12: true
+  });
+
+  const formattedLiveDay = currentLiveTime.toLocaleDateString('en-US', {
+    weekday: 'long'
+  });
+
+  const formattedLiveDate = currentLiveTime.toLocaleDateString('en-GB', {
+    day: '2-digit',
+    month: 'short',
+    year: 'numeric'
+  });
+
   // WhatsApp Modal State
   const [whatsAppModalOpen, setWhatsAppModalOpen] = useState(false);
   const [whatsAppTitle, setWhatsAppTitle] = useState('');
@@ -125,6 +152,41 @@ export const Dashboard: React.FC<DashboardProps> = ({
   const totalStockUnits = products.reduce((sum, p) => sum + (Number(p.stockQuantity) || 0), 0);
   const lowStockCount = products.filter(p => p.stockQuantity <= (p.minimumStock || p.minStockLevel || 10)).length;
   const outOfStockCount = products.filter(p => p.stockQuantity <= 0).length;
+
+  // Real Dynamic Notifications
+  const dynamicNotices = useMemo(() => {
+    const list: Array<{ id: string; text: string; time: string; type: 'danger' | 'warning' | 'info' | 'success' }> = [];
+    const overdueCount = invoices.filter(i => i.paymentStatus === 'Overdue' || (i.balanceDue > 0 && new Date(i.dueDate) < new Date())).length;
+    if (overdueCount > 0) {
+      list.push({
+        id: 'notif-overdue',
+        text: `${overdueCount} invoice${overdueCount > 1 ? 's are' : ' is'} overdue for payment collection`,
+        time: 'Overdue',
+        type: 'danger'
+      });
+    }
+
+    if (lowStockCount > 0) {
+      list.push({
+        id: 'notif-stock',
+        text: `${lowStockCount} product${lowStockCount > 1 ? 's are' : ' is'} running below minimum safety stock`,
+        time: 'Low Stock',
+        type: 'warning'
+      });
+    }
+
+    const pendingCount = deliverySlips.filter(d => d.deliveryStatus === 'In Transit' || d.deliveryStatus === 'Scheduled').length;
+    if (pendingCount > 0) {
+      list.push({
+        id: 'notif-delivery',
+        text: `${pendingCount} delivery challan${pendingCount > 1 ? 's' : ''} in transit`,
+        time: 'Transit',
+        type: 'info'
+      });
+    }
+
+    return list;
+  }, [invoices, lowStockCount, deliverySlips]);
 
   // Top products
   const productSalesMap: Record<string, { name: string; qty: number; total: number }> = {};
@@ -207,37 +269,27 @@ export const Dashboard: React.FC<DashboardProps> = ({
         {/* Content Row */}
         <div className="relative z-10 px-6 py-5 sm:py-6 flex flex-col md:flex-row md:items-center justify-between gap-4">
           <div>
-            <div className="inline-flex items-center gap-1.5 px-2.5 py-1 rounded-full bg-orange-100 text-orange-700 text-[11px] font-bold mb-2">
-              <span className="w-2 h-2 rounded-full bg-orange-500 animate-pulse" />
-              <span>30ml Amber Glass Bottle Balm Manufacturing &amp; Packaging Facility</span>
-            </div>
             <h2 className="text-xl sm:text-2xl font-black text-slate-900 tracking-tight">
               BISMILLAH MULTITRADE CORPORATION
             </h2>
-            <p className="text-xs sm:text-sm text-slate-600 mt-0.5 font-medium">
-              Import and export concern • Pharmaceutical Containers &amp; Pain Relief Balm Production Operations
+            <p className="text-xs sm:text-sm text-orange-600 mt-1 font-bold tracking-wide uppercase">
+              Import. Export. Global Trade
             </p>
           </div>
 
-          {/* Right Floating Brand Card */}
-          <div className="bg-white/95 backdrop-blur-md rounded-xl p-3.5 sm:p-4 border border-orange-200/80 shadow-md flex items-center gap-3 self-start md:self-auto shrink-0">
-            <div className="w-10 h-10 rounded-lg bg-gradient-to-br from-orange-400 via-orange-500 to-orange-600 flex items-center justify-center text-white shadow-md shadow-orange-500/25 shrink-0">
-              <svg viewBox="0 0 24 24" width="22" height="22" fill="none" stroke="currentColor" strokeWidth="2.2" strokeLinecap="round" strokeLinejoin="round">
-                <path d="M21 16V8a2 2 0 0 0-1-1.73l-7-4a2 2 0 0 0-2 0l-7 4A2 2 0 0 0 3 8v8a2 2 0 0 0 1 1.73l7 4a2 2 0 0 0 2 0l7-4A2 2 0 0 0 21 16z" />
-                <polyline points="3.27 6.96 12 12.01 20.73 6.96" />
-                <line x1="12" y1="22.08" x2="12" y2="12" />
-              </svg>
+          {/* Right Floating Live Time Card (No logo, live digital clock: hours:minutes:seconds AM/PM + Day) */}
+          <div className="bg-white/95 backdrop-blur-md rounded-xl p-3.5 sm:p-4 border border-orange-200/80 shadow-md flex flex-col justify-center self-start md:self-auto shrink-0 min-w-[210px]">
+            <div className="text-[10px] font-bold text-orange-500 uppercase tracking-widest flex items-center gap-1.5 mb-0.5">
+              <span className="w-2 h-2 rounded-full bg-emerald-500 animate-pulse" />
+              <span>Live System Clock</span>
             </div>
-            <div>
-              <h3 className="font-black text-xs sm:text-sm text-slate-900 uppercase tracking-tight leading-tight">
-                BISMILLAH
-              </h3>
-              <p className="text-[10px] font-bold text-slate-500 uppercase tracking-widest leading-tight">
-                MULTITRADE CORPORATION
-              </p>
-              <p className="text-[10px] font-semibold text-orange-600 mt-0.5 leading-tight">
-                Reliable Trade, Stronger Tomorrow
-              </p>
+            <div className="text-xl sm:text-2xl font-mono font-black text-slate-900 tracking-tight">
+              {formattedLiveClock}
+            </div>
+            <div className="text-xs font-bold text-slate-600 mt-0.5 flex items-center gap-1.5">
+              <span className="text-orange-600">{formattedLiveDay}</span>
+              <span className="text-slate-300">•</span>
+              <span className="text-slate-500 font-mono text-[11px]">{formattedLiveDate}</span>
             </div>
           </div>
         </div>
@@ -756,62 +808,54 @@ export const Dashboard: React.FC<DashboardProps> = ({
             </button>
           </div>
 
-          <div className="space-y-3 my-auto text-xs">
-            {/* Overdue */}
-            <div className={`flex items-center justify-between gap-2 p-2 rounded-lg transition-colors ${notificationsRead ? 'bg-slate-50/50' : 'bg-red-50/30'}`}>
-              <div className="flex items-center gap-2 min-w-0">
-                <span className={`w-2 h-2 rounded-full shrink-0 ${notificationsRead ? 'bg-slate-300' : 'bg-red-500'}`} />
-                <span className={`font-medium truncate ${notificationsRead ? 'text-slate-500' : 'text-slate-800 font-semibold'}`}>
-                  3 invoices are overdue
-                </span>
+          <div className="space-y-3 my-auto text-xs py-2">
+            {dynamicNotices.length === 0 ? (
+              <div className="py-6 text-center text-slate-400">
+                <CheckCircle2 size={28} className="mx-auto mb-1.5 text-emerald-500/80" />
+                <p className="text-xs font-bold text-slate-700">No Active Notices</p>
+                <p className="text-[11px] text-slate-400">Default notices removed. All operations up to date.</p>
               </div>
-              <div className="flex items-center gap-1.5 shrink-0">
-                {notificationsRead && <span className="text-[10px] text-emerald-600 font-bold">Read</span>}
-                <span className="text-[10px] text-slate-400">2 min ago</span>
-              </div>
-            </div>
-
-            {/* Low stock */}
-            <div className={`flex items-center justify-between gap-2 p-2 rounded-lg transition-colors ${notificationsRead ? 'bg-slate-50/50' : 'bg-amber-50/30'}`}>
-              <div className="flex items-center gap-2 min-w-0">
-                <span className={`w-2 h-2 rounded-full shrink-0 ${notificationsRead ? 'bg-slate-300' : 'bg-amber-500'}`} />
-                <span className={`font-medium truncate ${notificationsRead ? 'text-slate-500' : 'text-slate-800 font-semibold'}`}>
-                  Low stock: 30ml Amber Glass Balm Bottles
-                </span>
-              </div>
-              <div className="flex items-center gap-1.5 shrink-0">
-                {notificationsRead && <span className="text-[10px] text-emerald-600 font-bold">Read</span>}
-                <span className="text-[10px] text-slate-400">1 hr ago</span>
-              </div>
-            </div>
-
-            {/* Pending deliveries */}
-            <div className={`flex items-center justify-between gap-2 p-2 rounded-lg transition-colors ${notificationsRead ? 'bg-slate-50/50' : 'bg-blue-50/30'}`}>
-              <div className="flex items-center gap-2 min-w-0">
-                <span className={`w-2 h-2 rounded-full shrink-0 ${notificationsRead ? 'bg-slate-300' : 'bg-blue-500'}`} />
-                <span className={`font-medium truncate ${notificationsRead ? 'text-slate-500' : 'text-slate-800 font-semibold'}`}>
-                  2 pending deliveries scheduled for dispatch
-                </span>
-              </div>
-              <div className="flex items-center gap-1.5 shrink-0">
-                {notificationsRead && <span className="text-[10px] text-emerald-600 font-bold">Read</span>}
-                <span className="text-[10px] text-slate-400">3 hrs ago</span>
-              </div>
-            </div>
-
-            {/* New payment */}
-            <div className={`flex items-center justify-between gap-2 p-2 rounded-lg transition-colors ${notificationsRead ? 'bg-slate-50/50' : 'bg-emerald-50/30'}`}>
-              <div className="flex items-center gap-2 min-w-0">
-                <span className={`w-2 h-2 rounded-full shrink-0 ${notificationsRead ? 'bg-slate-300' : 'bg-emerald-500'}`} />
-                <span className={`font-medium truncate ${notificationsRead ? 'text-slate-500' : 'text-slate-800 font-semibold'}`}>
-                  New customer money collection: BDT 14,000.40
-                </span>
-              </div>
-              <div className="flex items-center gap-1.5 shrink-0">
-                {notificationsRead && <span className="text-[10px] text-emerald-600 font-bold">Read</span>}
-                <span className="text-[10px] text-slate-400">5 hrs ago</span>
-              </div>
-            </div>
+            ) : (
+              dynamicNotices.map((notif) => (
+                <div
+                  key={notif.id}
+                  className={`flex items-center justify-between gap-2 p-2 rounded-lg transition-colors ${
+                    notificationsRead
+                      ? 'bg-slate-50/50'
+                      : notif.type === 'danger'
+                      ? 'bg-red-50/40'
+                      : notif.type === 'warning'
+                      ? 'bg-amber-50/40'
+                      : 'bg-blue-50/40'
+                  }`}
+                >
+                  <div className="flex items-center gap-2 min-w-0">
+                    <span
+                      className={`w-2 h-2 rounded-full shrink-0 ${
+                        notificationsRead
+                          ? 'bg-slate-300'
+                          : notif.type === 'danger'
+                          ? 'bg-red-500'
+                          : notif.type === 'warning'
+                          ? 'bg-amber-500'
+                          : 'bg-blue-500'
+                      }`}
+                    />
+                    <span
+                      className={`font-medium truncate ${
+                        notificationsRead ? 'text-slate-500' : 'text-slate-800 font-semibold'
+                      }`}
+                    >
+                      {notif.text}
+                    </span>
+                  </div>
+                  <div className="flex items-center gap-1.5 shrink-0">
+                    {notificationsRead && <span className="text-[10px] text-emerald-600 font-bold">Read</span>}
+                    <span className="text-[10px] text-slate-400 font-medium">{notif.time}</span>
+                  </div>
+                </div>
+              ))
+            )}
           </div>
 
           <div className="pt-2 border-t border-slate-100 flex items-center justify-between">

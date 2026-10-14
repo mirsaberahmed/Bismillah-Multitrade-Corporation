@@ -77,6 +77,7 @@ const PRESET_EXPENSE_CATEGORIES = [
   // Filters for expenses
   const [expenseSearchQuery, setExpenseSearchQuery] = useState('');
   const [expenseCategoryFilter, setExpenseCategoryFilter] = useState('All');
+  const [expenseViewMode, setExpenseViewMode] = useState<'sheet' | 'table'>('sheet');
 
   // Expense form state
   const [expenseCategory, setExpenseCategory] = useState('');
@@ -213,6 +214,37 @@ const PRESET_EXPENSE_CATEGORIES = [
       'Particulars': e.notes || ''
     }));
     exportToExcel(data, `Operating_Expenses_${new Date().toISOString().slice(0, 10)}`);
+  };
+
+  const handleInlineExpenseChange = (id: string, field: keyof ExpenseRecord, value: any) => {
+    const target = expenses.find(e => e.id === id);
+    if (!target) return;
+    saveExpense({
+      ...target,
+      [field]: field === 'amount' ? (Number(value) || 0) : value,
+      updatedAt: getTodayDateString()
+    });
+  };
+
+  const handleAddNewExpenseRow = () => {
+    const generatedVoucher = getNextNumber('expense') || ('EXP-' + Date.now().toString().slice(-6));
+    const newExp: ExpenseRecord = {
+      id: 'exp-' + Date.now(),
+      expenseNumber: generatedVoucher,
+      voucherNumber: generatedVoucher,
+      date: getTodayDateString(),
+      expenseDate: getTodayDateString(),
+      category: 'Office Supplies & Stationery',
+      amount: 0,
+      currency: 'BDT',
+      paymentMethod: 'Cash',
+      paidTo: '',
+      referenceNumber: '',
+      notes: '',
+      approvedBy: 'Managing Director',
+      createdAt: getTodayDateString()
+    };
+    saveExpense(newExp);
   };
 
   const filteredExpenses = expenses.filter(e => {
@@ -441,85 +473,323 @@ const PRESET_EXPENSE_CATEGORIES = [
                   <option key={cat} value={cat}>{cat}</option>
                 ))}
               </select>
+
+              {/* View Switcher: Editable Sheet vs Vouchers View */}
+              <div className="flex items-center bg-zinc-950 p-1 rounded-lg border border-zinc-700">
+                <button
+                  type="button"
+                  onClick={() => setExpenseViewMode('sheet')}
+                  className={`px-3 py-1 rounded text-xs font-bold transition-colors cursor-pointer ${
+                    expenseViewMode === 'sheet'
+                      ? 'bg-red-600 text-white shadow-xs'
+                      : 'text-zinc-400 hover:text-zinc-200'
+                  }`}
+                >
+                  Editable Sheet
+                </button>
+                <button
+                  type="button"
+                  onClick={() => setExpenseViewMode('table')}
+                  className={`px-3 py-1 rounded text-xs font-bold transition-colors cursor-pointer ${
+                    expenseViewMode === 'table'
+                      ? 'bg-red-600 text-white shadow-xs'
+                      : 'text-zinc-400 hover:text-zinc-200'
+                  }`}
+                >
+                  Vouchers View
+                </button>
+              </div>
             </div>
           </div>
 
-          {/* Expenses Table */}
-          <div className="print:hidden bg-zinc-900 border border-zinc-800 rounded-xl overflow-hidden">
-            <div className="overflow-x-auto">
-              <table className="w-full text-left text-xs">
-                <thead>
-                  <tr className="bg-zinc-950 border-b border-zinc-800 text-zinc-400 font-semibold">
-                    <th className="p-3">Voucher No</th>
-                    <th className="p-3">Date</th>
-                    <th className="p-3">Category</th>
-                    <th className="p-3">Paid To</th>
-                    <th className="p-3">Method &amp; Ref</th>
-                    <th className="p-3 text-right">Amount (BDT)</th>
-                    <th className="p-3">Remarks / Particulars</th>
-                    <th className="p-3 text-right">Actions</th>
-                  </tr>
-                </thead>
-                <tbody className="divide-y divide-zinc-800">
-                  {filteredExpenses.length === 0 ? (
-                    <tr>
-                      <td colSpan={8} className="py-8 text-center text-zinc-500">
-                        No expenses found. Click <strong>Add Expense</strong> to record a new business expense.
-                      </td>
+          {/* VIEW 1: INTERACTIVE EDITABLE EXPENSE SHEET (Spreadsheet Mode) */}
+          {expenseViewMode === 'sheet' && (
+            <div className="print:hidden bg-zinc-900 border border-zinc-800 rounded-xl overflow-hidden shadow-lg">
+              <div className="p-3 bg-zinc-950 border-b border-zinc-800 flex items-center justify-between">
+                <div>
+                  <h3 className="text-xs font-bold text-zinc-200 flex items-center gap-2">
+                    <FileSpreadsheet size={16} className="text-red-400" />
+                    <span>Editable Expense Sheet</span>
+                  </h3>
+                  <p className="text-[11px] text-zinc-400">
+                    Click into any cell to edit dates, categories, payees, amounts, and notes directly.
+                  </p>
+                </div>
+                <button
+                  type="button"
+                  onClick={handleAddNewExpenseRow}
+                  className="flex items-center gap-1.5 px-3 py-1.5 rounded-lg bg-red-600 hover:bg-red-500 text-white font-bold text-xs shadow-xs transition-colors cursor-pointer"
+                >
+                  <Plus size={14} />
+                  <span>+ Add Row to Sheet</span>
+                </button>
+              </div>
+
+              <div className="overflow-x-auto">
+                <table className="w-full text-left text-xs border-collapse">
+                  <thead>
+                    <tr className="bg-zinc-950 text-zinc-400 font-semibold border-b border-zinc-800">
+                      <th className="p-2.5 w-24">Voucher No</th>
+                      <th className="p-2.5 w-32">Date</th>
+                      <th className="p-2.5 w-44">Category</th>
+                      <th className="p-2.5 w-40">Paid To</th>
+                      <th className="p-2.5 w-32">Method</th>
+                      <th className="p-2.5 w-32 text-right">Amount (BDT)</th>
+                      <th className="p-2.5 w-36">Ref No</th>
+                      <th className="p-2.5">Remarks / Particulars</th>
+                      <th className="p-2.5 w-20 text-center">Actions</th>
                     </tr>
-                  ) : (
-                    filteredExpenses.map(e => (
-                      <tr key={e.id} className="hover:bg-zinc-800/40 transition-colors">
-                        <td className="p-3 font-mono font-bold text-red-400">
-                          {e.voucherNumber || e.expenseNumber}
-                        </td>
-                        <td className="p-3 text-zinc-300">{formatDate(e.expenseDate || e.date)}</td>
-                        <td className="p-3 font-semibold text-zinc-200">{e.category}</td>
-                        <td className="p-3 text-zinc-300">{e.paidTo}</td>
-                        <td className="p-3 text-zinc-400">
-                          <span className="font-semibold text-zinc-300">{e.paymentMethod}</span>
-                          {e.referenceNumber && (
-                            <span className="block font-mono text-[10px] text-zinc-500">{e.referenceNumber}</span>
-                          )}
-                        </td>
-                        <td className="p-3 text-right font-mono font-bold text-red-400 text-sm">
-                          {formatCurrency(e.amount)}
-                        </td>
-                        <td className="p-3 text-zinc-500 text-[11px] italic max-w-xs truncate">
-                          {e.notes || '-'}
-                        </td>
-                        <td className="p-3 text-right">
-                          <div className="flex items-center justify-end gap-1.5">
-                            <button
-                              onClick={() => openEditExpenseModal(e)}
-                              className="p-1.5 bg-zinc-800 hover:bg-zinc-700 text-zinc-300 hover:text-amber-400 rounded cursor-pointer transition-colors"
-                              title="Edit Expense Voucher"
-                            >
-                              <Edit size={14} />
-                            </button>
-                            <button
-                              onClick={() => handlePrintExpenseVoucher(e)}
-                              className="p-1.5 bg-zinc-800 hover:bg-zinc-700 text-zinc-200 hover:text-red-400 rounded cursor-pointer transition-colors"
-                              title="Print Debit Voucher"
-                            >
-                              <Printer size={14} />
-                            </button>
-                            <button
-                              onClick={() => setExpenseToDelete(e)}
-                              className="p-1.5 bg-zinc-800 hover:bg-zinc-700 text-zinc-400 hover:text-red-400 rounded cursor-pointer transition-colors"
-                              title="Delete Expense"
-                            >
-                              <Trash2 size={14} />
-                            </button>
-                          </div>
+                  </thead>
+                  <tbody className="divide-y divide-zinc-800">
+                    {filteredExpenses.length === 0 ? (
+                      <tr>
+                        <td colSpan={9} className="py-8 text-center text-zinc-500">
+                          Expense sheet is empty.{' '}
+                          <button
+                            type="button"
+                            onClick={handleAddNewExpenseRow}
+                            className="text-red-400 underline font-bold cursor-pointer"
+                          >
+                            Click here to add the first row
+                          </button>
                         </td>
                       </tr>
-                    ))
+                    ) : (
+                      filteredExpenses.map((e) => (
+                        <tr key={e.id} className="hover:bg-zinc-800/40 transition-colors">
+                          {/* Voucher No */}
+                          <td className="p-2 font-mono font-bold text-red-400 whitespace-nowrap">
+                            {e.voucherNumber || e.expenseNumber}
+                          </td>
+
+                          {/* Date Input */}
+                          <td className="p-1.5">
+                            <input
+                              type="date"
+                              value={e.expenseDate || e.date}
+                              onChange={(evt) => {
+                                handleInlineExpenseChange(e.id, 'expenseDate', evt.target.value);
+                                handleInlineExpenseChange(e.id, 'date', evt.target.value);
+                              }}
+                              className="w-full bg-zinc-950 border border-zinc-700 rounded px-2 py-1 text-zinc-200 text-xs focus:outline-none focus:border-red-500 font-mono"
+                            />
+                          </td>
+
+                          {/* Category Select */}
+                          <td className="p-1.5">
+                            <select
+                              value={e.category}
+                              onChange={(evt) => handleInlineExpenseChange(e.id, 'category', evt.target.value)}
+                              className="w-full bg-zinc-950 border border-zinc-700 rounded px-2 py-1 text-zinc-200 text-xs focus:outline-none focus:border-red-500"
+                            >
+                              {PRESET_EXPENSE_CATEGORIES.map((cat) => (
+                                <option key={cat} value={cat}>
+                                  {cat}
+                                </option>
+                              ))}
+                            </select>
+                          </td>
+
+                          {/* Paid To Input */}
+                          <td className="p-1.5">
+                            <input
+                              type="text"
+                              value={e.paidTo || ''}
+                              placeholder="Payee name"
+                              onChange={(evt) => handleInlineExpenseChange(e.id, 'paidTo', evt.target.value)}
+                              className="w-full bg-zinc-950 border border-zinc-700 rounded px-2 py-1 text-zinc-200 text-xs focus:outline-none focus:border-red-500"
+                            />
+                          </td>
+
+                          {/* Payment Method Select */}
+                          <td className="p-1.5">
+                            <select
+                              value={e.paymentMethod || 'Cash'}
+                              onChange={(evt) => handleInlineExpenseChange(e.id, 'paymentMethod', evt.target.value)}
+                              className="w-full bg-zinc-950 border border-zinc-700 rounded px-2 py-1 text-zinc-200 text-xs focus:outline-none focus:border-red-500"
+                            >
+                              <option value="Cash">Cash</option>
+                              <option value="Bank Transfer">Bank Transfer</option>
+                              <option value="bKash">bKash</option>
+                              <option value="Cheque">Cheque</option>
+                            </select>
+                          </td>
+
+                          {/* Amount Input */}
+                          <td className="p-1.5">
+                            <input
+                              type="number"
+                              min="0"
+                              step="any"
+                              value={e.amount || ''}
+                              onChange={(evt) => handleInlineExpenseChange(e.id, 'amount', evt.target.value)}
+                              className="w-full bg-zinc-950 border border-zinc-700 rounded px-2 py-1 text-red-400 font-mono font-bold text-xs text-right focus:outline-none focus:border-red-500"
+                            />
+                          </td>
+
+                          {/* Ref No Input */}
+                          <td className="p-1.5">
+                            <input
+                              type="text"
+                              value={e.referenceNumber || ''}
+                              placeholder="Txn / Cheque #"
+                              onChange={(evt) => handleInlineExpenseChange(e.id, 'referenceNumber', evt.target.value)}
+                              className="w-full bg-zinc-950 border border-zinc-700 rounded px-2 py-1 text-zinc-200 font-mono text-xs focus:outline-none focus:border-red-500"
+                            />
+                          </td>
+
+                          {/* Remarks / Particulars Input */}
+                          <td className="p-1.5">
+                            <input
+                              type="text"
+                              value={e.notes || ''}
+                              placeholder="Particulars description..."
+                              onChange={(evt) => handleInlineExpenseChange(e.id, 'notes', evt.target.value)}
+                              className="w-full bg-zinc-950 border border-zinc-700 rounded px-2 py-1 text-zinc-200 text-xs focus:outline-none focus:border-red-500"
+                            />
+                          </td>
+
+                          {/* Actions */}
+                          <td className="p-1.5 text-center whitespace-nowrap">
+                            <div className="flex items-center justify-center gap-1">
+                              <button
+                                type="button"
+                                onClick={() => handlePrintExpenseVoucher(e)}
+                                className="p-1.5 bg-zinc-800 hover:bg-zinc-700 text-zinc-200 hover:text-red-400 rounded cursor-pointer transition-colors"
+                                title="Print Voucher"
+                              >
+                                <Printer size={13} />
+                              </button>
+                              <button
+                                type="button"
+                                onClick={() => setExpenseToDelete(e)}
+                                className="p-1.5 bg-zinc-800 hover:bg-zinc-700 text-zinc-400 hover:text-red-400 rounded cursor-pointer transition-colors"
+                                title="Delete Row"
+                              >
+                                <Trash2 size={13} />
+                              </button>
+                            </div>
+                          </td>
+                        </tr>
+                      ))
+                    )}
+                  </tbody>
+                  {filteredExpenses.length > 0 && (
+                    <tfoot>
+                      <tr className="bg-zinc-950 font-bold border-t border-zinc-800 text-zinc-300">
+                        <td colSpan={5} className="p-2.5 text-right uppercase text-[11px] text-zinc-400">
+                          Total Filtered Expenses:
+                        </td>
+                        <td className="p-2.5 text-right font-mono text-red-400 text-sm">
+                          {formatCurrency(filteredExpenses.reduce((sum, e) => sum + (Number(e.amount) || 0), 0))}
+                        </td>
+                        <td colSpan={3} className="p-2.5"></td>
+                      </tr>
+                    </tfoot>
                   )}
-                </tbody>
-              </table>
+                </table>
+              </div>
+
+              {/* Add New Row Footer Button */}
+              <div className="p-2.5 bg-zinc-950 border-t border-zinc-800 flex justify-between items-center text-xs">
+                <span className="text-[11px] text-zinc-500">
+                  Total {filteredExpenses.length} rows recorded in expense sheet.
+                </span>
+                <button
+                  type="button"
+                  onClick={handleAddNewExpenseRow}
+                  className="flex items-center gap-1.5 px-3 py-1 rounded-lg bg-zinc-800 hover:bg-zinc-700 text-red-400 border border-zinc-700 font-bold text-xs transition-colors cursor-pointer"
+                >
+                  <Plus size={13} />
+                  <span>Add Another Expense Row</span>
+                </button>
+              </div>
             </div>
-          </div>
+          )}
+
+          {/* VIEW 2: STANDARD VOUCHERS TABLE */}
+          {expenseViewMode === 'table' && (
+            <div className="print:hidden bg-zinc-900 border border-zinc-800 rounded-xl overflow-hidden">
+              <div className="overflow-x-auto">
+                <table className="w-full text-left text-xs">
+                  <thead>
+                    <tr className="bg-zinc-950 border-b border-zinc-800 text-zinc-400 font-semibold">
+                      <th className="p-3">Voucher No</th>
+                      <th className="p-3">Date</th>
+                      <th className="p-3">Category</th>
+                      <th className="p-3">Paid To</th>
+                      <th className="p-3">Method &amp; Ref</th>
+                      <th className="p-3 text-right">Amount (BDT)</th>
+                      <th className="p-3">Remarks / Particulars</th>
+                      <th className="p-3 text-right">Actions</th>
+                    </tr>
+                  </thead>
+                  <tbody className="divide-y divide-zinc-800">
+                    {filteredExpenses.length === 0 ? (
+                      <tr>
+                        <td colSpan={8} className="py-8 text-center text-zinc-500">
+                          No expenses found. Click <strong>Add Expense</strong> to record a new business expense.
+                        </td>
+                      </tr>
+                    ) : (
+                      filteredExpenses.map((e) => (
+                        <tr key={e.id} className="hover:bg-zinc-800/40 transition-colors">
+                          <td className="p-3 font-mono font-bold text-red-400">
+                            {e.voucherNumber || e.expenseNumber}
+                          </td>
+                          <td className="p-3 text-zinc-300">{formatDate(e.expenseDate || e.date)}</td>
+                          <td className="p-3 font-semibold text-zinc-200">{e.category}</td>
+                          <td className="p-3 text-zinc-300">{e.paidTo}</td>
+                          <td className="p-3 text-zinc-400">
+                            <span className="font-semibold text-zinc-300">{e.paymentMethod}</span>
+                            {e.referenceNumber && (
+                              <span className="block font-mono text-[10px] text-zinc-500">
+                                {e.referenceNumber}
+                              </span>
+                            )}
+                          </td>
+                          <td className="p-3 text-right font-mono font-bold text-red-400 text-sm">
+                            {formatCurrency(e.amount)}
+                          </td>
+                          <td className="p-3 text-zinc-500 text-[11px] italic max-w-xs truncate">
+                            {e.notes || '-'}
+                          </td>
+                          <td className="p-3 text-right">
+                            <div className="flex items-center justify-end gap-1.5">
+                              <button
+                                type="button"
+                                onClick={() => openEditExpenseModal(e)}
+                                className="p-1.5 bg-zinc-800 hover:bg-zinc-700 text-zinc-300 hover:text-amber-400 rounded cursor-pointer transition-colors"
+                                title="Edit Expense Voucher"
+                              >
+                                <Edit size={14} />
+                              </button>
+                              <button
+                                type="button"
+                                onClick={() => handlePrintExpenseVoucher(e)}
+                                className="p-1.5 bg-zinc-800 hover:bg-zinc-700 text-zinc-200 hover:text-red-400 rounded cursor-pointer transition-colors"
+                                title="Print Debit Voucher"
+                              >
+                                <Printer size={14} />
+                              </button>
+                              <button
+                                type="button"
+                                onClick={() => setExpenseToDelete(e)}
+                                className="p-1.5 bg-zinc-800 hover:bg-zinc-700 text-zinc-400 hover:text-red-400 rounded cursor-pointer transition-colors"
+                                title="Delete Expense"
+                              >
+                                <Trash2 size={14} />
+                              </button>
+                            </div>
+                          </td>
+                        </tr>
+                      ))
+                    )}
+                  </tbody>
+                </table>
+              </div>
+            </div>
+          )}
         </div>
       )}
 

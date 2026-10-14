@@ -232,9 +232,18 @@
     break-before: page !important;
   }
 
+  .combo-print-wrapper {
+    page-break-after: avoid !important;
+    break-after: avoid !important;
+  }
+
   .combo-invoice-page {
     page-break-after: always !important;
     break-after: page !important;
+    page-break-inside: avoid !important;
+    break-inside: avoid !important;
+    max-height: 275mm !important;
+    overflow: hidden !important;
   }
 
   .combo-slip-page {
@@ -242,6 +251,10 @@
     break-before: auto !important;
     page-break-after: avoid !important;
     break-after: avoid !important;
+    page-break-inside: avoid !important;
+    break-inside: avoid !important;
+    max-height: 275mm !important;
+    overflow: hidden !important;
   }
   
   .print-container {

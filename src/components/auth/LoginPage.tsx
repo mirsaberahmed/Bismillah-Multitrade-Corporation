@@ -379,27 +379,27 @@ export const LoginPage: React.FC<LoginPageProps> = ({ onLoginSuccess }) => {
           {/* Gradient Overlay for Deep Navy Contrast */}
           <div className="absolute inset-0 bg-gradient-to-b from-[#0B1B2E]/95 via-[#0B1B2E]/90 to-[#0B1B2E]/98" />
 
-          {/* Top Brand Block */}
-          <div className="relative z-10 space-y-4">
-            <div className="flex items-center gap-3">
-              <div className="w-12 h-12 rounded-2xl bg-gradient-to-br from-orange-400 via-orange-500 to-orange-600 flex items-center justify-center text-white shadow-lg shadow-orange-500/30 shrink-0">
-                <BalmBottleLogo size={28} className="drop-shadow-xs" />
-              </div>
-              <div>
-                <span className="text-[10px] font-bold text-orange-400 tracking-widest uppercase block">
-                  Enterprise ERP Suite
-                </span>
-                <h1 className="text-sm sm:text-base font-black tracking-tight text-white uppercase leading-tight">
-                  BISMILLAH MULTITRADE
-                </h1>
-                <p className="text-[11px] font-bold text-orange-500 leading-tight">
-                  Import and export concern.
-                </p>
-              </div>
+          {/* Top Brand Block - Centered Layout */}
+          <div className="relative z-10 flex flex-col items-center text-center space-y-4 my-auto">
+            {/* Logo centered above title, size 29mm */}
+            <div
+              className="flex items-center justify-center mx-auto mb-2 select-none"
+              style={{ width: '29mm', height: '29mm' }}
+            >
+              <BalmBottleLogo size={105} className="drop-shadow-xl" />
             </div>
 
-            {/* Tagline Card */}
-            <div className="p-3.5 rounded-2xl bg-white/5 border border-white/10 backdrop-blur-md">
+            <div>
+              <h1 className="text-base sm:text-lg font-black tracking-tight text-white uppercase leading-tight font-sans">
+                BISMILLAH MULTITRADE CORPORATION
+              </h1>
+              <p className="text-xs sm:text-sm font-bold text-orange-400 mt-1 uppercase tracking-wider">
+                Import. Export. Global Trade
+              </p>
+            </div>
+
+            {/* Official Motto Card */}
+            <div className="p-3.5 rounded-2xl bg-white/5 border border-white/10 backdrop-blur-md w-full max-w-xs mx-auto">
               <span className="text-[10px] font-bold text-orange-400 uppercase tracking-widest block mb-0.5">
                 Official Motto
               </span>
@@ -409,41 +409,11 @@ export const LoginPage: React.FC<LoginPageProps> = ({ onLoginSuccess }) => {
             </div>
           </div>
 
-          {/* Middle Value Bullets */}
-          <div className="relative z-10 my-6 space-y-2.5 text-xs text-slate-300">
-            <div className="flex items-center gap-2">
-              <span className="w-5 h-5 rounded-full bg-orange-500/20 text-orange-400 flex items-center justify-center font-bold text-[10px] shrink-0">
-                ✓
-              </span>
-              <span>30ml Amber Glass Balm Production &amp; Distribution</span>
-            </div>
-            <div className="flex items-center gap-2">
-              <span className="w-5 h-5 rounded-full bg-orange-500/20 text-orange-400 flex items-center justify-center font-bold text-[10px] shrink-0">
-                ✓
-              </span>
-              <span>Enterprise RBAC with Administrative Approval</span>
-            </div>
-            <div className="flex items-center gap-2">
-              <span className="w-5 h-5 rounded-full bg-orange-500/20 text-orange-400 flex items-center justify-center font-bold text-[10px] shrink-0">
-                ✓
-              </span>
-              <span>Dual Delivery Challan &amp; Money Receipt Audits</span>
-            </div>
-            <div className="flex items-center gap-2">
-              <span className="w-5 h-5 rounded-full bg-orange-500/20 text-orange-400 flex items-center justify-center font-bold text-[10px] shrink-0">
-                ✓
-              </span>
-              <span>Instant Multi-Format Invoice &amp; Slip Export</span>
-            </div>
-          </div>
-
-          {/* Bottom Security Badge */}
-          <div className="relative z-10 pt-4 border-t border-white/10 flex items-center justify-between text-[11px] text-slate-400">
-            <span className="flex items-center gap-1.5 font-medium">
-              <Shield size={14} className="text-emerald-400" />
-              <span>TLS / Role-Hardened Portal</span>
+          {/* Bottom Developer Credit & Copyright */}
+          <div className="relative z-10 pt-4 border-t border-white/10 text-center w-full">
+            <span className="text-xs font-bold text-orange-400 tracking-wide block">
+              Developed by: MIR SABER AHMED AKIL
             </span>
-            <span className="font-mono text-orange-400 font-bold">v3.5 Enterprise</span>
           </div>
         </div>
 
@@ -573,43 +543,13 @@ export const LoginPage: React.FC<LoginPageProps> = ({ onLoginSuccess }) => {
                     className="w-full py-3 px-4 bg-[#0B1B2E] hover:bg-slate-800 text-white font-bold text-sm rounded-xl shadow-md transition-all flex items-center justify-center gap-2 cursor-pointer active:scale-[0.99]"
                   >
                     <Lock size={16} className="text-orange-400" />
-                    <span>Sign In to ERP</span>
+                    <span>Sign In</span>
                   </button>
                 </form>
 
-                {/* Quick Account Switcher (For Demo & Fast Audit) */}
-                <div className="pt-4 border-t border-slate-100">
-                  <span className="text-[10px] font-bold text-slate-400 uppercase tracking-wider block mb-2">
-                    Quick Role Sign-In (Demo Testing):
-                  </span>
-                  <div className="flex flex-wrap gap-1.5">
-                    {[
-                      { label: 'Super Admin', user: 'admin', pass: '1234' },
-                      { label: 'Admin', user: 'rafiqul', pass: '1234' },
-                      { label: 'Accountant', user: 'tahmina', pass: '1234' },
-                      { label: 'Sales', user: 'kamal', pass: '1234' },
-                      { label: 'Inventory', user: 'faruk', pass: '1234' },
-                      { label: 'Delivery', user: 'nasir', pass: '1234' }
-                    ].map((btn) => (
-                      <button
-                        key={btn.label}
-                        type="button"
-                        onClick={() => {
-                          setLoginIdentifier(btn.user);
-                          setPassword(btn.pass);
-                          setError('');
-                        }}
-                        className="px-2.5 py-1 rounded-lg bg-slate-100 hover:bg-orange-100 hover:text-orange-700 text-slate-700 text-[11px] font-bold transition-colors cursor-pointer"
-                      >
-                        {btn.label}
-                      </button>
-                    ))}
-                  </div>
-                </div>
-
                 {/* Register Link */}
-                <div className="pt-2 text-center text-xs text-slate-600">
-                  <span>Don't have an enterprise account? </span>
+                <div className="pt-4 text-center text-xs text-slate-600 border-t border-slate-100">
+                  <span>Don't have an account? </span>
                   <button
                     type="button"
                     onClick={() => {
@@ -620,7 +560,7 @@ export const LoginPage: React.FC<LoginPageProps> = ({ onLoginSuccess }) => {
                     }}
                     className="font-bold text-orange-600 hover:text-orange-700 underline cursor-pointer"
                   >
-                    Register as New User / Employee
+                    Register
                   </button>
                 </div>
               </div>
@@ -1007,7 +947,7 @@ export const LoginPage: React.FC<LoginPageProps> = ({ onLoginSuccess }) => {
           {/* Bottom Security Info Footer */}
           <div className="pt-4 border-t border-slate-100 flex items-center justify-between text-[11px] text-slate-400">
             <span>© 2026 Bismillah Multitrade Corporation</span>
-            <span>Support: +880 1819-223344</span>
+            <span>Support: +880 1400967693</span>
           </div>
         </div>
       </div>

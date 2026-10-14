@@ -207,8 +207,8 @@ export const PrintableDeliverySlip: React.FC<Props> = ({ deliverySlip, settings 
         </div>
       </div>
 
-      {/* Signature Block - Signature on Top, Name Below (Moved 1 inch lower) */}
-      <div className="pt-3 mt-[1in] flex justify-end">
+      {/* Signature Block - Signature on Top, Name Below */}
+      <div className="pt-2 mt-4 print:mt-2 flex justify-end">
         <div className="text-center w-64">
           {/* Signature Image on Top of Line */}
           <div className="h-[32mm] flex flex-col items-center justify-end pb-1">

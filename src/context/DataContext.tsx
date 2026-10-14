@@ -2129,13 +2129,21 @@ export const DataProvider: React.FC<{ children: React.ReactNode }> = ({ children
   };
 
   const deleteUser = (id: string): boolean => {
+    if (currentUser?.role !== 'Super Admin') {
+      alert('Permission Denied: Only a Super Admin can delete or remove user accounts.');
+      return false;
+    }
     if (users.length <= 1) {
       alert('Cannot delete the only remaining user account.');
       return false;
     }
     const target = users.find(u => u.id === id);
+    if (target?.id === currentUser?.id) {
+      alert('You cannot delete your own Super Admin account.');
+      return false;
+    }
     setUsers(prev => prev.filter(u => u.id !== id));
-    logActivity('User Deleted', `Deleted user account ${target?.username || id}`);
+    logActivity('User Deleted', `Super Admin deleted user account ${target?.username || id}`);
     return true;
   };
 
