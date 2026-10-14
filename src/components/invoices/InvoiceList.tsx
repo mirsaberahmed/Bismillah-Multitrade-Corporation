@@ -14,13 +14,16 @@ import {
   Calendar,
   CheckCircle2,
   Clock,
-  AlertCircle
+  AlertCircle,
+  MessageSquare
 } from 'lucide-react';
 import { useData } from '../../context/DataContext';
 import { SalesInvoice, PaymentStatus, DeliveryStatus } from '../../types';
 import { formatCurrency, formatDate, getDateRangePreset } from '../../utils/formatters';
 import { exportToExcel, exportToCSV } from '../../utils/exportImport';
 import { ConfirmModal } from '../common/ConfirmModal';
+import { WhatsAppSendModal } from '../common/WhatsAppSendModal';
+import { generateInvoiceWhatsAppText } from '../../utils/whatsapp';
 
 interface Props {
   onSelectInvoice: (id: string) => void;
@@ -42,9 +45,15 @@ export const InvoiceList: React.FC<Props> = ({
   const [dateRangePreset, setDateRangePreset] = useState<string>('this_year');
   const [customStartDate, setCustomStartDate] = useState('');
   const [customEndDate, setCustomEndDate] = useState('');
-  const [selectedIds, setSelectedIds] = useState<string[]>([]);
   const [invoiceToDelete, setInvoiceToDelete] = useState<SalesInvoice | null>(null);
+  const [selectedIds, setSelectedIds] = useState<string[]>([]);
   const [isBulkDeleting, setIsBulkDeleting] = useState(false);
+  const [whatsAppModal, setWhatsAppModal] = useState<{ isOpen: boolean; title: string; phone: string; message: string }>({
+    isOpen: false,
+    title: '',
+    phone: '',
+    message: ''
+  });
 
   // Apply date range
   const { start: presetStart, end: presetEnd } = getDateRangePreset(dateRangePreset);
@@ -385,6 +394,21 @@ export const InvoiceList: React.FC<Props> = ({
                     <td className="p-3 text-right">
                       <div className="flex items-center justify-end gap-1">
                         <button
+                          onClick={() => {
+                            const text = generateInvoiceWhatsAppText(inv, 'Bismillah Multitrade Corporation');
+                            setWhatsAppModal({
+                              isOpen: true,
+                              title: `Send Invoice #${inv.invoiceNumber} to WhatsApp`,
+                              phone: inv.customerPhone || '',
+                              message: text
+                            });
+                          }}
+                          className="p-1.5 hover:bg-emerald-900/40 rounded text-emerald-400 hover:text-emerald-300"
+                          title="Send to WhatsApp"
+                        >
+                          <MessageSquare size={15} />
+                        </button>
+                        <button
                           onClick={() => onSelectInvoice(inv.id)}
                           className="p-1.5 hover:bg-zinc-700 rounded text-zinc-300 hover:text-amber-400"
                           title="Open Invoice & Delivery Slip Details"
@@ -447,6 +471,15 @@ export const InvoiceList: React.FC<Props> = ({
           setIsBulkDeleting(false);
         }}
         onCancel={() => setIsBulkDeleting(false)}
+      />
+
+      {/* WhatsApp Modal */}
+      <WhatsAppSendModal
+        isOpen={whatsAppModal.isOpen}
+        onClose={() => setWhatsAppModal(prev => ({ ...prev, isOpen: false }))}
+        title={whatsAppModal.title}
+        defaultPhone={whatsAppModal.phone}
+        initialMessage={whatsAppModal.message}
       />
     </div>
   );

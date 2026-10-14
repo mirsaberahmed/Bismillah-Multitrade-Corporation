@@ -1,0 +1,140 @@
+{
+  "entities": {
+    "ErpSectionDoc": {
+      "title": "ErpSectionDoc",
+      "description": "Stores a synchronized ERP module collection payload and metadata in Firestore for cross-device persistence.",
+      "type": "object",
+      "properties": {
+        "orgKey": {
+          "type": "string",
+          "description": "Organization identifier key for access validation.",
+          "maxLength": 64,
+          "minLength": 5,
+          "pattern": "^[a-zA-Z0-9_\\-]+$"
+        },
+        "sectionId": {
+          "type": "string",
+          "description": "The identifier of the ERP section (e.g. invoices, customers, deliverySlips, products, settings).",
+          "maxLength": 64,
+          "minLength": 2,
+          "pattern": "^[a-zA-Z0-9_\\-]+$"
+        },
+        "payloadJson": {
+          "type": "string",
+          "description": "Serialized state for the ERP module section.",
+          "maxLength": 950000,
+          "minLength": 2
+        },
+        "updatedAtIso": {
+          "type": "string",
+          "description": "ISO timestamp of last update.",
+          "maxLength": 64,
+          "minLength": 10
+        },
+        "updatedBy": {
+          "type": "string",
+          "description": "Username of the operator who performed the update.",
+          "maxLength": 128,
+          "minLength": 1
+        }
+      },
+      "required": ["orgKey", "sectionId", "payloadJson", "updatedAtIso", "updatedBy"]
+    },
+    "AuthAccountDoc": {
+      "title": "AuthAccountDoc",
+      "description": "Stores login credentials (username, PIN, recovery info, and optional biometric passkey metadata) for the ERP login page.",
+      "type": "object",
+      "properties": {
+        "orgKey": {
+          "type": "string",
+          "description": "Organization identifier key for access validation.",
+          "maxLength": 64,
+          "minLength": 5,
+          "pattern": "^[a-zA-Z0-9_\\-]+$"
+        },
+        "accountId": {
+          "type": "string",
+          "description": "Unique account identifier.",
+          "maxLength": 64,
+          "minLength": 2,
+          "pattern": "^[a-zA-Z0-9_\\-]+$"
+        },
+        "username": {
+          "type": "string",
+          "description": "Login username.",
+          "maxLength": 64,
+          "minLength": 2
+        },
+        "pin": {
+          "type": "string",
+          "description": "Login PIN code.",
+          "maxLength": 32,
+          "minLength": 4
+        },
+        "displayName": {
+          "type": "string",
+          "description": "Display name of the user.",
+          "maxLength": 128,
+          "minLength": 1
+        },
+        "role": {
+          "type": "string",
+          "description": "User role in the ERP.",
+          "maxLength": 64,
+          "minLength": 2
+        },
+        "fingerprintEnabled": {
+          "type": "boolean",
+          "description": "Whether fingerprint login is enabled for this account."
+        },
+        "credentialId": {
+          "type": "string",
+          "description": "Optional WebAuthn credential ID encoded in base64url.",
+          "maxLength": 512,
+          "minLength": 0
+        },
+        "updatedAtIso": {
+          "type": "string",
+          "description": "ISO timestamp of last credential update.",
+          "maxLength": 64,
+          "minLength": 10
+        }
+      },
+      "required": ["orgKey", "accountId", "username", "pin", "displayName", "role", "fingerprintEnabled", "credentialId", "updatedAtIso"]
+    },
+    "ConnectionTestDoc": {
+      "title": "ConnectionTestDoc",
+      "description": "Diagnostic document used to verify Firestore connectivity on startup.",
+      "type": "object",
+      "properties": {
+        "orgKey": {
+          "type": "string",
+          "description": "Organization key.",
+          "maxLength": 64,
+          "minLength": 5
+        },
+        "status": {
+          "type": "string",
+          "description": "Connection status indicator.",
+          "maxLength": 32,
+          "minLength": 2
+        }
+      },
+      "required": ["orgKey", "status"]
+    }
+  },
+  "firestore": {
+    "/erp_sections/{sectionId}": {
+      "schema": { "$ref": "#/entities/ErpSectionDoc" },
+      "description": "Stores real-time synchronized ERP data modules (invoices, customers, deliverySlips, products, payments, settings, etc.)."
+    },
+    "/erp_auth_accounts/{accountId}": {
+      "schema": { "$ref": "#/entities/AuthAccountDoc" },
+      "description": "Stores ERP user login credentials (username, PIN, forgot-PIN reset, and fingerprint registration)."
+    },
+    "/test/{testId}": {
+      "schema": { "$ref": "#/entities/ConnectionTestDoc" },
+      "description": "Used by getDocFromServer on boot to verify online connectivity to Firestore."
+    }
+  }
+}

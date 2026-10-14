@@ -1,6 +1,7 @@
 import React from 'react';
 import { DeliverySlip, CompanySettings } from '../../types';
 import { formatDate } from '../../utils/formatters';
+import { BISMILLAH_SIGNATURE_DATA_URI } from '../../data/signatureData';
 
 interface Props {
   deliverySlip: DeliverySlip;
@@ -209,8 +210,13 @@ export const PrintableDeliverySlip: React.FC<Props> = ({ deliverySlip, settings 
       {/* Signature Block - Signature on Top, Name Below (Moved 1 inch lower) */}
       <div className="pt-3 mt-[1in] flex justify-end">
         <div className="text-center w-64">
-          {/* Signature Space on Top */}
-          <div className="h-12 flex items-end justify-center pb-1">
+          {/* Signature Image on Top of Line */}
+          <div className="h-[32mm] flex flex-col items-center justify-end pb-1">
+            <img
+              src={BISMILLAH_SIGNATURE_DATA_URI}
+              alt="Bismillah Multitrade Official Seal & Signature"
+              className="w-[29mm] h-[29mm] object-contain mb-0.5 select-none pointer-events-none"
+            />
             <div className="w-56 border-b border-black"></div>
           </div>
           {/* Name Underneath */}

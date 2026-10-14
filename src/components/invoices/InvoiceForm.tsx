@@ -14,6 +14,9 @@ import {
 import { useData } from '../../context/DataContext';
 import { SalesInvoice, InvoiceItem } from '../../types';
 import { getTodayDateString, numberToWordsBDT, formatCurrency } from '../../utils/formatters';
+import { WhatsAppSendModal } from '../common/WhatsAppSendModal';
+import { generateInvoiceWhatsAppText } from '../../utils/whatsapp';
+import { MessageSquare, CheckCircle2 } from 'lucide-react';
 
 interface Props {
   invoiceId?: string; // If editing
@@ -28,6 +31,7 @@ export const InvoiceForm: React.FC<Props> = ({ invoiceId, onCancel, onSuccess })
     products,
     invoices,
     saveInvoice,
+    saveCustomer,
     getNextNumber
   } = useData();
 
@@ -61,7 +65,7 @@ export const InvoiceForm: React.FC<Props> = ({ invoiceId, onCancel, onSuccess })
   const [poNumber, setPoNumber] = useState(existingInvoice?.poNumber || '');
   const [referenceNumber, setReferenceNumber] = useState(existingInvoice?.referenceNumber || '');
   const [paymentTerms, setPaymentTerms] = useState(existingInvoice?.paymentTerms || '15 Days Credit');
-  const [salesPerson, setSalesPerson] = useState(existingInvoice?.salesPerson || 'Executive Sales Desk');
+  const [salesPerson, setSalesPerson] = useState(existingInvoice?.salesPerson || 'Executive');
   const [currency, setCurrency] = useState(existingInvoice?.currency || 'BDT');
   const [exchangeRate, setExchangeRate] = useState<number>(existingInvoice?.exchangeRate || 1);
 
@@ -102,20 +106,68 @@ export const InvoiceForm: React.FC<Props> = ({ invoiceId, onCancel, onSuccess })
   // Payment Option checkbox (defaults to false; only show on invoice if ticked)
   const [showPaymentDetails, setShowPaymentDetails] = useState<boolean>(existingInvoice?.showPaymentDetails ?? false);
 
-  // When an existing customer is selected from optional picker, populate contact fields
+  const [showCustomerDropdown, setShowCustomerDropdown] = useState(false);
+  const [customerSavedNotice, setCustomerSavedNotice] = useState(false);
+  const [createdInvoice, setCreatedInvoice] = useState<SalesInvoice | null>(null);
+  const [whatsAppModalOpen, setWhatsAppModalOpen] = useState(false);
+
+  // When an existing customer is selected from dropdown, populate all contact & billing fields
   const handleCustomerChange = (id: string) => {
     setCustomerId(id);
+    if (!id) return;
     const selected = customers.find(c => c.id === id);
     if (selected) {
-      setCustomerName(selected.customerName);
-      setCompanyName(selected.companyName);
-      setCustomerPhone(selected.phone);
-      setCustomerEmail(selected.email);
-      setCustomerAddress(selected.billingAddress);
+      setCustomerName(selected.customerName || '');
+      setCompanyName(selected.companyName || '');
+      setCustomerPhone(selected.phone || '');
+      setCustomerEmail(selected.email || '');
+      setCustomerAddress(selected.billingAddress || selected.shippingAddress || '');
       setCustomerBin(selected.binNumber || '');
       setCustomerTin(selected.tinNumber || '');
       setPreviousDue(selected.currentBalance || 0);
+      if (selected.paymentTerms) setPaymentTerms(selected.paymentTerms);
     }
+  };
+
+  // Explicitly save/update customer info to Cloud & Customer Directory
+  const handleQuickSaveCustomer = () => {
+    if (!customerName.trim()) {
+      return;
+    }
+    const existing = customers.find(
+      c =>
+        (customerId && c.id === customerId) ||
+        c.customerName.trim().toLowerCase() === customerName.trim().toLowerCase() ||
+        (customerPhone.trim() && c.phone.trim() === customerPhone.trim())
+    );
+    const custId = existing?.id || customerId || 'cust-' + Date.now();
+    saveCustomer({
+      id: custId,
+      customerId: existing?.customerId || ('CUST-' + Date.now().toString().slice(-4)),
+      customerName: customerName.trim(),
+      companyName: (companyName || customerName).trim(),
+      customerType: existing?.customerType || 'Corporate',
+      contactPerson: customerName.trim(),
+      phone: customerPhone.trim(),
+      email: customerEmail.trim(),
+      billingAddress: customerAddress.trim(),
+      shippingAddress: customerAddress.trim(),
+      city: existing?.city || 'Dhaka',
+      district: existing?.district || 'Dhaka',
+      country: existing?.country || 'Bangladesh',
+      postalCode: existing?.postalCode || '1216',
+      binNumber: customerBin.trim(),
+      tinNumber: customerTin.trim(),
+      openingBalance: existing?.openingBalance ?? previousDue,
+      currentBalance: existing?.currentBalance ?? previousDue,
+      creditLimit: existing?.creditLimit || 500000,
+      paymentTerms: paymentTerms || '15 Days Credit',
+      createdAt: existing?.createdAt || getTodayDateString(),
+      updatedAt: getTodayDateString()
+    });
+    setCustomerId(custId);
+    setCustomerSavedNotice(true);
+    setTimeout(() => setCustomerSavedNotice(false), 3000);
   };
 
   // Product Selection handler for an item row
@@ -301,11 +353,17 @@ export const InvoiceForm: React.FC<Props> = ({ invoiceId, onCancel, onSuccess })
     };
 
     const savedId = saveInvoice(fullInvoice);
-    onSuccess(savedId);
+    if (!isEditing) {
+      setCreatedInvoice(fullInvoice);
+      setWhatsAppModalOpen(true);
+    } else {
+      onSuccess(savedId);
+    }
   };
 
   return (
-    <form onSubmit={handleSubmit} className="space-y-6 pb-12">
+    <>
+      <form onSubmit={handleSubmit} className="space-y-6 pb-12">
       {/* Header Bar */}
       <div className="flex flex-col sm:flex-row sm:items-center justify-between gap-3 bg-zinc-900 border border-zinc-800 p-4 rounded-xl">
         <div className="flex items-center gap-3">
@@ -393,51 +451,147 @@ export const InvoiceForm: React.FC<Props> = ({ invoiceId, onCancel, onSuccess })
 
       {/* Customer & Billing Information Box */}
       <div className="bg-zinc-900 border border-zinc-800 p-4 rounded-xl space-y-4">
-        <div className="flex items-center justify-between border-b border-zinc-800 pb-2">
-          <h2 className="text-xs font-bold uppercase tracking-wider text-amber-500 flex items-center gap-1.5">
-            <User size={15} />
-            Customer &amp; Billing Details
-          </h2>
-          <span className="text-[11px] text-zinc-400">
-            Write any custom customer name directly or select an existing customer from database.
-          </span>
+        <div className="flex flex-wrap items-center justify-between gap-2 border-b border-zinc-800 pb-2.5">
+          <div>
+            <h2 className="text-xs font-bold uppercase tracking-wider text-amber-500 flex items-center gap-1.5">
+              <User size={15} />
+              Customer &amp; Billing Details
+            </h2>
+            <p className="text-[11px] text-zinc-400 mt-0.5">
+              Select a saved customer from the dropdown below or type new customer details (auto-saves to cloud).
+            </p>
+          </div>
+
+          <div className="flex items-center gap-2">
+            {customerSavedNotice && (
+              <span className="px-2.5 py-1 rounded-md bg-emerald-500/20 border border-emerald-500/40 text-emerald-300 text-[11px] font-bold">
+                ✓ Customer Saved to Cloud
+              </span>
+            )}
+            <button
+              type="button"
+              onClick={handleQuickSaveCustomer}
+              disabled={!customerName.trim()}
+              className="flex items-center gap-1.5 px-3 py-1.5 bg-amber-500/20 hover:bg-amber-500/30 disabled:opacity-40 text-amber-300 border border-amber-500/40 rounded-lg text-xs font-bold transition-colors cursor-pointer"
+              title="Save this customer to Cloud Directory for future invoices"
+            >
+              <Save size={13} />
+              <span>Save Customer Info</span>
+            </button>
+          </div>
         </div>
 
         <div className="grid grid-cols-1 sm:grid-cols-3 lg:grid-cols-4 gap-4 text-xs">
-          {/* Custom Customer Name Input (Text only, select option removed) */}
-          <div className="sm:col-span-2">
+          {/* Customer Name Input with Built-In Saved Customer Dropdown */}
+          <div className="sm:col-span-2 relative">
             <div className="flex items-center justify-between mb-1">
               <label className="text-zinc-300 font-bold flex items-center gap-1.5">
                 <span>Customer Name *</span>
               </label>
+              {customers.length > 0 && (
+                <button
+                  type="button"
+                  onMouseDown={(e) => {
+                    e.preventDefault();
+                    setShowCustomerDropdown(prev => !prev);
+                  }}
+                  className="text-[11px] text-amber-400 hover:text-amber-300 font-semibold cursor-pointer"
+                >
+                  {showCustomerDropdown ? 'Hide List ▲' : `Saved List (${customers.length}) ▼`}
+                </button>
+              )}
             </div>
-            <input
-              type="text"
-              required
-              placeholder="Type customer name (e.g. Saber Ahmed / Meghna Steel)"
-              value={customerName}
-              onChange={(e) => {
-                const val = e.target.value;
-                setCustomerName(val);
-                const matched = customers.find(
-                  c => c.customerName.toLowerCase() === val.toLowerCase() ||
-                       c.companyName.toLowerCase() === val.toLowerCase()
-                );
-                if (matched) {
-                  setCustomerId(matched.id);
-                  if (!companyName) setCompanyName(matched.companyName);
-                  if (!customerPhone) setCustomerPhone(matched.phone);
-                  if (!customerEmail) setCustomerEmail(matched.email);
-                  if (!customerAddress) setCustomerAddress(matched.billingAddress);
-                  if (!customerBin) setCustomerBin(matched.binNumber || '');
-                  if (!customerTin) setCustomerTin(matched.tinNumber || '');
-                  if (previousDue === 0) setPreviousDue(matched.currentBalance || 0);
-                } else {
-                  setCustomerId('');
-                }
-              }}
-              className="w-full bg-zinc-950 border border-zinc-700 rounded-lg px-3 py-2 text-zinc-100 font-semibold focus:outline-none focus:border-amber-500 text-sm"
-            />
+            <div className="relative">
+              <input
+                type="text"
+                required
+                placeholder="Click to select saved customer or type new name..."
+                value={customerName}
+                onFocus={() => setShowCustomerDropdown(true)}
+                onClick={() => setShowCustomerDropdown(true)}
+                onBlur={() => setTimeout(() => setShowCustomerDropdown(false), 200)}
+                onChange={(e) => {
+                  const val = e.target.value;
+                  setCustomerName(val);
+                  setShowCustomerDropdown(true);
+                  const matched = customers.find(
+                    c => c.customerName.toLowerCase() === val.trim().toLowerCase() ||
+                         (c.companyName && c.companyName.toLowerCase() === val.trim().toLowerCase())
+                  );
+                  if (matched) {
+                    handleCustomerChange(matched.id);
+                  } else {
+                    setCustomerId('');
+                  }
+                }}
+                className="w-full bg-zinc-950 border border-zinc-700 rounded-lg pl-3 pr-9 py-2 text-zinc-100 font-semibold focus:outline-none focus:border-amber-500 text-sm"
+              />
+              {customers.length > 0 && (
+                <button
+                  type="button"
+                  tabIndex={-1}
+                  onMouseDown={(e) => {
+                    e.preventDefault();
+                    setShowCustomerDropdown(prev => !prev);
+                  }}
+                  className="absolute right-2.5 top-1/2 -translate-y-1/2 text-zinc-400 hover:text-amber-400 text-xs px-1 cursor-pointer"
+                  title="Show Saved Customers"
+                >
+                  ▼
+                </button>
+              )}
+            </div>
+
+            {/* Interactive Dropdown Menu inside Customer Name Box */}
+            {showCustomerDropdown && customers.length > 0 && (
+              <div className="absolute left-0 right-0 top-full mt-1 z-30 bg-zinc-900 border border-amber-500/50 rounded-xl shadow-2xl max-h-64 overflow-y-auto divide-y divide-zinc-800">
+                <div className="px-3 py-1.5 bg-zinc-950 text-[10px] font-bold uppercase tracking-wider text-amber-400 flex items-center justify-between">
+                  <span>Saved Customers ({customers.length})</span>
+                  <span>Select to Auto-Fill</span>
+                </div>
+                {(() => {
+                  const q = customerName.trim().toLowerCase();
+                  const exactMatch = customers.some(
+                    c => c.customerName.trim().toLowerCase() === q
+                  );
+                  const filteredCustomers = (!q || exactMatch)
+                    ? customers
+                    : customers.filter(c =>
+                        c.customerName.toLowerCase().includes(q) ||
+                        (c.companyName && c.companyName.toLowerCase().includes(q)) ||
+                        (c.phone && c.phone.includes(q))
+                      );
+                  const listToShow = filteredCustomers.length > 0 ? filteredCustomers : customers;
+                  return listToShow.map(c => (
+                    <button
+                      type="button"
+                      key={c.id}
+                      onMouseDown={(e) => {
+                        e.preventDefault();
+                        handleCustomerChange(c.id);
+                        setShowCustomerDropdown(false);
+                      }}
+                      className={`w-full text-left px-3 py-2.5 hover:bg-zinc-800 transition-colors flex flex-col gap-0.5 cursor-pointer ${
+                        customerId === c.id ? 'bg-amber-500/10 border-l-2 border-amber-500' : ''
+                      }`}
+                    >
+                      <div className="flex items-center justify-between gap-2">
+                        <span className="font-bold text-zinc-100 text-xs">{c.customerName}</span>
+                        {c.phone && (
+                          <span className="font-mono text-[11px] text-amber-400 font-semibold">{c.phone}</span>
+                        )}
+                      </div>
+                      <div className="flex items-center justify-between gap-2 text-[11px] text-zinc-400">
+                        <span className="truncate font-medium text-amber-300/90">{c.companyName}</span>
+                        {c.billingAddress && (
+                          <span className="truncate text-zinc-500 max-w-[220px]">{c.billingAddress}</span>
+                        )}
+                      </div>
+                    </button>
+                  ));
+                })()}
+              </div>
+            )}
           </div>
 
           <div>
@@ -496,9 +650,12 @@ export const InvoiceForm: React.FC<Props> = ({ invoiceId, onCancel, onSuccess })
             <label className="block text-zinc-400 font-medium mb-1">Customer Previous Due (BDT)</label>
             <input
               type="number"
-              value={previousDue}
-              onChange={(e) => setPreviousDue(Number(e.target.value))}
-              className="w-full bg-zinc-950 border border-zinc-700 rounded-lg px-3 py-1.5 text-amber-400 font-bold focus:outline-none focus:border-amber-500 font-mono"
+              placeholder="0"
+              value={previousDue === 0 ? '' : previousDue}
+              onFocus={(e) => e.target.select()}
+              onClick={(e) => (e.target as HTMLInputElement).select()}
+              onChange={(e) => setPreviousDue(e.target.value === '' ? 0 : Number(e.target.value))}
+              className="w-full bg-zinc-950 border border-zinc-700 rounded-lg px-3 py-1.5 text-amber-400 font-bold focus:outline-none focus:border-amber-500 font-mono focus:placeholder-transparent"
             />
           </div>
         </div>
@@ -531,7 +688,7 @@ export const InvoiceForm: React.FC<Props> = ({ invoiceId, onCancel, onSuccess })
                 <th className="pb-2 w-20">Quantity</th>
                 <th className="pb-2 w-16 text-center">Unit</th>
                 <th className="pb-2 w-28 text-right">Unit Price</th>
-                <th className="pb-2 w-24 text-right">Disc. (৳)</th>
+                <th className="pb-2 w-24 text-right">Disc. (BDT)</th>
                 <th className="pb-2 w-16 text-right">VAT%</th>
                 <th className="pb-2 w-28 text-right">Line Total</th>
                 <th className="pb-2 w-10 text-center">Del</th>
@@ -579,7 +736,7 @@ export const InvoiceForm: React.FC<Props> = ({ invoiceId, onCancel, onSuccess })
                         <option value="">-- Select Product (BURMIS PAIN RELIEF BALM) --</option>
                         {products.map(p => (
                           <option key={p.id} value={p.id}>
-                            {p.productName} {p.sellingPrice > 0 ? `(৳${p.sellingPrice})` : ''}
+                            {p.productName} {p.sellingPrice > 0 ? `(BDT ${p.sellingPrice})` : ''}
                           </option>
                         ))}
                       </select>
@@ -612,9 +769,12 @@ export const InvoiceForm: React.FC<Props> = ({ invoiceId, onCancel, onSuccess })
                     <input
                       type="number"
                       min="0"
-                      value={item.quantity}
-                      onChange={(e) => handleItemChange(index, 'quantity', Number(e.target.value))}
-                      className="w-full bg-zinc-950 border border-zinc-700 rounded px-2 py-1 text-xs text-zinc-100 font-bold focus:outline-none focus:border-amber-500 text-right"
+                      placeholder="0"
+                      value={item.quantity === 0 ? '' : item.quantity}
+                      onFocus={(e) => e.target.select()}
+                      onClick={(e) => (e.target as HTMLInputElement).select()}
+                      onChange={(e) => handleItemChange(index, 'quantity', e.target.value === '' ? 0 : Number(e.target.value))}
+                      className="w-full bg-zinc-950 border border-zinc-700 rounded px-2 py-1 text-xs text-zinc-100 font-bold focus:outline-none focus:border-amber-500 text-right focus:placeholder-transparent"
                     />
                   </td>
                   <td className="py-2 pr-2 text-center">
@@ -630,27 +790,36 @@ export const InvoiceForm: React.FC<Props> = ({ invoiceId, onCancel, onSuccess })
                       type="number"
                       min="0"
                       step="any"
-                      value={item.unitPrice}
-                      onChange={(e) => handleItemChange(index, 'unitPrice', Number(e.target.value))}
-                      className="w-full bg-zinc-950 border border-zinc-700 rounded px-2 py-1 text-xs text-zinc-100 font-mono text-right font-semibold focus:outline-none focus:border-amber-500"
+                      placeholder="0"
+                      value={item.unitPrice === 0 ? '' : item.unitPrice}
+                      onFocus={(e) => e.target.select()}
+                      onClick={(e) => (e.target as HTMLInputElement).select()}
+                      onChange={(e) => handleItemChange(index, 'unitPrice', e.target.value === '' ? 0 : Number(e.target.value))}
+                      className="w-full bg-zinc-950 border border-zinc-700 rounded px-2 py-1 text-xs text-zinc-100 font-mono text-right font-semibold focus:outline-none focus:border-amber-500 focus:placeholder-transparent"
                     />
                   </td>
                   <td className="py-2 pr-2">
                     <input
                       type="number"
                       min="0"
-                      value={item.discountValue}
-                      onChange={(e) => handleItemChange(index, 'discountValue', Number(e.target.value))}
-                      className="w-full bg-zinc-950 border border-zinc-700 rounded px-2 py-1 text-xs text-zinc-300 font-mono text-right focus:outline-none focus:border-amber-500"
+                      placeholder="0"
+                      value={item.discountValue === 0 ? '' : item.discountValue}
+                      onFocus={(e) => e.target.select()}
+                      onClick={(e) => (e.target as HTMLInputElement).select()}
+                      onChange={(e) => handleItemChange(index, 'discountValue', e.target.value === '' ? 0 : Number(e.target.value))}
+                      className="w-full bg-zinc-950 border border-zinc-700 rounded px-2 py-1 text-xs text-zinc-300 font-mono text-right focus:outline-none focus:border-amber-500 focus:placeholder-transparent"
                     />
                   </td>
                   <td className="py-2 pr-2">
                     <input
                       type="number"
                       min="0"
-                      value={item.vatRate}
-                      onChange={(e) => handleItemChange(index, 'vatRate', Number(e.target.value))}
-                      className="w-full bg-zinc-950 border border-zinc-700 rounded px-1 py-1 text-xs text-zinc-300 font-mono text-right focus:outline-none focus:border-amber-500"
+                      placeholder="0"
+                      value={item.vatRate === 0 ? '' : item.vatRate}
+                      onFocus={(e) => e.target.select()}
+                      onClick={(e) => (e.target as HTMLInputElement).select()}
+                      onChange={(e) => handleItemChange(index, 'vatRate', e.target.value === '' ? 0 : Number(e.target.value))}
+                      className="w-full bg-zinc-950 border border-zinc-700 rounded px-1 py-1 text-xs text-zinc-300 font-mono text-right focus:outline-none focus:border-amber-500 focus:placeholder-transparent"
                     />
                   </td>
                   <td className="py-2 pr-2 text-right font-mono font-bold text-amber-400">
@@ -688,7 +857,7 @@ export const InvoiceForm: React.FC<Props> = ({ invoiceId, onCancel, onSuccess })
                   onChange={(e) => setCurrency(e.target.value)}
                   className="w-full bg-zinc-950 border border-zinc-700 rounded px-2.5 py-1.5 text-zinc-100 font-mono"
                 >
-                  <option value="BDT">BDT (৳ - Bangladeshi Taka)</option>
+                  <option value="BDT">BDT (Bangladeshi Taka)</option>
                   <option value="USD">USD ($ - US Dollar)</option>
                   <option value="EUR">EUR (€ - Euro)</option>
                   <option value="CNY">CNY (¥ - Chinese Yuan)</option>
@@ -720,12 +889,12 @@ export const InvoiceForm: React.FC<Props> = ({ invoiceId, onCancel, onSuccess })
               </div>
 
               <div>
-                <label className="block text-zinc-400 mb-1">Sales Person / Desk</label>
+                <label className="block text-zinc-400 mb-1">Executive</label>
                 <input
                   type="text"
                   value={salesPerson}
                   onChange={(e) => setSalesPerson(e.target.value)}
-                  className="w-full bg-zinc-950 border border-zinc-700 rounded px-2.5 py-1.5 text-zinc-100"
+                  className="w-full bg-zinc-950 border border-zinc-700 rounded px-2.5 py-1.5 text-zinc-100 font-semibold"
                 />
               </div>
             </div>
@@ -771,9 +940,12 @@ export const InvoiceForm: React.FC<Props> = ({ invoiceId, onCancel, onSuccess })
             <input
               type="number"
               min="0"
-              value={overallDiscount}
-              onChange={(e) => setOverallDiscount(Number(e.target.value))}
-              className="w-32 bg-zinc-950 border border-zinc-700 rounded px-2 py-0.5 text-xs text-red-400 font-mono text-right"
+              placeholder="0"
+              value={overallDiscount === 0 ? '' : overallDiscount}
+              onFocus={(e) => e.target.select()}
+              onClick={(e) => (e.target as HTMLInputElement).select()}
+              onChange={(e) => setOverallDiscount(e.target.value === '' ? 0 : Number(e.target.value))}
+              className="w-32 bg-zinc-950 border border-zinc-700 rounded px-2 py-0.5 text-xs text-red-400 font-mono text-right focus:placeholder-transparent"
             />
           </div>
 
@@ -787,9 +959,12 @@ export const InvoiceForm: React.FC<Props> = ({ invoiceId, onCancel, onSuccess })
             <input
               type="number"
               min="0"
-              value={aitAmount}
-              onChange={(e) => setAitAmount(Number(e.target.value))}
-              className="w-32 bg-zinc-950 border border-zinc-700 rounded px-2 py-0.5 text-xs text-zinc-200 font-mono text-right"
+              placeholder="0"
+              value={aitAmount === 0 ? '' : aitAmount}
+              onFocus={(e) => e.target.select()}
+              onClick={(e) => (e.target as HTMLInputElement).select()}
+              onChange={(e) => setAitAmount(e.target.value === '' ? 0 : Number(e.target.value))}
+              className="w-32 bg-zinc-950 border border-zinc-700 rounded px-2 py-0.5 text-xs text-zinc-200 font-mono text-right focus:placeholder-transparent"
             />
           </div>
 
@@ -798,9 +973,12 @@ export const InvoiceForm: React.FC<Props> = ({ invoiceId, onCancel, onSuccess })
             <input
               type="number"
               min="0"
-              value={transportCharge}
-              onChange={(e) => setTransportCharge(Number(e.target.value))}
-              className="w-32 bg-zinc-950 border border-zinc-700 rounded px-2 py-0.5 text-xs text-zinc-200 font-mono text-right"
+              placeholder="0"
+              value={transportCharge === 0 ? '' : transportCharge}
+              onFocus={(e) => e.target.select()}
+              onClick={(e) => (e.target as HTMLInputElement).select()}
+              onChange={(e) => setTransportCharge(e.target.value === '' ? 0 : Number(e.target.value))}
+              className="w-32 bg-zinc-950 border border-zinc-700 rounded px-2 py-0.5 text-xs text-zinc-200 font-mono text-right focus:placeholder-transparent"
             />
           </div>
 
@@ -809,9 +987,12 @@ export const InvoiceForm: React.FC<Props> = ({ invoiceId, onCancel, onSuccess })
             <input
               type="number"
               min="0"
-              value={loadingCharge}
-              onChange={(e) => setLoadingCharge(Number(e.target.value))}
-              className="w-32 bg-zinc-950 border border-zinc-700 rounded px-2 py-0.5 text-xs text-zinc-200 font-mono text-right"
+              placeholder="0"
+              value={loadingCharge === 0 ? '' : loadingCharge}
+              onFocus={(e) => e.target.select()}
+              onClick={(e) => (e.target as HTMLInputElement).select()}
+              onChange={(e) => setLoadingCharge(e.target.value === '' ? 0 : Number(e.target.value))}
+              className="w-32 bg-zinc-950 border border-zinc-700 rounded px-2 py-0.5 text-xs text-zinc-200 font-mono text-right focus:placeholder-transparent"
             />
           </div>
 
@@ -820,9 +1001,12 @@ export const InvoiceForm: React.FC<Props> = ({ invoiceId, onCancel, onSuccess })
             <input
               type="number"
               step="any"
-              value={roundAdjustment}
-              onChange={(e) => setRoundAdjustment(Number(e.target.value))}
-              className="w-32 bg-zinc-950 border border-zinc-700 rounded px-2 py-0.5 text-xs text-zinc-300 font-mono text-right"
+              placeholder="0"
+              value={roundAdjustment === 0 ? '' : roundAdjustment}
+              onFocus={(e) => e.target.select()}
+              onClick={(e) => (e.target as HTMLInputElement).select()}
+              onChange={(e) => setRoundAdjustment(e.target.value === '' ? 0 : Number(e.target.value))}
+              className="w-32 bg-zinc-950 border border-zinc-700 rounded px-2 py-0.5 text-xs text-zinc-300 font-mono text-right focus:placeholder-transparent"
             />
           </div>
 
@@ -875,9 +1059,12 @@ export const InvoiceForm: React.FC<Props> = ({ invoiceId, onCancel, onSuccess })
               type="number"
               min="0"
               max={grandTotal}
-              value={paidAmount}
-              onChange={(e) => setPaidAmount(Number(e.target.value))}
-              className="w-36 bg-zinc-950 border border-emerald-600 rounded px-2.5 py-1 text-xs text-emerald-400 font-mono font-bold text-right"
+              placeholder="0"
+              value={paidAmount === 0 ? '' : paidAmount}
+              onFocus={(e) => e.target.select()}
+              onClick={(e) => (e.target as HTMLInputElement).select()}
+              onChange={(e) => setPaidAmount(e.target.value === '' ? 0 : Number(e.target.value))}
+              className="w-36 bg-zinc-950 border border-emerald-600 rounded px-2.5 py-1 text-xs text-emerald-400 font-mono font-bold text-right focus:placeholder-transparent"
             />
           </div>
 
@@ -912,5 +1099,24 @@ export const InvoiceForm: React.FC<Props> = ({ invoiceId, onCancel, onSuccess })
         </div>
       </div>
     </form>
+
+      {/* Direct WhatsApp Send Modal after Invoice Creation */}
+      <WhatsAppSendModal
+        isOpen={whatsAppModalOpen}
+        onClose={() => {
+          setWhatsAppModalOpen(false);
+          if (createdInvoice) {
+            onSuccess(createdInvoice.id);
+          }
+        }}
+        title={`Invoice #${createdInvoice?.invoiceNumber || ''} Created! Send to WhatsApp`}
+        defaultPhone={createdInvoice?.customerPhone || customerPhone || ''}
+        initialMessage={
+          createdInvoice
+            ? generateInvoiceWhatsAppText(createdInvoice, settings?.companyName || 'Bismillah Multitrade Corporation')
+            : ''
+        }
+      />
+    </>
   );
 };

@@ -20,7 +20,8 @@ import {
   User,
   X,
   Trash2,
-  Eye
+  Eye,
+  MessageSquare
 } from 'lucide-react';
 import { useData } from '../../context/DataContext';
 import {
@@ -39,6 +40,8 @@ import { DeliverySlipModal } from '../delivery/DeliverySlipModal';
 import { InvoicePrintModal } from './InvoicePrintModal';
 import { ConfirmModal } from '../common/ConfirmModal';
 import { printElement } from '../../utils/printHelper';
+import { WhatsAppSendModal } from '../common/WhatsAppSendModal';
+import { generateInvoiceWhatsAppText, generateDeliverySlipWhatsAppText } from '../../utils/whatsapp';
 
 interface Props {
   invoiceId: string;
@@ -117,8 +120,21 @@ export const InvoiceDetails: React.FC<Props> = ({ invoiceId, onBack, onEdit }) =
   const [returnSlip, setReturnSlip] = useState<DeliverySlip | null>(null);
   const [returnProductId, setReturnProductId] = useState('');
   const [returnQty, setReturnQty] = useState(1);
-  const [returnType, setReturnType] = useState<'Partial Return' | 'Full Return' | 'Damaged Return'>('Partial Return');
+  const [returnType, setReturnType] = useState<'Damaged Return' | 'Full Return' | 'Partial Return'>('Partial Return');
   const [returnReason, setReturnReason] = useState('');
+
+  // WhatsApp Modal State
+  const [whatsAppModalProps, setWhatsAppModalProps] = useState<{
+    isOpen: boolean;
+    title: string;
+    phone: string;
+    message: string;
+  }>({
+    isOpen: false,
+    title: '',
+    phone: '',
+    message: ''
+  });
 
   if (!invoice) {
     return (
@@ -143,31 +159,31 @@ export const InvoiceDetails: React.FC<Props> = ({ invoiceId, onBack, onEdit }) =
   const openCreateDeliverySlip = () => {
     const initialQtys: Record<string, number> = {};
     invoice.items.forEach(item => {
+      const key = item.id || item.productId;
       // Calculate previously delivered for this item
       const prevDelivered = invoiceSlips
         .filter(ds => ds.deliveryStatus !== 'Cancelled')
         .reduce((sum, ds) => {
-          const m = ds.items.find(di => di.productId === item.productId);
+          const m = ds.items.find(
+            di => (item.id && di.invoiceItemId === item.id) || (item.productId && di.productId === item.productId) || di.productName === item.productName
+          );
           return sum + (m ? m.deliveredQuantity : 0);
         }, 0);
       const remaining = Math.max(0, item.quantity - prevDelivered);
-      initialQtys[item.productId] = remaining; // default to remaining
+      initialQtys[key] = remaining; // default to remaining
     });
     setDeliveryQuantities(initialQtys);
+    setItemBoxCounts({});
+    setItemWeights({});
+    setSlipTotalBoxes('');
+    setSlipTotalWeight('');
     setSlipAddress(invoice.customerAddress);
     setSlipContactPerson(invoice.customerName);
     setSlipPhone(invoice.customerPhone);
+    setSlipReceiverName(invoice.customerName || '');
+    setSlipReceiverPhone(invoice.customerPhone || '');
 
-    // Initialize custom slip number with next sequential or invoice-linked number
-    let defaultSlipNumber = '';
-    if (settings.deliverySlipNumbering === 'linked_to_invoice') {
-      const existingSlipsForInvoice = deliverySlips.filter(d => d.invoiceId === invoice.id);
-      const subIndex = String(existingSlipsForInvoice.length + 1).padStart(2, '0');
-      const invNumClean = invoice.invoiceNumber.replace('INV-', 'DS-');
-      defaultSlipNumber = `${invNumClean}-${subIndex}`;
-    } else {
-      defaultSlipNumber = getNextNumber('delivery_slip');
-    }
+    const defaultSlipNumber = getNextNumber('delivery_slip');
     setCustomSlipNumber(defaultSlipNumber);
 
     setShowCreateSlipModal(true);
@@ -177,13 +193,16 @@ export const InvoiceDetails: React.FC<Props> = ({ invoiceId, onBack, onEdit }) =
   const handleFillRemaining = () => {
     const newQtys: Record<string, number> = {};
     invoice.items.forEach(item => {
+      const key = item.id || item.productId;
       const prevDelivered = invoiceSlips
         .filter(ds => ds.deliveryStatus !== 'Cancelled')
         .reduce((sum, ds) => {
-          const m = ds.items.find(di => di.productId === item.productId);
+          const m = ds.items.find(
+            di => (item.id && di.invoiceItemId === item.id) || (item.productId && di.productId === item.productId) || di.productName === item.productName
+          );
           return sum + (m ? m.deliveredQuantity : 0);
         }, 0);
-      newQtys[item.productId] = Math.max(0, item.quantity - prevDelivered);
+      newQtys[key] = Math.max(0, item.quantity - prevDelivered);
     });
     setDeliveryQuantities(newQtys);
   };
@@ -200,20 +219,26 @@ export const InvoiceDetails: React.FC<Props> = ({ invoiceId, onBack, onEdit }) =
     }
 
     const slipItems = invoice.items
-      .map(item => ({
-        invoiceItemId: item.id,
-        productId: item.productId,
-        productName: item.productName,
-        description: item.description,
-        unit: item.unit,
-        orderedQuantity: item.quantity,
-        deliveredQuantity: Number(deliveryQuantities[item.productId] || 0),
-        boxCount: itemBoxCounts[item.productId] || '',
-        boxes: itemBoxCounts[item.productId] || '',
-        weight: itemWeights[item.productId] || '',
-        unitPrice: item.unitPrice,
-        amount: (Number(deliveryQuantities[item.productId] || 0)) * item.unitPrice
-      }))
+      .map(item => {
+        const key = item.id || item.productId;
+        const delQty = Number(deliveryQuantities[key] ?? deliveryQuantities[item.productId] ?? 0);
+        const boxVal = (itemBoxCounts[key] ?? itemBoxCounts[item.productId] ?? '').trim();
+        const weightVal = (itemWeights[key] ?? itemWeights[item.productId] ?? '').trim();
+        return {
+          invoiceItemId: item.id,
+          productId: item.productId,
+          productName: item.productName,
+          description: item.description,
+          unit: item.unit,
+          orderedQuantity: item.quantity,
+          deliveredQuantity: delQty,
+          boxCount: boxVal,
+          boxes: boxVal,
+          weight: weightVal,
+          unitPrice: item.unitPrice,
+          amount: delQty * item.unitPrice
+        };
+      })
       .filter(i => i.deliveredQuantity > 0);
 
     const createdSlip = createDeliverySlipForInvoice({
@@ -233,21 +258,26 @@ export const InvoiceDetails: React.FC<Props> = ({ invoiceId, onBack, onEdit }) =
       remarks: slipRemarks,
       deliveryInstructions: slipInstructions,
       totalBoxes: slipTotalBoxes.trim(),
-      totalWeight: slipTotalWeight.trim(),
+      receivedBy: (slipReceiverName || slipContactPerson || invoice.customerName).trim(),
+      receiverName: (slipReceiverName || slipContactPerson || invoice.customerName).trim(),
+      receiverPhone: (slipReceiverPhone || slipPhone || invoice.customerPhone).trim(),
+      receiverDesignation: 'Customer Representative',
+      receivedDate: slipDeliveryDate,
       items: slipItems as any,
       deliveryStatus: slipStatus
     });
 
-    if (slipStatus === 'Delivered' && (slipReceiverName || slipContactPerson)) {
-      updateDeliverySlipStatus(createdSlip.id, 'Delivered', {
-        name: slipReceiverName || slipContactPerson,
-        phone: slipReceiverPhone || slipPhone,
-        designation: 'Customer Representative'
-      });
-    }
-
     setShowCreateSlipModal(false);
     setActiveTab('delivery');
+
+    // Automatically prompt to send delivery slip to WhatsApp
+    const text = generateDeliverySlipWhatsAppText(createdSlip, settings?.companyName || 'Bismillah Multitrade Corporation');
+    setWhatsAppModalProps({
+      isOpen: true,
+      title: `Delivery Slip #${createdSlip.deliverySlipNumber} Created! Send to WhatsApp`,
+      phone: createdSlip.receiverPhone || createdSlip.phone || invoice.customerPhone || '',
+      message: text
+    });
   };
 
   // Submit Payment Record
@@ -282,7 +312,7 @@ export const InvoiceDetails: React.FC<Props> = ({ invoiceId, onBack, onEdit }) =
 
     recordPayment(newPayment);
     setShowPaymentModal(false);
-    alert(`Payment of ৳${paymentAmount.toLocaleString()} recorded successfully! Money Receipt: ${newPayment.receiptNumber}`);
+    alert(`Payment of BDT ${paymentAmount.toLocaleString()} recorded successfully! Money Receipt: ${newPayment.receiptNumber}`);
   };
 
   // Submit Delivery Return
@@ -384,13 +414,64 @@ export const InvoiceDetails: React.FC<Props> = ({ invoiceId, onBack, onEdit }) =
           <PrintableDeliverySlip deliverySlip={selectedSlipForPrint} settings={settings} />
         )}
         {printMode === 'combo' && (
-          <div>
-            <div className="print-page mb-8">
+          <div className="combo-print-wrapper">
+            {/* Page 1: Sales Invoice strictly on its own page */}
+            <div
+              className="print-page combo-invoice-page"
+              style={{
+                pageBreakAfter: 'always',
+                breakAfter: 'page',
+                marginBottom: '0'
+              }}
+            >
               <PrintableInvoice invoice={invoice} settings={settings} />
             </div>
-            {invoiceSlips[0] && (
-              <div className="print-page">
-                <PrintableDeliverySlip deliverySlip={invoiceSlips[0]} settings={settings} />
+            {/* Page 2: Delivery Slip strictly on second page, avoiding trailing blank page */}
+            {(invoiceSlips[0] || true) && (
+              <div
+                className="print-page combo-slip-page"
+                style={{
+                  pageBreakAfter: 'avoid',
+                  breakAfter: 'avoid'
+                }}
+              >
+                <PrintableDeliverySlip
+                  deliverySlip={
+                    invoiceSlips[0] || {
+                      id: 'ds-combo-' + invoice.id,
+                      deliverySlipNumber: getNextNumber('delivery_slip'),
+                      invoiceId: invoice.id,
+                      invoiceNumber: invoice.invoiceNumber,
+                      deliveryDate: invoice.invoiceDate,
+                      customerId: invoice.customerId,
+                      customerName: invoice.customerName,
+                      companyName: invoice.companyName,
+                      contactPerson: invoice.customerName,
+                      phone: invoice.customerPhone,
+                      deliveryAddress: invoice.customerAddress,
+                      deliveryMethod: 'Truck',
+                      items: invoice.items.map(it => ({
+                        id: 'ds-item-' + it.id,
+                        invoiceItemId: it.id,
+                        productId: it.productId,
+                        productName: it.productName,
+                        description: it.description,
+                        unit: it.unit,
+                        orderedQuantity: it.quantity,
+                        previouslyDelivered: 0,
+                        deliveredQuantity: it.quantity,
+                        remainingQuantity: 0,
+                        unitPrice: it.unitPrice,
+                        amount: it.amount
+                      })),
+                      deliveryStatus: 'Dispatched',
+                      createdBy: 'Accounts',
+                      createdAt: invoice.createdAt,
+                      updatedAt: invoice.updatedAt
+                    }
+                  }
+                  settings={settings}
+                />
               </div>
             )}
           </div>
@@ -464,6 +545,24 @@ export const InvoiceDetails: React.FC<Props> = ({ invoiceId, onBack, onEdit }) =
               <span>Print Invoice</span>
             </button>
 
+            {/* 1b. Send Invoice via WhatsApp */}
+            <button
+              onClick={() => {
+                const text = generateInvoiceWhatsAppText(invoice, settings?.companyName || 'Bismillah Multitrade Corporation');
+                setWhatsAppModalProps({
+                  isOpen: true,
+                  title: `Send Invoice #${invoice.invoiceNumber} to WhatsApp`,
+                  phone: invoice.customerPhone || '',
+                  message: text
+                });
+              }}
+              className="flex items-center gap-1.5 px-3 py-2 bg-emerald-600 hover:bg-emerald-500 text-white rounded-lg text-xs font-bold transition-all shadow-xs cursor-pointer"
+              title="Directly send invoice to any WhatsApp number"
+            >
+              <MessageSquare size={15} />
+              <span>Send WhatsApp</span>
+            </button>
+
             {/* 2. Record Payment */}
             <button
               onClick={() => {
@@ -488,16 +587,14 @@ export const InvoiceDetails: React.FC<Props> = ({ invoiceId, onBack, onEdit }) =
             </button>
 
             {/* 4. Print Combo (Invoice + Delivery Slip) */}
-            {invoiceSlips.length > 0 && (
-              <button
-                onClick={() => triggerPrint('combo')}
-                className="flex items-center gap-1.5 px-3 py-2 bg-zinc-800 hover:bg-zinc-700 text-zinc-200 rounded-lg text-xs font-semibold border border-zinc-700 transition-colors"
-                title="Print Invoice + Delivery Slip together"
-              >
-                <Printer size={14} className="text-blue-400" />
-                <span>Combo Print</span>
-              </button>
-            )}
+            <button
+              onClick={() => triggerPrint('combo')}
+              className="flex items-center gap-1.5 px-3 py-2 bg-zinc-800 hover:bg-zinc-700 text-zinc-200 rounded-lg text-xs font-semibold border border-zinc-700 transition-colors"
+              title="Print Invoice & Delivery Slip on separate pages"
+            >
+              <Printer size={14} className="text-blue-400" />
+              <span>Combo Print</span>
+            </button>
 
             {/* 5. Edit Invoice */}
             <button
@@ -873,6 +970,24 @@ export const InvoiceDetails: React.FC<Props> = ({ invoiceId, onBack, onEdit }) =
                         >
                           <Download size={13} />
                           <span>{isDownloadingPdf && selectedSlipForPdf?.id === slip.id ? 'Saving PDF...' : 'PDF'}</span>
+                        </button>
+
+                        {/* Send Delivery Slip via WhatsApp */}
+                        <button
+                          onClick={() => {
+                            const text = generateDeliverySlipWhatsAppText(slip, settings?.companyName || 'Bismillah Multitrade Corporation');
+                            setWhatsAppModalProps({
+                              isOpen: true,
+                              title: `Send Delivery Slip #${slip.deliverySlipNumber} to WhatsApp`,
+                              phone: slip.receiverPhone || slip.phone || invoice.customerPhone || '',
+                              message: text
+                            });
+                          }}
+                          className="flex items-center gap-1 px-2.5 py-1 bg-emerald-800/80 hover:bg-emerald-700 text-white rounded text-xs font-semibold border border-emerald-700 transition-colors cursor-pointer"
+                          title="Send Delivery Slip to WhatsApp"
+                        >
+                          <MessageSquare size={13} />
+                          <span>WhatsApp</span>
                         </button>
 
                         {/* Delete Delivery Slip */}
@@ -1302,36 +1417,56 @@ export const InvoiceDetails: React.FC<Props> = ({ invoiceId, onBack, onEdit }) =
                 </div>
               </div>
 
-              {/* Delivery Address & Contact */}
-              <div className="grid grid-cols-1 sm:grid-cols-2 gap-3 pt-2 border-t border-zinc-800">
-                <div>
-                  <label className="block text-zinc-400 mb-1">Receiver Contact Person &amp; Phone</label>
-                  <div className="grid grid-cols-2 gap-2">
-                    <input
-                      type="text"
-                      placeholder="Contact Name"
-                      value={slipContactPerson}
-                      onChange={(e) => setSlipContactPerson(e.target.value)}
-                      className="bg-zinc-950 border border-zinc-700 rounded-lg px-3 py-1.5 text-zinc-100"
-                    />
-                    <input
-                      type="text"
-                      placeholder="Phone"
-                      value={slipPhone}
-                      onChange={(e) => setSlipPhone(e.target.value)}
-                      className="bg-zinc-950 border border-zinc-700 rounded-lg px-3 py-1.5 text-zinc-100 font-mono"
-                    />
-                  </div>
+              {/* Customer Representative & Receiver Info - Visible FIRST */}
+              <div className="p-3.5 bg-zinc-950 border border-amber-500/30 rounded-xl space-y-3">
+                <div className="flex items-center justify-between pb-1 border-b border-zinc-800">
+                  <span className="font-bold text-amber-400 text-xs flex items-center gap-1.5">
+                    Customer Representative &amp; Receiver Information
+                  </span>
+                  <span className="text-[10px] text-zinc-400 font-medium">
+                    Contact &amp; Handover Details
+                  </span>
                 </div>
 
-                <div>
-                  <label className="block text-zinc-400 mb-1">Delivery / Shipping Destination Address</label>
-                  <input
-                    type="text"
-                    value={slipAddress}
-                    onChange={(e) => setSlipAddress(e.target.value)}
-                    className="w-full bg-zinc-950 border border-zinc-700 rounded-lg px-3 py-1.5 text-zinc-100"
-                  />
+                <div className="grid grid-cols-1 sm:grid-cols-3 gap-3">
+                  <div>
+                    <label className="block text-zinc-300 font-semibold mb-1">Customer Representative / Receiver *</label>
+                    <input
+                      type="text"
+                      placeholder="Receiver person name"
+                      value={slipReceiverName}
+                      onChange={(e) => {
+                        setSlipReceiverName(e.target.value);
+                        setSlipContactPerson(e.target.value);
+                      }}
+                      className="w-full bg-zinc-900 border border-zinc-700 rounded-lg px-3 py-1.5 text-zinc-100 font-semibold focus:border-amber-500 focus:outline-none"
+                    />
+                  </div>
+
+                  <div>
+                    <label className="block text-zinc-300 font-semibold mb-1">Representative Phone Number</label>
+                    <input
+                      type="text"
+                      placeholder="Receiver phone number"
+                      value={slipReceiverPhone}
+                      onChange={(e) => {
+                        setSlipReceiverPhone(e.target.value);
+                        setSlipPhone(e.target.value);
+                      }}
+                      className="w-full bg-zinc-900 border border-zinc-700 rounded-lg px-3 py-1.5 text-zinc-100 font-mono focus:border-amber-500 focus:outline-none"
+                    />
+                  </div>
+
+                  <div>
+                    <label className="block text-zinc-300 font-semibold mb-1">Delivery Destination Address</label>
+                    <input
+                      type="text"
+                      placeholder="Destination address"
+                      value={slipAddress}
+                      onChange={(e) => setSlipAddress(e.target.value)}
+                      className="w-full bg-zinc-900 border border-zinc-700 rounded-lg px-3 py-1.5 text-zinc-100 focus:border-amber-500 focus:outline-none"
+                    />
+                  </div>
                 </div>
               </div>
 
@@ -1364,10 +1499,13 @@ export const InvoiceDetails: React.FC<Props> = ({ invoiceId, onBack, onEdit }) =
                     </thead>
                     <tbody className="divide-y divide-zinc-800">
                       {invoice.items.map(item => {
+                        const key = item.id || item.productId;
                         const prevDel = invoiceSlips
                           .filter(ds => ds.deliveryStatus !== 'Cancelled')
                           .reduce((sum, ds) => {
-                            const m = ds.items.find(di => di.productId === item.productId);
+                            const m = ds.items.find(
+                              di => (item.id && di.invoiceItemId === item.id) || (item.productId && di.productId === item.productId) || di.productName === item.productName
+                            );
                             return sum + (m ? m.deliveredQuantity : 0);
                           }, 0);
                         const rem = Math.max(0, item.quantity - prevDel);
@@ -1383,12 +1521,12 @@ export const InvoiceDetails: React.FC<Props> = ({ invoiceId, onBack, onEdit }) =
                                 type="number"
                                 min="0"
                                 max={rem}
-                                value={deliveryQuantities[item.productId] ?? rem}
+                                value={deliveryQuantities[key] ?? rem}
                                 onChange={(e) => {
                                   const val = Number(e.target.value);
                                   setDeliveryQuantities(prev => ({
                                     ...prev,
-                                    [item.productId]: val
+                                    [key]: val
                                   }));
                                 }}
                                 className="w-20 bg-zinc-950 border border-blue-500 rounded px-2 py-1 text-right font-mono font-bold text-zinc-100"
@@ -1398,10 +1536,10 @@ export const InvoiceDetails: React.FC<Props> = ({ invoiceId, onBack, onEdit }) =
                               <input
                                 type="text"
                                 placeholder="e.g. 5 Box"
-                                value={itemBoxCounts[item.productId] ?? ''}
+                                value={itemBoxCounts[key] ?? ''}
                                 onChange={(e) => {
                                   const val = e.target.value;
-                                  setItemBoxCounts(prev => ({ ...prev, [item.productId]: val }));
+                                  setItemBoxCounts(prev => ({ ...prev, [key]: val }));
                                 }}
                                 className="w-20 bg-zinc-950 border border-zinc-700 rounded px-2 py-1 text-xs font-mono text-zinc-100"
                               />
@@ -1410,10 +1548,10 @@ export const InvoiceDetails: React.FC<Props> = ({ invoiceId, onBack, onEdit }) =
                               <input
                                 type="text"
                                 placeholder="e.g. 25 kg"
-                                value={itemWeights[item.productId] ?? ''}
+                                value={itemWeights[key] ?? ''}
                                 onChange={(e) => {
                                   const val = e.target.value;
-                                  setItemWeights(prev => ({ ...prev, [item.productId]: val }));
+                                  setItemWeights(prev => ({ ...prev, [key]: val }));
                                 }}
                                 className="w-20 bg-zinc-950 border border-zinc-700 rounded px-2 py-1 text-xs font-mono text-zinc-100"
                               />
@@ -1455,51 +1593,8 @@ export const InvoiceDetails: React.FC<Props> = ({ invoiceId, onBack, onEdit }) =
                 </div>
               </div>
 
-              {/* Status and Receiver info */}
-              <div className="p-3 bg-zinc-950 border border-zinc-800 rounded-lg space-y-3">
-                <div className="grid grid-cols-1 sm:grid-cols-3 gap-3">
-                  <div>
-                    <label className="block text-zinc-400 mb-1">Initial Delivery Slip Status</label>
-                    <select
-                      value={slipStatus}
-                      onChange={(e) => setSlipStatus(e.target.value as any)}
-                      className="w-full bg-zinc-900 border border-zinc-700 rounded-lg px-3 py-1.5 text-zinc-100 font-semibold"
-                    >
-                      <option value="Dispatched">Dispatched (En Route / In Transit)</option>
-                      <option value="Delivered">Delivered (Direct Handover / Signed)</option>
-                      <option value="Pending">Pending (Scheduled for Loading)</option>
-                    </select>
-                  </div>
-
-                  {slipStatus === 'Delivered' && (
-                    <>
-                      <div>
-                        <label className="block text-zinc-400 mb-1">Received By (Name) *</label>
-                        <input
-                          type="text"
-                          required={slipStatus === 'Delivered'}
-                          placeholder="Receiver person name"
-                          value={slipReceiverName}
-                          onChange={(e) => setSlipReceiverName(e.target.value)}
-                          className="w-full bg-zinc-900 border border-emerald-600/60 rounded-lg px-3 py-1.5 text-zinc-100"
-                        />
-                      </div>
-
-                      <div>
-                        <label className="block text-zinc-400 mb-1">Receiver Phone</label>
-                        <input
-                          type="text"
-                          placeholder="Receiver phone number"
-                          value={slipReceiverPhone}
-                          onChange={(e) => setSlipReceiverPhone(e.target.value)}
-                          className="w-full bg-zinc-900 border border-emerald-600/60 rounded-lg px-3 py-1.5 text-zinc-100 font-mono"
-                        />
-                      </div>
-                    </>
-                  )}
-                </div>
-
-                <div className="text-[11px] text-zinc-400 flex items-center justify-between border-t border-zinc-800/80 pt-2">
+              {/* Order Fulfillment Status Strip */}
+              <div className="p-3 bg-zinc-950 border border-zinc-800 rounded-xl text-[11px] text-zinc-400 flex items-center justify-between">
                   <span>
                     Fulfillment Mode: <strong className="text-zinc-200">
                       {invoice.items.every(item => {
@@ -1519,7 +1614,6 @@ export const InvoiceDetails: React.FC<Props> = ({ invoiceId, onBack, onEdit }) =
                     Stock will be deducted from warehouse automatically
                   </span>
                 </div>
-              </div>
 
               {/* Special Instructions */}
               <div>
@@ -1806,6 +1900,15 @@ export const InvoiceDetails: React.FC<Props> = ({ invoiceId, onBack, onEdit }) =
           }
         }}
         onCancel={() => setSlipToDelete(null)}
+      />
+
+      {/* WhatsApp Direct Send Modal */}
+      <WhatsAppSendModal
+        isOpen={whatsAppModalProps.isOpen}
+        onClose={() => setWhatsAppModalProps(prev => ({ ...prev, isOpen: false }))}
+        title={whatsAppModalProps.title}
+        defaultPhone={whatsAppModalProps.phone}
+        initialMessage={whatsAppModalProps.message}
       />
     </div>
   );

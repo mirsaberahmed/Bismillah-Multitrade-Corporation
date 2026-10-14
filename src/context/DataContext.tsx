@@ -1,4 +1,9 @@
-import React, { createContext, useContext, useState, useEffect } from 'react';
+import React, { createContext, useContext, useState, useEffect, useRef } from 'react';
+import {
+  saveErpSectionToFirestore,
+  loadAllErpSectionsFromFirestore,
+  subscribeToErpSections
+} from '../firebase';
 import {
   CompanySettings,
   Customer,
@@ -24,6 +29,8 @@ import {
   StockMovement,
   StockMovementType,
   UserAccount,
+  UserRole,
+  UserStatus,
   ActivityLog,
   PaymentStatus,
   DeliveryStatus
@@ -135,9 +142,13 @@ interface DataContextType {
   saveExpense: (expense: ExpenseRecord) => void;
   deleteExpense: (id: string) => boolean;
   
-  // User Management
+  // User Management & RBAC
   saveUser: (user: UserAccount) => void;
   deleteUser: (id: string) => boolean;
+  approveUser: (userId: string, role?: UserRole, department?: string) => void;
+  rejectUser: (userId: string, reason?: string) => void;
+  updateUserStatus: (userId: string, status: UserStatus) => void;
+  registerUser: (newUser: Omit<UserAccount, 'id' | 'createdAt'>) => { success: boolean; message: string; user?: UserAccount };
   
   // Backup, Restore & Reset
   exportDatabaseBackup: () => string;
@@ -154,12 +165,20 @@ const STORAGE_PREFIX = 'bismillah_multitrade_erp_v3_';
 
 const defaultSuperAdmin: UserAccount = {
   id: 'usr-admin',
-  name: 'Administrator',
+  name: 'Zia Ahmed',
+  fullName: 'Zia Ahmed',
+  username: 'admin',
   email: 'admin@bismillah.com',
+  phone: '+880 1819-223344',
+  employeeId: 'EMP-001',
+  department: 'Management',
+  designation: 'Managing Director',
   role: 'Super Admin',
+  status: 'Active',
   active: true,
-  permissions: ['Create Invoice', 'Edit Invoice', 'Delete Invoice', 'View Reports', 'Manage Inventory', 'Manage Settings', 'Approve Delivery'],
-  createdAt: '2026-01-01'
+  permissions: ['All Modules', 'Manage Users', 'Approve Registrations', 'Assign Roles', 'Manage Permissions', 'View Financial Reports', 'Manage Settings', 'Access Audit Logs'],
+  createdAt: '2026-01-01',
+  lastLoginAt: '2026-10-14 09:30 AM'
 };
 
 export const DataProvider: React.FC<{ children: React.ReactNode }> = ({ children }) => {
@@ -408,6 +427,318 @@ export const DataProvider: React.FC<{ children: React.ReactNode }> = ({ children
     localStorage.setItem(STORAGE_PREFIX + 'activity_logs', JSON.stringify(activityLogs));
   }, [activityLogs]);
 
+  // Cross-PC / Multi-Device Firebase Firestore & Server Synchronization
+  const [serverReady, setServerReady] = useState(false);
+  const lastSyncedJsonRef = useRef<Record<string, string>>({});
+
+  const mergeById = <T extends { id: string }>(
+    cloudArr: T[] | undefined,
+    serverArr: T[] | undefined,
+    localArr: T[]
+  ): T[] => {
+    const map = new Map<string, T>();
+    // Put local items first, then server items, then cloud (Firestore) items so cloud is authoritative
+    if (Array.isArray(localArr)) {
+      localArr.forEach(item => {
+        if (item && item.id) map.set(item.id, item);
+      });
+    }
+    if (Array.isArray(serverArr)) {
+      serverArr.forEach(item => {
+        if (item && item.id) map.set(item.id, item);
+      });
+    }
+    if (Array.isArray(cloudArr)) {
+      cloudArr.forEach(item => {
+        if (item && item.id) map.set(item.id, item);
+      });
+    }
+    return Array.from(map.values());
+  };
+
+  useEffect(() => {
+    let cancelled = false;
+    let unsubscribeFirestore: (() => void) | null = null;
+
+    async function hydrateFromCloud() {
+      let firestoreSections: Record<string, any> = {};
+      let serverData: Record<string, any> = {};
+
+      try {
+        const fsRes = await loadAllErpSectionsFromFirestore();
+        firestoreSections = fsRes.sections || {};
+      } catch (e) {
+        console.warn('Firestore initial load warning:', e);
+      }
+
+      try {
+        const res = await fetch('/api/state');
+        const json = await res.json();
+        if (json && json.ok && json.data) {
+          serverData = json.data;
+        }
+      } catch {
+        // ignore local server fallback error
+      }
+
+      if (cancelled) return;
+
+      const resolvedSettings = firestoreSections.settings || serverData.settings || settings;
+      const resolvedCategories = mergeById<ProductCategory>(firestoreSections.categories, serverData.categories, categories);
+      const resolvedProducts = mergeById<Product>(firestoreSections.products, serverData.products, products);
+      const resolvedInvoices = mergeById<SalesInvoice>(firestoreSections.invoices, serverData.invoices, invoices);
+      const rawCustomers = mergeById<Customer>(firestoreSections.customers, serverData.customers, customers);
+
+      // Ensure every customer from any invoice is present in Customer Directory
+      const custMap = new Map<string, Customer>();
+      rawCustomers.forEach(c => {
+        if (c && c.id) custMap.set(c.id, c);
+      });
+      resolvedInvoices.forEach(inv => {
+        if (!inv || !inv.customerName || !inv.customerName.trim()) return;
+        const found = Array.from(custMap.values()).find(
+          c =>
+            (inv.customerId && c.id === inv.customerId) ||
+            c.customerName.trim().toLowerCase() === inv.customerName.trim().toLowerCase() ||
+            (inv.customerPhone && c.phone && c.phone.trim() === inv.customerPhone.trim())
+        );
+        if (!found) {
+          const newCustId = inv.customerId || `cust-${inv.id}`;
+          const recoveredCustomer: Customer = {
+            id: newCustId,
+            customerId: 'CUST-' + newCustId.slice(-4).toUpperCase(),
+            customerName: inv.customerName.trim(),
+            companyName: (inv.companyName || inv.customerName).trim(),
+            customerType: 'Corporate',
+            contactPerson: inv.customerName.trim(),
+            phone: inv.customerPhone || '',
+            email: inv.customerEmail || '',
+            billingAddress: inv.customerAddress || '',
+            shippingAddress: inv.customerAddress || '',
+            city: 'Dhaka',
+            district: 'Dhaka',
+            country: 'Bangladesh',
+            postalCode: '1216',
+            binNumber: inv.customerBin || '',
+            tinNumber: inv.customerTin || '',
+            openingBalance: inv.previousDue || 0,
+            currentBalance: inv.balanceDue || 0,
+            creditLimit: 500000,
+            paymentTerms: inv.paymentTerms || '15 Days Credit',
+            createdAt: inv.createdAt || getTodayDateString(),
+            updatedAt: inv.updatedAt || getTodayDateString()
+          };
+          custMap.set(recoveredCustomer.id, recoveredCustomer);
+        }
+      });
+      const resolvedCustomers = Array.from(custMap.values());
+
+      const resolvedSuppliers = mergeById<Supplier>(firestoreSections.suppliers, serverData.suppliers, suppliers);
+      const resolvedDeliverySlips = mergeById<DeliverySlip>(firestoreSections.deliverySlips, serverData.deliverySlips, deliverySlips);
+      const resolvedDeliveryReturns = mergeById<DeliveryReturn>(firestoreSections.deliveryReturns, serverData.deliveryReturns, deliveryReturns);
+      const resolvedPurchaseInvoices = mergeById<PurchaseInvoice>(firestoreSections.purchaseInvoices, serverData.purchaseInvoices, purchaseInvoices);
+      const resolvedQuotations = mergeById<Quotation>(firestoreSections.quotations, serverData.quotations, quotations);
+      const resolvedSalesOrders = mergeById<SalesOrder>(firestoreSections.salesOrders, serverData.salesOrders, salesOrders);
+      const resolvedPurchaseOrders = mergeById<PurchaseOrder>(firestoreSections.purchaseOrders, serverData.purchaseOrders, purchaseOrders);
+      const resolvedDeliveryChallans = mergeById<DeliveryChallan>(firestoreSections.deliveryChallans, serverData.deliveryChallans, deliveryChallans);
+      const resolvedProformaInvoices = mergeById<ProformaInvoice>(firestoreSections.proformaInvoices, serverData.proformaInvoices, proformaInvoices);
+      const resolvedCommercialInvoices = mergeById<CommercialInvoice>(firestoreSections.commercialInvoices, serverData.commercialInvoices, commercialInvoices);
+      const resolvedImportRecords = mergeById<ImportRecord>(firestoreSections.importRecords, serverData.importRecords, importRecords);
+      const resolvedExportRecords = mergeById<ExportRecord>(firestoreSections.exportRecords, serverData.exportRecords, exportRecords);
+      const resolvedLcRecords = mergeById<LcRecord>(firestoreSections.lcRecords, serverData.lcRecords, lcRecords);
+      const resolvedShipments = mergeById<ShipmentRecord>(firestoreSections.shipments, serverData.shipments, shipments);
+      const resolvedPayments = mergeById<PaymentRecord>(firestoreSections.payments, serverData.payments, payments);
+      const resolvedExpenses = mergeById<ExpenseRecord>(firestoreSections.expenses, serverData.expenses, expenses);
+      const resolvedStockMovements = mergeById<StockMovement>(firestoreSections.stockMovements, serverData.stockMovements, stockMovements);
+      const resolvedUsers = mergeById<UserAccount>(firestoreSections.users, serverData.users, users);
+      const resolvedActivityLogs = mergeById<ActivityLog>(firestoreSections.activityLogs, serverData.activityLogs, activityLogs).slice(0, 200);
+
+      const allResolved: Record<string, any> = {
+        settings: resolvedSettings,
+        categories: resolvedCategories,
+        products: resolvedProducts,
+        customers: resolvedCustomers,
+        suppliers: resolvedSuppliers,
+        invoices: resolvedInvoices,
+        deliverySlips: resolvedDeliverySlips,
+        deliveryReturns: resolvedDeliveryReturns,
+        purchaseInvoices: resolvedPurchaseInvoices,
+        quotations: resolvedQuotations,
+        salesOrders: resolvedSalesOrders,
+        purchaseOrders: resolvedPurchaseOrders,
+        deliveryChallans: resolvedDeliveryChallans,
+        proformaInvoices: resolvedProformaInvoices,
+        commercialInvoices: resolvedCommercialInvoices,
+        importRecords: resolvedImportRecords,
+        exportRecords: resolvedExportRecords,
+        lcRecords: resolvedLcRecords,
+        shipments: resolvedShipments,
+        payments: resolvedPayments,
+        expenses: resolvedExpenses,
+        stockMovements: resolvedStockMovements,
+        users: resolvedUsers,
+        activityLogs: resolvedActivityLogs,
+      };
+
+      // Record baseline JSON strings and seed Firestore for any sections not yet stored or updated
+      Object.entries(allResolved).forEach(([secKey, val]) => {
+        const jsonStr = JSON.stringify(val);
+        lastSyncedJsonRef.current[secKey] = jsonStr;
+        const existingFsJson = firestoreSections[secKey] !== undefined ? JSON.stringify(firestoreSections[secKey]) : '';
+        if (existingFsJson !== jsonStr) {
+          saveErpSectionToFirestore(secKey, val, currentUser.name).catch(() => {});
+        }
+      });
+
+      setSettings(resolvedSettings);
+      setCategories(resolvedCategories);
+      setProducts(resolvedProducts);
+      setCustomers(resolvedCustomers);
+      setSuppliers(resolvedSuppliers);
+      setInvoices(resolvedInvoices);
+      setDeliverySlips(resolvedDeliverySlips);
+      setDeliveryReturns(resolvedDeliveryReturns);
+      setPurchaseInvoices(resolvedPurchaseInvoices);
+      setQuotations(resolvedQuotations);
+      setSalesOrders(resolvedSalesOrders);
+      setPurchaseOrders(resolvedPurchaseOrders);
+      setDeliveryChallans(resolvedDeliveryChallans);
+      setProformaInvoices(resolvedProformaInvoices);
+      setCommercialInvoices(resolvedCommercialInvoices);
+      setImportRecords(resolvedImportRecords);
+      setExportRecords(resolvedExportRecords);
+      setLcRecords(resolvedLcRecords);
+      setShipments(resolvedShipments);
+      setPayments(resolvedPayments);
+      setExpenses(resolvedExpenses);
+      setStockMovements(resolvedStockMovements);
+      setUsers(resolvedUsers);
+      setActivityLogs(resolvedActivityLogs);
+
+      setServerReady(true);
+
+      // Attach real-time Firestore listener so changes from other devices appear live
+      try {
+        unsubscribeFirestore = subscribeToErpSections((sectionId, parsedData) => {
+          if (cancelled || parsedData === undefined || parsedData === null) return;
+          const incomingJson = JSON.stringify(parsedData);
+          if (lastSyncedJsonRef.current[sectionId] === incomingJson) return;
+          lastSyncedJsonRef.current[sectionId] = incomingJson;
+
+          switch (sectionId) {
+            case 'settings': setSettings(parsedData); break;
+            case 'categories': setCategories(parsedData); break;
+            case 'products': setProducts(parsedData); break;
+            case 'customers': setCustomers(parsedData); break;
+            case 'suppliers': setSuppliers(parsedData); break;
+            case 'invoices': setInvoices(parsedData); break;
+            case 'deliverySlips': setDeliverySlips(parsedData); break;
+            case 'deliveryReturns': setDeliveryReturns(parsedData); break;
+            case 'purchaseInvoices': setPurchaseInvoices(parsedData); break;
+            case 'quotations': setQuotations(parsedData); break;
+            case 'salesOrders': setSalesOrders(parsedData); break;
+            case 'purchaseOrders': setPurchaseOrders(parsedData); break;
+            case 'deliveryChallans': setDeliveryChallans(parsedData); break;
+            case 'proformaInvoices': setProformaInvoices(parsedData); break;
+            case 'commercialInvoices': setCommercialInvoices(parsedData); break;
+            case 'importRecords': setImportRecords(parsedData); break;
+            case 'exportRecords': setExportRecords(parsedData); break;
+            case 'lcRecords': setLcRecords(parsedData); break;
+            case 'shipments': setShipments(parsedData); break;
+            case 'payments': setPayments(parsedData); break;
+            case 'expenses': setExpenses(parsedData); break;
+            case 'stockMovements': setStockMovements(parsedData); break;
+            case 'users': setUsers(parsedData); break;
+            case 'activityLogs': setActivityLogs(parsedData); break;
+          }
+        });
+      } catch (err) {
+        console.warn('Firestore subscription warning:', err);
+      }
+    }
+
+    hydrateFromCloud();
+
+    return () => {
+      cancelled = true;
+      if (unsubscribeFirestore) unsubscribeFirestore();
+    };
+  }, []);
+
+  useEffect(() => {
+    if (!serverReady) return;
+    const currentSections: Record<string, any> = {
+      settings,
+      categories,
+      products,
+      customers,
+      suppliers,
+      invoices,
+      deliverySlips,
+      deliveryReturns,
+      purchaseInvoices,
+      quotations,
+      salesOrders,
+      purchaseOrders,
+      deliveryChallans,
+      proformaInvoices,
+      commercialInvoices,
+      importRecords,
+      exportRecords,
+      lcRecords,
+      shipments,
+      payments,
+      expenses,
+      stockMovements,
+      users,
+      activityLogs: activityLogs.slice(0, 200)
+    };
+
+    // Sync changed sections immediately to Firebase Firestore
+    Object.entries(currentSections).forEach(([secKey, val]) => {
+      const jsonStr = JSON.stringify(val);
+      if (lastSyncedJsonRef.current[secKey] !== jsonStr) {
+        lastSyncedJsonRef.current[secKey] = jsonStr;
+        saveErpSectionToFirestore(secKey, val, currentUser.name).catch(() => {});
+      }
+    });
+
+    const timer = setTimeout(() => {
+      fetch('/api/state', {
+        method: 'POST',
+        headers: { 'Content-Type': 'application/json' },
+        body: JSON.stringify(currentSections)
+      }).catch(() => {});
+    }, 80);
+    return () => clearTimeout(timer);
+  }, [
+    serverReady,
+    settings,
+    categories,
+    products,
+    customers,
+    suppliers,
+    invoices,
+    deliverySlips,
+    deliveryReturns,
+    purchaseInvoices,
+    quotations,
+    salesOrders,
+    purchaseOrders,
+    deliveryChallans,
+    proformaInvoices,
+    commercialInvoices,
+    importRecords,
+    exportRecords,
+    lcRecords,
+    shipments,
+    payments,
+    expenses,
+    stockMovements,
+    users,
+    activityLogs
+  ]);
+
   // Activity logger
   const logActivity = (action: string, details: string) => {
     const now = new Date();
@@ -427,21 +758,45 @@ export const DataProvider: React.FC<{ children: React.ReactNode }> = ({ children
     logActivity('Settings Updated', 'Company profile and operational settings saved.');
   };
 
-  // Helper for sequential numbering (starts from 0)
+  // Helper for sequential numbering (starts from user specified base counts)
   const getNextNumber = (type: 'invoice' | 'delivery_slip' | 'quotation' | 'pi' | 'ci' | 'payment' | 'po' | 'so' | 'challan' | 'import' | 'export' | 'expense' | 'purchase_invoice'): string => {
     const year = new Date().getFullYear();
     let prefix = '';
     let count = 0;
 
     switch (type) {
-      case 'invoice':
-        prefix = settings.invoicePrefix || `INV-${year}-`;
-        count = invoices.length;
-        break;
-      case 'delivery_slip':
-        prefix = settings.deliverySlipPrefix || `DS-${year}-`;
-        count = deliverySlips.length;
-        break;
+      case 'invoice': {
+        const baseSeq = 161425;
+        let maxSeq = baseSeq - 1;
+        invoices.forEach(inv => {
+          if (!inv.invoiceNumber) return;
+          const match = inv.invoiceNumber.match(/(?:INV[_-]\d+[-_]|INV[-_])?(\d+)/i);
+          if (match && match[1]) {
+            const num = parseInt(match[1], 10);
+            if (!isNaN(num) && num > maxSeq) {
+              maxSeq = num;
+            }
+          }
+        });
+        const nextSeq = maxSeq + 1;
+        return `INV_2026-${nextSeq}`;
+      }
+      case 'delivery_slip': {
+        const baseSeq = 4702;
+        let maxSeq = baseSeq - 1;
+        deliverySlips.forEach(ds => {
+          if (!ds.deliverySlipNumber) return;
+          const match = ds.deliverySlipNumber.match(/(?:DS[_-]\d+[-_]|DS[-_])?(\d+)/i);
+          if (match && match[1]) {
+            const num = parseInt(match[1], 10);
+            if (!isNaN(num) && num > maxSeq) {
+              maxSeq = num;
+            }
+          }
+        });
+        const nextSeq = maxSeq + 1;
+        return `DS-2026-${nextSeq}`;
+      }
       case 'quotation':
         prefix = settings.quotationPrefix || `QT-${year}-`;
         count = quotations.length;
@@ -495,12 +850,26 @@ export const DataProvider: React.FC<{ children: React.ReactNode }> = ({ children
   const saveCustomer = (customer: Customer) => {
     const isNew = !customers.some(c => c.id === customer.id);
     if (isNew) {
-      setCustomers(prev => [customer, ...prev]);
+      setCustomers(prev => {
+        const next = [customer, ...prev];
+        localStorage.setItem(STORAGE_PREFIX + 'customers', JSON.stringify(next));
+        return next;
+      });
       logActivity('Customer Created', `Added customer: ${customer.customerName} (${customer.companyName})`);
     } else {
-      setCustomers(prev => prev.map(c => c.id === customer.id ? customer : c));
+      setCustomers(prev => {
+        const next = prev.map(c => c.id === customer.id ? customer : c);
+        localStorage.setItem(STORAGE_PREFIX + 'customers', JSON.stringify(next));
+        return next;
+      });
       logActivity('Customer Updated', `Updated customer: ${customer.customerName}`);
     }
+    // Immediately persist customer to cloud server
+    fetch('/api/customers', {
+      method: 'POST',
+      headers: { 'Content-Type': 'application/json' },
+      body: JSON.stringify(customer)
+    }).catch(() => {});
   };
 
   const deleteCustomer = (id: string): boolean => {
@@ -512,7 +881,14 @@ export const DataProvider: React.FC<{ children: React.ReactNode }> = ({ children
       alert(`Cannot delete customer "${customer.customerName}" because they have existing sales invoices. Archive or cancel invoices first.`);
       return false;
     }
-    setCustomers(prev => prev.filter(c => c.id !== id));
+    setCustomers(prev => {
+      const next = prev.filter(c => c.id !== id);
+      localStorage.setItem(STORAGE_PREFIX + 'customers', JSON.stringify(next));
+      return next;
+    });
+    fetch(`/api/customers/${encodeURIComponent(id)}`, {
+      method: 'DELETE'
+    }).catch(() => {});
     logActivity('Customer Deleted', `Deleted customer: ${customer.customerName}`);
     return true;
   };
@@ -681,8 +1057,58 @@ export const DataProvider: React.FC<{ children: React.ReactNode }> = ({ children
       paymentStatus = 'Overdue';
     }
 
+    // Auto-match or auto-create customer in Customer Directory so every invoice customer is saved
+    let resolvedCustomerId = invoiceData.customerId;
+    const existingCust = customers.find(
+      c =>
+        (resolvedCustomerId && c.id === resolvedCustomerId) ||
+        c.customerName.trim().toLowerCase() === invoiceData.customerName.trim().toLowerCase() ||
+        (invoiceData.customerPhone && c.phone.trim() === invoiceData.customerPhone.trim())
+    );
+
+    if (existingCust) {
+      resolvedCustomerId = existingCust.id;
+    } else if (invoiceData.customerName.trim()) {
+      resolvedCustomerId = 'cust-' + Date.now();
+      const autoNewCustomer: Customer = {
+        id: resolvedCustomerId,
+        customerId: 'CUST-' + Date.now().toString().slice(-4),
+        customerName: invoiceData.customerName.trim(),
+        companyName: (invoiceData.companyName || invoiceData.customerName).trim(),
+        customerType: 'Corporate',
+        contactPerson: invoiceData.customerName.trim(),
+        phone: invoiceData.customerPhone || '',
+        email: invoiceData.customerEmail || '',
+        billingAddress: invoiceData.customerAddress || '',
+        shippingAddress: invoiceData.customerAddress || '',
+        city: 'Dhaka',
+        district: 'Dhaka',
+        country: 'Bangladesh',
+        postalCode: '1216',
+        binNumber: invoiceData.customerBin || '',
+        tinNumber: invoiceData.customerTin || '',
+        openingBalance: invoiceData.previousDue || 0,
+        currentBalance: (invoiceData.previousDue || 0) + (isNew ? Math.round(balanceDue * 100) / 100 : 0),
+        creditLimit: 500000,
+        paymentTerms: invoiceData.paymentTerms || '15 Days Credit',
+        createdAt: getTodayDateString(),
+        updatedAt: getTodayDateString()
+      };
+      setCustomers(prev => {
+        const next = [autoNewCustomer, ...prev];
+        localStorage.setItem(STORAGE_PREFIX + 'customers', JSON.stringify(next));
+        return next;
+      });
+      fetch('/api/customers', {
+        method: 'POST',
+        headers: { 'Content-Type': 'application/json' },
+        body: JSON.stringify(autoNewCustomer)
+      }).catch(() => {});
+    }
+
     const fullInvoice: SalesInvoice = {
       ...invoiceData,
+      customerId: resolvedCustomerId,
       items: updatedItems,
       subtotal: Math.round(subtotal * 100) / 100,
       itemDiscount: Math.round(itemDiscountTotal * 100) / 100,
@@ -721,18 +1147,33 @@ export const DataProvider: React.FC<{ children: React.ReactNode }> = ({ children
         }));
       }
 
-      // Update customer balance
-      setCustomers(prev => prev.map(c => {
-        if (c.id === fullInvoice.customerId) {
-          return {
-            ...c,
-            currentBalance: (c.currentBalance || 0) + fullInvoice.balanceDue
-          };
-        }
-        return c;
-      }));
+      // Update existing customer balance & latest contact details
+      if (existingCust) {
+        const updatedCust: Customer = {
+          ...existingCust,
+          companyName: fullInvoice.companyName || existingCust.companyName,
+          phone: fullInvoice.customerPhone || existingCust.phone,
+          email: fullInvoice.customerEmail || existingCust.email,
+          billingAddress: fullInvoice.customerAddress || existingCust.billingAddress,
+          shippingAddress: fullInvoice.customerAddress || existingCust.shippingAddress,
+          binNumber: fullInvoice.customerBin || existingCust.binNumber,
+          tinNumber: fullInvoice.customerTin || existingCust.tinNumber,
+          currentBalance: (existingCust.currentBalance || 0) + fullInvoice.balanceDue,
+          updatedAt: getTodayDateString()
+        };
+        setCustomers(prev => {
+          const next = prev.map(c => c.id === existingCust.id ? updatedCust : c);
+          localStorage.setItem(STORAGE_PREFIX + 'customers', JSON.stringify(next));
+          return next;
+        });
+        fetch('/api/customers', {
+          method: 'POST',
+          headers: { 'Content-Type': 'application/json' },
+          body: JSON.stringify(updatedCust)
+        }).catch(() => {});
+      }
 
-      logActivity('Invoice Created', `Created invoice ${fullInvoice.invoiceNumber} for ${fullInvoice.customerName} (Grand Total: ৳${fullInvoice.grandTotal.toLocaleString()})`);
+      logActivity('Invoice Created', `Created invoice ${fullInvoice.invoiceNumber} for ${fullInvoice.customerName} (Grand Total: BDT ${fullInvoice.grandTotal.toLocaleString()})`);
     } else {
       setInvoices(prev => prev.map(i => i.id === fullInvoice.id ? fullInvoice : i));
       logActivity('Invoice Updated', `Updated invoice ${fullInvoice.invoiceNumber}`);
@@ -807,33 +1248,32 @@ export const DataProvider: React.FC<{ children: React.ReactNode }> = ({ children
     if (!invoice) throw new Error('Invoice not found');
 
     const year = new Date().getFullYear();
-    let slipNumber = slipData.deliverySlipNumber;
+    let slipNumber = slipData.deliverySlipNumber?.trim();
     if (!slipNumber) {
-      if (settings.deliverySlipNumbering === 'linked_to_invoice') {
-        const existingSlipsForInvoice = deliverySlips.filter(d => d.invoiceId === invoice.id);
-        const subIndex = String(existingSlipsForInvoice.length + 1).padStart(2, '0');
-        const invNumClean = invoice.invoiceNumber.replace('INV-', 'DS-');
-        slipNumber = `${invNumClean}-${subIndex}`;
-      } else {
-        slipNumber = getNextNumber('delivery_slip');
-      }
+      slipNumber = getNextNumber('delivery_slip');
     }
 
     // Map items and calculate pending quantities
     const items: DeliverySlip['items'] = (slipData.items || []).map(item => {
-      const invItem = invoice.items.find(i => i.id === item.invoiceItemId || i.productId === item.productId);
+      const invItem = invoice.items.find(
+        i => (item.invoiceItemId && i.id === item.invoiceItemId) || (item.productId && i.productId === item.productId) || i.productName === item.productName
+      );
       const orderedQty = invItem ? invItem.quantity : item.orderedQuantity;
 
       // Calculate previously delivered across existing delivery slips for this invoice
       const prevDelivered = deliverySlips
         .filter(ds => ds.invoiceId === invoice.id && ds.deliveryStatus !== 'Cancelled')
         .reduce((sum, ds) => {
-          const match = ds.items.find(di => di.productId === item.productId);
+          const match = ds.items.find(
+            di => (item.invoiceItemId && di.invoiceItemId === item.invoiceItemId) || (item.productId && di.productId === item.productId) || di.productName === item.productName
+          );
           return sum + (match ? match.deliveredQuantity : 0);
         }, 0);
 
       const delivered = Number(item.deliveredQuantity || 0);
       const remaining = Math.max(0, orderedQty - (prevDelivered + delivered));
+      const resolvedBox = item.boxCount !== undefined && item.boxCount !== '' ? String(item.boxCount) : (item.boxes !== undefined ? String(item.boxes) : '');
+      const resolvedWeight = item.weight !== undefined ? String(item.weight) : '';
 
       return {
         id: 'ds-item-' + Date.now() + '-' + Math.random().toString(36).substring(2, 5),
@@ -846,6 +1286,9 @@ export const DataProvider: React.FC<{ children: React.ReactNode }> = ({ children
         previouslyDelivered: prevDelivered,
         deliveredQuantity: delivered,
         remainingQuantity: remaining,
+        boxCount: resolvedBox,
+        boxes: resolvedBox,
+        weight: resolvedWeight,
         unitPrice: invItem ? invItem.unitPrice : item.unitPrice,
         amount: invItem ? invItem.unitPrice * delivered : (item.unitPrice || 0) * delivered,
         remarks: item.remarks || ''
@@ -876,6 +1319,13 @@ export const DataProvider: React.FC<{ children: React.ReactNode }> = ({ children
       poNumber: slipData.poNumber || invoice.poNumber,
       remarks: slipData.remarks,
       deliveryInstructions: slipData.deliveryInstructions,
+      totalBoxes: slipData.totalBoxes !== undefined ? String(slipData.totalBoxes) : '',
+      totalWeight: slipData.totalWeight !== undefined ? String(slipData.totalWeight) : '',
+      receivedBy: slipData.receivedBy || slipData.receiverName,
+      receiverName: slipData.receiverName || slipData.receivedBy,
+      receiverPhone: slipData.receiverPhone,
+      receiverDesignation: slipData.receiverDesignation,
+      receivedDate: slipData.receivedDate,
       items,
       deliveryStatus: slipData.deliveryStatus || 'Dispatched',
       createdBy: currentUser.name,
@@ -1494,7 +1944,7 @@ export const DataProvider: React.FC<{ children: React.ReactNode }> = ({ children
       return exists ? prev.map(i => i.id === fullImp.id ? fullImp : i) : [fullImp, ...prev];
     });
 
-    logActivity('Import Record Saved', `Import Reference ${fullImp.importReference} calculated. Total Landed Cost: ৳${totalLandedCost.toLocaleString()}`);
+    logActivity('Import Record Saved', `Import Reference ${fullImp.importReference} calculated. Total Landed Cost: BDT ${totalLandedCost.toLocaleString()}`);
   };
 
   const saveExportRecord = (exp: ExportRecord) => {
@@ -1566,7 +2016,7 @@ export const DataProvider: React.FC<{ children: React.ReactNode }> = ({ children
         } : s));
       }
 
-      logActivity('Payment Recorded', `Recorded ${fullPayment.type} of ৳${fullPayment.amount.toLocaleString()} (Receipt: ${fullPayment.receiptNumber})`);
+      logActivity('Payment Recorded', `Recorded ${fullPayment.type} of BDT ${fullPayment.amount.toLocaleString()} (Receipt: ${fullPayment.receiptNumber})`);
     } else {
       setPayments(prev => prev.map(p => p.id === fullPayment.id ? fullPayment : p));
     }
@@ -1578,7 +2028,7 @@ export const DataProvider: React.FC<{ children: React.ReactNode }> = ({ children
       const exists = prev.some(e => e.id === expense.id);
       return exists ? prev.map(e => e.id === expense.id ? expense : e) : [expense, ...prev];
     });
-    logActivity('Expense Recorded', `Recorded ${expense.category} expense of ৳${expense.amount.toLocaleString()} (${expense.expenseNumber})`);
+    logActivity('Expense Recorded', `Recorded ${expense.category} expense of BDT ${expense.amount.toLocaleString()} (${expense.expenseNumber})`);
   };
 
   const deleteExpense = (id: string): boolean => {
@@ -1589,12 +2039,93 @@ export const DataProvider: React.FC<{ children: React.ReactNode }> = ({ children
     return true;
   };
 
-  // Users
+  // Users & RBAC
   const saveUser = (user: UserAccount) => {
     setUsers(prev => {
       const exists = prev.some(u => u.id === user.id);
       return exists ? prev.map(u => u.id === user.id ? user : u) : [user, ...prev];
     });
+    logActivity('User Profile Updated', `Updated account for ${user.username} (${user.fullName || user.name})`);
+  };
+
+  const approveUser = (userId: string, assignedRole?: UserRole, assignedDepartment?: string) => {
+    setUsers(prev => prev.map(u => {
+      if (u.id === userId) {
+        return {
+          ...u,
+          status: 'Active',
+          active: true,
+          role: assignedRole || u.role,
+          department: assignedDepartment || u.department,
+          approvedAt: new Date().toISOString(),
+          approvedBy: currentUser?.name || 'Administrator'
+        };
+      }
+      return u;
+    }));
+    logActivity('Account Approved', `Approved user account ID ${userId} with role ${assignedRole || 'assigned'}`);
+  };
+
+  const rejectUser = (userId: string, reason?: string) => {
+    setUsers(prev => prev.map(u => {
+      if (u.id === userId) {
+        return {
+          ...u,
+          status: 'Rejected',
+          active: false
+        };
+      }
+      return u;
+    }));
+    logActivity('Account Rejected', `Rejected user account ID ${userId}${reason ? ` (Reason: ${reason})` : ''}`);
+  };
+
+  const updateUserStatus = (userId: string, status: UserStatus) => {
+    setUsers(prev => prev.map(u => {
+      if (u.id === userId) {
+        return {
+          ...u,
+          status,
+          active: status === 'Active'
+        };
+      }
+      return u;
+    }));
+    logActivity('Status Changed', `Changed status for user ID ${userId} to ${status}`);
+  };
+
+  const registerUser = (newUser: Omit<UserAccount, 'id' | 'createdAt'>): { success: boolean; message: string; user?: UserAccount } => {
+    const cleanUser = newUser.username.trim().toLowerCase();
+    const cleanEmail = newUser.email.trim().toLowerCase();
+
+    // Check uniqueness
+    const usernameTaken = users.some(u => u.username.toLowerCase() === cleanUser);
+    if (usernameTaken) {
+      return { success: false, message: 'Username is already taken. Please choose another.' };
+    }
+    const emailTaken = users.some(u => u.email.toLowerCase() === cleanEmail);
+    if (emailTaken) {
+      return { success: false, message: 'Email address is already registered in the system.' };
+    }
+
+    const created: UserAccount = {
+      ...newUser,
+      id: `usr-${Date.now()}`,
+      username: cleanUser,
+      email: cleanEmail,
+      status: 'Pending',
+      active: false, // Security: Pending users cannot access until approved by an administrator
+      registeredAt: new Date().toISOString(),
+      createdAt: new Date().toISOString()
+    };
+
+    setUsers(prev => [created, ...prev]);
+    logActivity('Registration Submitted', `New user registration submitted: ${created.username} (${created.fullName || created.name})`);
+    return {
+      success: true,
+      message: 'Registration submitted successfully! Your account is pending administrator approval before ERP access is granted.',
+      user: created
+    };
   };
 
   const deleteUser = (id: string): boolean => {
@@ -1602,7 +2133,9 @@ export const DataProvider: React.FC<{ children: React.ReactNode }> = ({ children
       alert('Cannot delete the only remaining user account.');
       return false;
     }
+    const target = users.find(u => u.id === id);
     setUsers(prev => prev.filter(u => u.id !== id));
+    logActivity('User Deleted', `Deleted user account ${target?.username || id}`);
     return true;
   };
 
@@ -1778,6 +2311,10 @@ export const DataProvider: React.FC<{ children: React.ReactNode }> = ({ children
         deleteExpense,
         saveUser,
         deleteUser,
+        approveUser,
+        rejectUser,
+        updateUserStatus,
+        registerUser,
         exportDatabaseBackup,
         restoreDatabaseBackup,
         resetToDefaultData,

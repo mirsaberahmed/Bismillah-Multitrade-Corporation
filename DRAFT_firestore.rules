@@ -1,0 +1,103 @@
+rules_version = '2';
+
+service cloud.firestore {
+  match /databases/{database}/documents {
+    // Global Default-Deny Safety Net
+    match /{document=**} {
+      allow read, write: if false;
+    }
+
+    function isValidId(id) {
+      return id is string && id.size() >= 1 && id.size() <= 128 && id.matches('^[a-zA-Z0-9_\\-]+$');
+    }
+
+    function incoming() {
+      return request.resource.data;
+    }
+
+    function existing() {
+      return resource.data;
+    }
+
+    function isAuthorizedOrgKey(key) {
+      return key is string
+        && key.size() >= 5
+        && key.size() <= 64
+        && key.matches('^[a-zA-Z0-9_\\-]+$')
+        && key == 'BISMILLAH-MULTITRADE-CORP';
+    }
+
+    function isValidErpSectionDoc(data) {
+      return data.keys().hasAll(['orgKey', 'sectionId', 'payloadJson', 'updatedAtIso', 'updatedBy'])
+        && data.keys().hasOnly(['orgKey', 'sectionId', 'payloadJson', 'updatedAtIso', 'updatedBy'])
+        && isAuthorizedOrgKey(data.orgKey)
+        && data.sectionId is string && data.sectionId.size() >= 2 && data.sectionId.size() <= 64 && data.sectionId.matches('^[a-zA-Z0-9_\\-]+$')
+        && data.payloadJson is string && data.payloadJson.size() >= 2 && data.payloadJson.size() <= 950000
+        && data.updatedAtIso is string && data.updatedAtIso.size() >= 10 && data.updatedAtIso.size() <= 64
+        && data.updatedBy is string && data.updatedBy.size() >= 1 && data.updatedBy.size() <= 128;
+    }
+
+    function isValidAuthAccountDoc(data) {
+      return data.keys().hasAll(['orgKey', 'accountId', 'username', 'pin', 'displayName', 'role', 'fingerprintEnabled', 'credentialId', 'updatedAtIso'])
+        && data.keys().hasOnly(['orgKey', 'accountId', 'username', 'pin', 'displayName', 'role', 'fingerprintEnabled', 'credentialId', 'updatedAtIso'])
+        && isAuthorizedOrgKey(data.orgKey)
+        && data.accountId is string && data.accountId.size() >= 2 && data.accountId.size() <= 64 && data.accountId.matches('^[a-zA-Z0-9_\\-]+$')
+        && data.username is string && data.username.size() >= 2 && data.username.size() <= 64
+        && data.pin is string && data.pin.size() >= 4 && data.pin.size() <= 32
+        && data.displayName is string && data.displayName.size() >= 1 && data.displayName.size() <= 128
+        && data.role is string && data.role.size() >= 2 && data.role.size() <= 64
+        && data.fingerprintEnabled is bool
+        && data.credentialId is string && data.credentialId.size() <= 512
+        && data.updatedAtIso is string && data.updatedAtIso.size() >= 10 && data.updatedAtIso.size() <= 64;
+    }
+
+    function isValidConnectionTestDoc(data) {
+      return data.keys().hasAll(['orgKey', 'status'])
+        && data.keys().hasOnly(['orgKey', 'status'])
+        && isAuthorizedOrgKey(data.orgKey)
+        && data.status is string && data.status.size() >= 2 && data.status.size() <= 32;
+    }
+
+    // 1. ERP Synchronized Module Sections (/erp_sections/{sectionId})
+    match /erp_sections/{sectionId} {
+      allow get: if isValidId(sectionId) && (resource == null || isAuthorizedOrgKey(existing().orgKey));
+      allow list: if isAuthorizedOrgKey(existing().orgKey);
+      allow create: if isValidId(sectionId)
+        && isValidErpSectionDoc(incoming())
+        && incoming().sectionId == sectionId;
+      allow update: if isValidId(sectionId)
+        && isValidErpSectionDoc(incoming())
+        && incoming().sectionId == existing().sectionId
+        && incoming().orgKey == existing().orgKey
+        && incoming().diff(existing()).affectedKeys().hasOnly(['payloadJson', 'updatedAtIso', 'updatedBy']);
+      allow delete: if isValidId(sectionId) && isAuthorizedOrgKey(existing().orgKey);
+    }
+
+    // 2. ERP Login & PIN / Biometric Accounts (/erp_auth_accounts/{accountId})
+    match /erp_auth_accounts/{accountId} {
+      allow get: if isValidId(accountId) && (resource == null || isAuthorizedOrgKey(existing().orgKey));
+      allow list: if isAuthorizedOrgKey(existing().orgKey);
+      allow create: if isValidId(accountId)
+        && isValidAuthAccountDoc(incoming())
+        && incoming().accountId == accountId;
+      allow update: if isValidId(accountId)
+        && isValidAuthAccountDoc(incoming())
+        && incoming().accountId == existing().accountId
+        && incoming().orgKey == existing().orgKey
+        && incoming().diff(existing()).affectedKeys().hasOnly(['username', 'pin', 'displayName', 'role', 'fingerprintEnabled', 'credentialId', 'updatedAtIso']);
+      allow delete: if isValidId(accountId) && isAuthorizedOrgKey(existing().orgKey);
+    }
+
+    // 3. Firestore Boot Connectivity Check (/test/{testId})
+    match /test/{testId} {
+      allow get: if isValidId(testId);
+      allow list: if isAuthorizedOrgKey(existing().orgKey);
+      allow create: if isValidId(testId) && isValidConnectionTestDoc(incoming());
+      allow update: if isValidId(testId)
+        && isValidConnectionTestDoc(incoming())
+        && incoming().orgKey == existing().orgKey
+        && incoming().diff(existing()).affectedKeys().hasOnly(['status']);
+      allow delete: if false;
+    }
+  }
+}

@@ -2,29 +2,27 @@ import React, { useState } from 'react';
 import {
   LayoutDashboard,
   FileText,
-  Truck,
-  FileSpreadsheet,
   ShoppingCart,
   Package,
   Users,
   Building2,
-  Ship,
-  FileCheck,
   CreditCard,
   Receipt,
+  FileCheck,
   BarChart3,
-  Upload,
-  Download,
-  Database,
-  History,
-  ShieldCheck,
+  Truck,
+  Boxes,
+  PieChart,
   Settings,
-  ChevronDown,
+  ShieldCheck,
+  LogOut,
   ChevronRight,
-  Plus,
-  Compass,
-  AlertCircle,
-  X
+  ChevronDown,
+  X,
+  ChevronLeft,
+  Activity,
+  Globe,
+  Database
 } from 'lucide-react';
 import { useData } from '../../context/DataContext';
 
@@ -56,6 +54,7 @@ export type ActiveTab =
   | 'data_export'
   | 'backup_restore'
   | 'activity_logs'
+  | 'user_management'
   | 'settings';
 
 interface SidebarProps {
@@ -67,6 +66,7 @@ interface SidebarProps {
   setMobileOpen?: (open: boolean) => void;
   onCloseMobile?: () => void;
   onNewInvoice?: () => void;
+  onLogout?: () => void;
 }
 
 export const Sidebar: React.FC<SidebarProps> = ({
@@ -77,241 +77,536 @@ export const Sidebar: React.FC<SidebarProps> = ({
   mobileMenuOpen,
   setMobileOpen,
   onCloseMobile,
-  onNewInvoice
+  onLogout
 }) => {
   const isMobileOpen = mobileOpen || mobileMenuOpen || false;
+  const [collapsed, setCollapsed] = useState(false);
+
   const closeMobile = () => {
     if (setMobileOpen) setMobileOpen(false);
     if (onCloseMobile) onCloseMobile();
   };
+
   const selectTab = (tab: ActiveTab) => {
     if (setActiveTab) setActiveTab(tab);
     if (onSelectTab) onSelectTab(tab);
     closeMobile();
   };
 
-  const { products, invoices, deliverySlips } = useData();
-  
-  // Calculate badges
-  const lowStockCount = products.filter(p => p.stockQuantity <= (p.minimumStock || p.minStockLevel || 10)).length;
-  const unpaidInvoices = invoices.filter(i => i.paymentStatus === 'Unpaid' || i.paymentStatus === 'Overdue').length;
+  const { invoices, deliverySlips, currentUser } = useData();
+  const unpaidCount = invoices.filter(i => i.paymentStatus === 'Unpaid' || i.paymentStatus === 'Overdue').length;
   const pendingDeliveries = deliverySlips.filter(d => d.deliveryStatus !== 'Delivered' && d.deliveryStatus !== 'Cancelled').length;
 
-  const [expandedGroups, setExpandedGroups] = useState<Record<string, boolean>>({
-    sales: true,
-    purchase: true,
-    contacts: true,
-    inventory: true,
-    trade: true,
-    finance: true,
-    system: true
-  });
+  // Submenu states
+  const [openSubmenu, setOpenSubmenu] = useState<string | null>(null);
 
-  const toggleGroup = (group: string) => {
-    setExpandedGroups(prev => ({ ...prev, [group]: !prev[group] }));
-  };
-
-  const navItem = (tab: ActiveTab, label: string, icon: React.ReactNode, badge?: number | string, badgeColor?: string) => {
-    const isActive = activeTab === tab;
-    const hasBadge = badge !== undefined && (typeof badge === 'number' ? badge > 0 : Boolean(badge));
-    return (
-      <button
-        key={tab}
-        onClick={() => selectTab(tab)}
-        className={`w-full flex items-center justify-between px-3 py-2 text-xs font-medium rounded-lg transition-colors group ${
-          isActive
-            ? 'bg-amber-500 text-zinc-950 font-bold shadow-sm'
-            : 'text-zinc-400 hover:text-zinc-100 hover:bg-zinc-800/60'
-        }`}
-      >
-        <div className="flex items-center gap-2.5 min-w-0">
-          <span className={`${isActive ? 'text-zinc-950' : 'text-zinc-400 group-hover:text-amber-400'}`}>
-            {icon}
-          </span>
-          <span className="truncate">{label}</span>
-        </div>
-        {hasBadge && (
-          <span
-            className={`text-[10px] font-bold px-1.5 py-0.2 rounded-full ${
-              isActive
-                ? 'bg-zinc-950 text-amber-400'
-                : badgeColor || 'bg-amber-500/20 text-amber-400'
-            }`}
-          >
-            {badge}
-          </span>
-        )}
-      </button>
-    );
-  };
-
-  const navGroup = (title: string, groupKey: string, children: React.ReactNode) => {
-    const isExpanded = expandedGroups[groupKey] ?? true;
-    return (
-      <div className="mb-3">
-        <button
-          onClick={() => toggleGroup(groupKey)}
-          className="w-full flex items-center justify-between px-3 py-1 text-[11px] font-bold uppercase tracking-wider text-zinc-300 hover:text-zinc-100 mb-1"
-        >
-          <span>{title}</span>
-          {isExpanded ? <ChevronDown size={14} /> : <ChevronRight size={14} />}
-        </button>
-        {isExpanded && <div className="space-y-0.5">{children}</div>}
-      </div>
-    );
+  const toggleSubmenu = (key: string) => {
+    setOpenSubmenu(prev => (prev === key ? null : key));
   };
 
   return (
     <>
-      {/* Backdrop for Toggle Menu (Hidden by default, shown when menu is clicked) */}
+      {/* Mobile Backdrop */}
       {isMobileOpen && (
         <div
           onClick={closeMobile}
-          className="fixed inset-0 bg-black/70 backdrop-blur-xs z-40 transition-opacity"
+          className="fixed inset-0 bg-black/60 backdrop-blur-xs z-40 lg:hidden transition-opacity print:hidden"
         />
       )}
 
-      {/* Sidebar Drawer (Hidden by default with -translate-x-full, slides in when toggle clicked) */}
+      {/* Main Sidebar (Desktop fixed left, Mobile drawer) - Off-White with shadow */}
       <aside
-        className={`fixed top-0 bottom-0 left-0 z-50 w-72 bg-zinc-950 border-r border-zinc-800 flex flex-col shadow-2xl transition-transform duration-300 ease-in-out ${
-          isMobileOpen ? 'translate-x-0' : '-translate-x-full'
+        className={`fixed top-0 bottom-0 left-0 z-50 lg:static flex flex-col bg-[#F8F9FA] border-r border-slate-200/90 text-slate-800 shadow-2xl lg:shadow-xl lg:shadow-slate-300/40 transition-all duration-300 ease-in-out print:hidden ${
+          collapsed ? 'lg:w-[72px]' : 'lg:w-[246px]'
+        } w-[246px] ${
+          isMobileOpen ? 'translate-x-0' : '-translate-x-full lg:translate-x-0'
         }`}
       >
-        {/* Company Brand Header */}
-        <div className="p-4 border-b border-zinc-800 flex items-center justify-between">
-          <div className="flex items-center gap-2.5">
-            <div className="w-8 h-8 rounded-lg bg-amber-500 flex items-center justify-center text-zinc-950 font-black text-base shadow-sm">
-              B
+        {/* Top Logo Section */}
+        <div className="h-16 px-4 flex items-center justify-between border-b border-slate-200/90 bg-white/90 shrink-0">
+          <div className="flex items-center gap-3 min-w-0">
+            {/* Orange 3D Cube Logo */}
+            <div className="w-8 h-8 rounded-lg bg-gradient-to-br from-orange-400 via-orange-500 to-orange-600 flex items-center justify-center text-white shadow-md shadow-orange-500/25 shrink-0">
+              <svg viewBox="0 0 24 24" width="18" height="18" fill="none" stroke="currentColor" strokeWidth="2.2" strokeLinecap="round" strokeLinejoin="round">
+                <path d="M21 16V8a2 2 0 0 0-1-1.73l-7-4a2 2 0 0 0-2 0l-7 4A2 2 0 0 0 3 8v8a2 2 0 0 0 1 1.73l7 4a2 2 0 0 0 2 0l7-4A2 2 0 0 0 21 16z" />
+                <polyline points="3.27 6.96 12 12.01 20.73 6.96" />
+                <line x1="12" y1="22.08" x2="12" y2="12" />
+              </svg>
             </div>
-            <div className="min-w-0">
-              <h2 className="text-xs font-black uppercase text-zinc-100 tracking-tight leading-tight truncate">
-                Bismillah Multitrade
-              </h2>
-              <p className="text-[10px] text-amber-400/90 font-medium truncate">
-                ERP &amp; Trade Management
-              </p>
-            </div>
+            {!collapsed && (
+              <div className="min-w-0">
+                <h1 className="text-[13px] font-black tracking-wider text-slate-900 uppercase leading-tight truncate font-sans">
+                  BISMILLAH
+                </h1>
+                <p className="text-[9px] font-bold text-slate-500 tracking-widest uppercase leading-tight truncate">
+                  MULTITRADE CORP
+                </p>
+              </div>
+            )}
           </div>
+
+          {/* Mobile close button */}
           <button
             onClick={closeMobile}
-            className="p-1.5 rounded-lg bg-zinc-900 hover:bg-zinc-800 text-zinc-400 hover:text-zinc-100 border border-zinc-800 transition-colors"
-            title="Close Menu"
+            className="lg:hidden p-1.5 text-slate-500 hover:text-slate-900 rounded-lg hover:bg-slate-200 transition-colors cursor-pointer"
           >
-            <X size={16} />
+            <X size={18} />
           </button>
-        </div>
 
-        {/* Quick New Invoice Action Button */}
-        <div className="px-3 pt-3 pb-2">
+          {/* Desktop collapse toggle */}
           <button
-            onClick={() => {
-              if (onNewInvoice) onNewInvoice();
-              closeMobile();
-            }}
-            className="w-full flex items-center justify-center gap-2 px-3 py-2 bg-gradient-to-r from-amber-500 to-amber-600 hover:from-amber-400 hover:to-amber-500 text-zinc-950 rounded-lg text-xs font-bold shadow-md shadow-amber-500/10 transition-all active:scale-[0.98]"
+            onClick={() => setCollapsed(!collapsed)}
+            className="hidden lg:flex p-1.5 text-slate-500 hover:text-slate-900 rounded-md hover:bg-slate-200/80 transition-colors cursor-pointer"
+            title={collapsed ? 'Expand Sidebar' : 'Collapse Sidebar'}
           >
-            <Plus size={15} className="stroke-[2.5]" />
-            <span>Create New Invoice</span>
+            {collapsed ? <ChevronRight size={16} /> : <ChevronLeft size={16} />}
           </button>
         </div>
 
-        {/* Navigation Items (Scrollable) */}
-        <div className="flex-1 overflow-y-auto px-3 py-2 custom-scrollbar">
-          {/* Dashboard */}
-          <div className="mb-3">
-            {navItem('dashboard', 'Dashboard', <LayoutDashboard size={16} />)}
+        {/* Scrollable Navigation Menu */}
+        <div className="flex-1 overflow-y-auto px-3 py-4 space-y-5 text-xs">
+          {/* 1. MAIN MENU */}
+          <div>
+            {!collapsed && (
+              <p className="px-2 mb-1.5 text-[10px] font-black uppercase tracking-wider text-slate-400">
+                MAIN MENU
+              </p>
+            )}
+            <div className="space-y-1">
+              {/* Dashboard Item */}
+              <button
+                onClick={() => selectTab('dashboard')}
+                className={`w-full flex items-center ${collapsed ? 'justify-center px-0' : 'justify-between px-3'} py-2 rounded-lg font-semibold transition-colors cursor-pointer ${
+                  activeTab === 'dashboard'
+                    ? 'bg-[#F97316] text-white font-bold shadow-md shadow-orange-500/25'
+                    : 'text-slate-700 hover:text-slate-900 hover:bg-slate-200/70'
+                }`}
+                title="Dashboard"
+              >
+                <div className="flex items-center gap-2.5 min-w-0">
+                  <LayoutDashboard size={16} className={activeTab === 'dashboard' ? 'text-white' : 'text-slate-500'} />
+                  {!collapsed && <span className="truncate">Dashboard</span>}
+                </div>
+              </button>
+
+              {/* Sales & Invoices Submenu */}
+              <div>
+                <button
+                  onClick={() => {
+                    selectTab('invoices');
+                    toggleSubmenu('sales');
+                  }}
+                  className={`w-full flex items-center ${collapsed ? 'justify-center px-0' : 'justify-between px-3'} py-2 rounded-lg font-semibold transition-colors cursor-pointer ${
+                    activeTab === 'invoices' || activeTab === 'quotations' || activeTab === 'sales_orders'
+                      ? 'bg-[#F97316] text-white font-bold shadow-md shadow-orange-500/25'
+                      : 'text-slate-700 hover:text-slate-900 hover:bg-slate-200/70'
+                  }`}
+                  title="Sales & Invoices"
+                >
+                  <div className="flex items-center gap-2.5 min-w-0">
+                    <FileText size={16} className={activeTab === 'invoices' || activeTab === 'quotations' || activeTab === 'sales_orders' ? 'text-white' : 'text-slate-500'} />
+                    {!collapsed && <span className="truncate">Sales &amp; Invoices</span>}
+                  </div>
+                  {!collapsed && (
+                    <ChevronRight
+                      size={14}
+                      className={`text-slate-400 transition-transform ${openSubmenu === 'sales' ? 'rotate-90' : ''}`}
+                    />
+                  )}
+                </button>
+                {!collapsed && openSubmenu === 'sales' && (
+                  <div className="pl-8 pr-2 py-1 space-y-1 text-[11px]">
+                    <button
+                      onClick={() => selectTab('invoices')}
+                      className={`block w-full text-left py-1 px-2 rounded ${activeTab === 'invoices' ? 'text-orange-600 font-bold bg-orange-50' : 'text-slate-600 hover:text-orange-600'}`}
+                    >
+                      All Sales Invoices
+                    </button>
+                    <button
+                      onClick={() => selectTab('quotations')}
+                      className={`block w-full text-left py-1 px-2 rounded ${activeTab === 'quotations' ? 'text-orange-600 font-bold bg-orange-50' : 'text-slate-600 hover:text-orange-600'}`}
+                    >
+                      Price Quotations
+                    </button>
+                    <button
+                      onClick={() => selectTab('sales_orders')}
+                      className={`block w-full text-left py-1 px-2 rounded ${activeTab === 'sales_orders' ? 'text-orange-600 font-bold bg-orange-50' : 'text-slate-600 hover:text-orange-600'}`}
+                    >
+                      Sales Orders
+                    </button>
+                  </div>
+                )}
+              </div>
+
+              {/* Purchases Submenu */}
+              <div>
+                <button
+                  onClick={() => {
+                    selectTab('purchase_invoices');
+                    toggleSubmenu('purchases');
+                  }}
+                  className={`w-full flex items-center ${collapsed ? 'justify-center px-0' : 'justify-between px-3'} py-2 rounded-lg font-semibold transition-colors cursor-pointer ${
+                    activeTab === 'purchase_invoices' || activeTab === 'purchase_orders'
+                      ? 'bg-[#F97316] text-white font-bold shadow-md shadow-orange-500/25'
+                      : 'text-slate-700 hover:text-slate-900 hover:bg-slate-200/70'
+                  }`}
+                  title="Purchases"
+                >
+                  <div className="flex items-center gap-2.5 min-w-0">
+                    <ShoppingCart size={16} className={activeTab === 'purchase_invoices' || activeTab === 'purchase_orders' ? 'text-white' : 'text-slate-500'} />
+                    {!collapsed && <span className="truncate">Purchases</span>}
+                  </div>
+                  {!collapsed && (
+                    <ChevronRight
+                      size={14}
+                      className={`text-slate-400 transition-transform ${openSubmenu === 'purchases' ? 'rotate-90' : ''}`}
+                    />
+                  )}
+                </button>
+                {!collapsed && openSubmenu === 'purchases' && (
+                  <div className="pl-8 pr-2 py-1 space-y-1 text-[11px]">
+                    <button
+                      onClick={() => selectTab('purchase_invoices')}
+                      className={`block w-full text-left py-1 px-2 rounded ${activeTab === 'purchase_invoices' ? 'text-orange-600 font-bold bg-orange-50' : 'text-slate-600 hover:text-orange-600'}`}
+                    >
+                      Purchase Invoices
+                    </button>
+                    <button
+                      onClick={() => selectTab('purchase_orders')}
+                      className={`block w-full text-left py-1 px-2 rounded ${activeTab === 'purchase_orders' ? 'text-orange-600 font-bold bg-orange-50' : 'text-slate-600 hover:text-orange-600'}`}
+                    >
+                      Purchase Orders (PO)
+                    </button>
+                  </div>
+                )}
+              </div>
+
+              {/* Inventory Submenu */}
+              <div>
+                <button
+                  onClick={() => {
+                    selectTab('products');
+                    toggleSubmenu('inventory');
+                  }}
+                  className={`w-full flex items-center ${collapsed ? 'justify-center px-0' : 'justify-between px-3'} py-2 rounded-lg font-semibold transition-colors cursor-pointer ${
+                    activeTab === 'products' || activeTab === 'categories' || activeTab === 'inventory_movements'
+                      ? 'bg-[#F97316] text-white font-bold shadow-md shadow-orange-500/25'
+                      : 'text-slate-700 hover:text-slate-900 hover:bg-slate-200/70'
+                  }`}
+                  title="Inventory"
+                >
+                  <div className="flex items-center gap-2.5 min-w-0">
+                    <Package size={16} className={activeTab === 'products' || activeTab === 'categories' || activeTab === 'inventory_movements' ? 'text-white' : 'text-slate-500'} />
+                    {!collapsed && <span className="truncate">Inventory</span>}
+                  </div>
+                  {!collapsed && (
+                    <ChevronRight
+                      size={14}
+                      className={`text-slate-400 transition-transform ${openSubmenu === 'inventory' ? 'rotate-90' : ''}`}
+                    />
+                  )}
+                </button>
+                {!collapsed && openSubmenu === 'inventory' && (
+                  <div className="pl-8 pr-2 py-1 space-y-1 text-[11px]">
+                    <button
+                      onClick={() => selectTab('products')}
+                      className={`block w-full text-left py-1 px-2 rounded ${activeTab === 'products' ? 'text-orange-600 font-bold bg-orange-50' : 'text-slate-600 hover:text-orange-600'}`}
+                    >
+                      Product Master
+                    </button>
+                    <button
+                      onClick={() => selectTab('categories')}
+                      className={`block w-full text-left py-1 px-2 rounded ${activeTab === 'categories' ? 'text-orange-600 font-bold bg-orange-50' : 'text-slate-600 hover:text-orange-600'}`}
+                    >
+                      Item Categories
+                    </button>
+                    <button
+                      onClick={() => selectTab('inventory_movements')}
+                      className={`block w-full text-left py-1 px-2 rounded ${activeTab === 'inventory_movements' ? 'text-orange-600 font-bold bg-orange-50' : 'text-slate-600 hover:text-orange-600'}`}
+                    >
+                      Stock Movements
+                    </button>
+                  </div>
+                )}
+              </div>
+
+              {/* Customers */}
+              <button
+                onClick={() => selectTab('customers')}
+                className={`w-full flex items-center ${collapsed ? 'justify-center px-0' : 'justify-between px-3'} py-2 rounded-lg font-semibold transition-colors cursor-pointer ${
+                  activeTab === 'customers'
+                    ? 'bg-[#F97316] text-white font-bold shadow-md shadow-orange-500/25'
+                    : 'text-slate-700 hover:text-slate-900 hover:bg-slate-200/70'
+                }`}
+                title="Customers"
+              >
+                <div className="flex items-center gap-2.5 min-w-0">
+                  <Users size={16} className={activeTab === 'customers' ? 'text-white' : 'text-slate-500'} />
+                  {!collapsed && <span className="truncate">Customers</span>}
+                </div>
+              </button>
+
+              {/* Suppliers */}
+              <button
+                onClick={() => selectTab('suppliers')}
+                className={`w-full flex items-center ${collapsed ? 'justify-center px-0' : 'justify-between px-3'} py-2 rounded-lg font-semibold transition-colors cursor-pointer ${
+                  activeTab === 'suppliers'
+                    ? 'bg-[#F97316] text-white font-bold shadow-md shadow-orange-500/25'
+                    : 'text-slate-700 hover:text-slate-900 hover:bg-slate-200/70'
+                }`}
+                title="Suppliers"
+              >
+                <div className="flex items-center gap-2.5 min-w-0">
+                  <Building2 size={16} className={activeTab === 'suppliers' ? 'text-white' : 'text-slate-500'} />
+                  {!collapsed && <span className="truncate">Suppliers</span>}
+                </div>
+              </button>
+            </div>
           </div>
 
-          {/* Sales & Billing */}
-          {navGroup(
-            'Sales & Billing',
-            'sales',
-            <>
-              {navItem('invoices', 'Sales Invoices', <FileText size={16} />, unpaidInvoices, 'bg-amber-500/20 text-amber-400')}
-              {navItem('delivery_slips', 'Delivery Slips', <Truck size={16} />, pendingDeliveries, 'bg-blue-500/20 text-blue-400')}
-              {navItem('delivery_challans', 'Delivery Challans', <FileSpreadsheet size={16} />)}
-              {navItem('quotations', 'Quotations', <FileCheck size={16} />)}
-              {navItem('sales_orders', 'Sales Orders', <ShoppingCart size={16} />)}
-            </>
-          )}
+          {/* 2. FINANCE */}
+          <div>
+            {!collapsed && (
+              <p className="px-2 mb-1.5 text-[10px] font-black uppercase tracking-wider text-slate-400">
+                FINANCE
+              </p>
+            )}
+            <div className="space-y-1">
+              {/* Money Receipts */}
+              <button
+                onClick={() => selectTab('payments')}
+                className={`w-full flex items-center ${collapsed ? 'justify-center px-0' : 'justify-between px-3'} py-2 rounded-lg font-semibold transition-colors cursor-pointer ${
+                  activeTab === 'payments'
+                    ? 'bg-[#F97316] text-white font-bold shadow-md shadow-orange-500/25'
+                    : 'text-slate-700 hover:text-slate-900 hover:bg-slate-200/70'
+                }`}
+                title="Money Receipts"
+              >
+                <div className="flex items-center gap-2.5 min-w-0">
+                  <CreditCard size={16} className={activeTab === 'payments' ? 'text-white' : 'text-slate-500'} />
+                  {!collapsed && <span className="truncate">Money Receipts</span>}
+                </div>
+              </button>
 
-          {/* Purchase & Procurement */}
-          {navGroup(
-            'Procurement',
-            'purchase',
-            <>
-              {navItem('purchase_invoices', 'Purchase Invoices', <Receipt size={16} />)}
-              {navItem('purchase_orders', 'Purchase Orders', <ShoppingCart size={16} />)}
-              {navItem('suppliers', 'Suppliers', <Building2 size={16} />)}
-            </>
-          )}
+              {/* Expenses */}
+              <button
+                onClick={() => selectTab('expenses')}
+                className={`w-full flex items-center ${collapsed ? 'justify-center px-0' : 'justify-between px-3'} py-2 rounded-lg font-semibold transition-colors cursor-pointer ${
+                  activeTab === 'expenses'
+                    ? 'bg-[#F97316] text-white font-bold shadow-md shadow-orange-500/25'
+                    : 'text-slate-700 hover:text-slate-900 hover:bg-slate-200/70'
+                }`}
+                title="Expenses"
+              >
+                <div className="flex items-center gap-2.5 min-w-0">
+                  <Receipt size={16} className={activeTab === 'expenses' ? 'text-white' : 'text-slate-500'} />
+                  {!collapsed && <span className="truncate">Expenses</span>}
+                </div>
+              </button>
 
-          {/* Customers */}
-          {navGroup(
-            'Customer Relations',
-            'contacts',
-            <>
-              {navItem('customers', 'Customer Directory', <Users size={16} />)}
-            </>
-          )}
+              {/* Customer Receivables */}
+              <button
+                onClick={() => selectTab('invoices')}
+                className="w-full flex items-center justify-between px-3 py-2 rounded-lg font-semibold text-slate-700 hover:text-slate-900 hover:bg-slate-200/70 transition-colors cursor-pointer"
+                title="Customer Receivables"
+              >
+                <div className="flex items-center gap-2.5 min-w-0">
+                  <FileCheck size={16} className="text-slate-500" />
+                  {!collapsed && <span className="truncate">Customer Receivables</span>}
+                </div>
+                {!collapsed && unpaidCount > 0 && (
+                  <span className="px-1.5 py-0.5 rounded bg-red-100 text-red-600 font-mono text-[10px] font-bold">
+                    {unpaidCount}
+                  </span>
+                )}
+              </button>
 
-          {/* Inventory */}
-          {navGroup(
-            'Inventory & Stock',
-            'inventory',
-            <>
-              {navItem('products', 'Product Catalog', <Package size={16} />, lowStockCount > 0 ? `${lowStockCount} Low` : undefined, 'bg-red-500/20 text-red-400')}
-              {navItem('categories', 'Categories', <Compass size={16} />)}
-              {navItem('inventory_movements', 'Stock Movements', <History size={16} />)}
-            </>
-          )}
+              {/* Supplier Payables */}
+              <button
+                onClick={() => selectTab('suppliers')}
+                className="w-full flex items-center justify-between px-3 py-2 rounded-lg font-semibold text-slate-700 hover:text-slate-900 hover:bg-slate-200/70 transition-colors cursor-pointer"
+                title="Supplier Payables"
+              >
+                <div className="flex items-center gap-2.5 min-w-0">
+                  <Building2 size={16} className="text-slate-500" />
+                  {!collapsed && <span className="truncate">Supplier Payables</span>}
+                </div>
+              </button>
 
-          {/* Import & Export Concern */}
-          {navGroup(
-            'Import & Export',
-            'trade',
-            <>
-              {navItem('import_records', 'Import & Landed Cost', <Ship size={16} />)}
-              {navItem('export_records', 'Export Records', <Ship size={16} />)}
-              {navItem('proforma_invoices', 'Proforma Invoices (PI)', <FileText size={16} />)}
-              {navItem('commercial_invoices', 'Commercial Invoices (CI)', <FileCheck size={16} />)}
-              {navItem('lc_management', 'LC Management', <ShieldCheck size={16} />)}
-              {navItem('shipments', 'Shipment Tracking', <Truck size={16} />)}
-            </>
-          )}
+              {/* Accounting & Reports */}
+              <button
+                onClick={() => selectTab('reports')}
+                className={`w-full flex items-center ${collapsed ? 'justify-center px-0' : 'justify-between px-3'} py-2 rounded-lg font-semibold transition-colors cursor-pointer ${
+                  activeTab === 'reports'
+                    ? 'bg-[#F97316] text-white font-bold shadow-md shadow-orange-500/25'
+                    : 'text-slate-700 hover:text-slate-900 hover:bg-slate-200/70'
+                }`}
+                title="Accounting & Reports"
+              >
+                <div className="flex items-center gap-2.5 min-w-0">
+                  <BarChart3 size={16} className={activeTab === 'reports' ? 'text-white' : 'text-slate-500'} />
+                  {!collapsed && <span className="truncate">Accounting &amp; Reports</span>}
+                </div>
+              </button>
+            </div>
+          </div>
 
-          {/* Finance & Accounts */}
-          {navGroup(
-            'Finance & Accounts',
-            'finance',
-            <>
-              {navItem('payments', 'Money Receipts & Pay', <CreditCard size={16} />)}
-              {navItem('expenses', 'Operating Expenses', <Receipt size={16} />)}
-              {navItem('reports', 'Business Reports', <BarChart3 size={16} />)}
-            </>
-          )}
+          {/* 3. OPERATIONS & TRADE */}
+          <div>
+            {!collapsed && (
+              <p className="px-2 mb-1.5 text-[10px] font-black uppercase tracking-wider text-slate-400">
+                OPERATIONS &amp; TRADE
+              </p>
+            )}
+            <div className="space-y-1">
+              {/* Delivery Management */}
+              <button
+                onClick={() => selectTab('delivery_slips')}
+                className={`w-full flex items-center ${collapsed ? 'justify-center px-0' : 'justify-between px-3'} py-2 rounded-lg font-semibold transition-colors cursor-pointer ${
+                  activeTab === 'delivery_slips' || activeTab === 'delivery_challans'
+                    ? 'bg-[#F97316] text-white font-bold shadow-md shadow-orange-500/25'
+                    : 'text-slate-700 hover:text-slate-900 hover:bg-slate-200/70'
+                }`}
+                title="Delivery Management"
+              >
+                <div className="flex items-center gap-2.5 min-w-0">
+                  <Truck size={16} className={activeTab === 'delivery_slips' || activeTab === 'delivery_challans' ? 'text-white' : 'text-slate-500'} />
+                  {!collapsed && <span className="truncate">Delivery Slips &amp; Challans</span>}
+                </div>
+                {!collapsed && pendingDeliveries > 0 && (
+                  <span className="px-1.5 py-0.5 rounded bg-blue-100 text-blue-700 font-mono text-[10px] font-bold">
+                    {pendingDeliveries}
+                  </span>
+                )}
+              </button>
 
-          {/* Data & System Settings */}
-          {navGroup(
-            'System & Data',
-            'system',
-            <>
-              {navItem('data_import', 'Import Data (Excel/CSV)', <Upload size={16} />)}
-              {navItem('data_export', 'Export Data', <Download size={16} />)}
-              {navItem('backup_restore', 'Backup & Restore', <Database size={16} />)}
-              {navItem('activity_logs', 'Activity Logs', <History size={16} />)}
-              {navItem('settings', 'Company Settings', <Settings size={16} />)}
-            </>
-          )}
-        </div>
+              {/* Import & Export Operations */}
+              <button
+                onClick={() => selectTab('import_records')}
+                className={`w-full flex items-center ${collapsed ? 'justify-center px-0' : 'justify-between px-3'} py-2 rounded-lg font-semibold transition-colors cursor-pointer ${
+                  activeTab === 'import_records' || activeTab === 'export_records' || activeTab === 'proforma_invoices' || activeTab === 'commercial_invoices' || activeTab === 'lc_management' || activeTab === 'shipments'
+                    ? 'bg-[#F97316] text-white font-bold shadow-md shadow-orange-500/25'
+                    : 'text-slate-700 hover:text-slate-900 hover:bg-slate-200/70'
+                }`}
+                title="Import & Export Concern"
+              >
+                <div className="flex items-center gap-2.5 min-w-0">
+                  <Globe size={16} className={activeTab === 'import_records' ? 'text-white' : 'text-slate-500'} />
+                  {!collapsed && <span className="truncate">Import-Export &amp; LC</span>}
+                </div>
+              </button>
+            </div>
+          </div>
 
-        {/* Footer info */}
-        <div className="p-3 border-t border-zinc-800/80 bg-zinc-950 text-[10px] text-zinc-300">
-          <div className="flex items-center justify-between">
-            <span className="font-semibold text-zinc-400">Mirpur, Dhaka-1216</span>
-            <span className="text-amber-400 font-mono font-bold">BDT (৳)</span>
+          {/* 4. SYSTEM & ADMINISTRATION */}
+          <div>
+            {!collapsed && (
+              <p className="px-2 mb-1.5 text-[10px] font-black uppercase tracking-wider text-slate-400">
+                SYSTEM
+              </p>
+            )}
+            <div className="space-y-1">
+              {/* Settings */}
+              <button
+                onClick={() => selectTab('settings')}
+                className={`w-full flex items-center ${collapsed ? 'justify-center px-0' : 'justify-between px-3'} py-2 rounded-lg font-semibold transition-colors cursor-pointer ${
+                  activeTab === 'settings'
+                    ? 'bg-[#F97316] text-white font-bold shadow-md shadow-orange-500/25'
+                    : 'text-slate-700 hover:text-slate-900 hover:bg-slate-200/70'
+                }`}
+                title="Company Settings"
+              >
+                <div className="flex items-center gap-2.5 min-w-0">
+                  <Settings size={16} className={activeTab === 'settings' ? 'text-white' : 'text-slate-500'} />
+                  {!collapsed && <span className="truncate">Company Settings</span>}
+                </div>
+              </button>
+
+              {/* User Management */}
+              <button
+                onClick={() => selectTab('user_management')}
+                className={`w-full flex items-center ${collapsed ? 'justify-center px-0' : 'justify-between px-3'} py-2 rounded-lg font-semibold transition-colors cursor-pointer ${
+                  activeTab === 'user_management'
+                    ? 'bg-[#F97316] text-white font-bold shadow-md shadow-orange-500/25'
+                    : 'text-slate-700 hover:text-slate-900 hover:bg-slate-200/70'
+                }`}
+                title="User Management"
+              >
+                <div className="flex items-center gap-2.5 min-w-0">
+                  <ShieldCheck size={16} className={activeTab === 'user_management' ? 'text-white' : 'text-slate-500'} />
+                  {!collapsed && <span className="truncate">User Management</span>}
+                </div>
+              </button>
+
+              {/* Audit & Activity Logs */}
+              <button
+                onClick={() => selectTab('activity_logs')}
+                className={`w-full flex items-center ${collapsed ? 'justify-center px-0' : 'justify-between px-3'} py-2 rounded-lg font-semibold transition-colors cursor-pointer ${
+                  activeTab === 'activity_logs'
+                    ? 'bg-[#F97316] text-white font-bold shadow-md shadow-orange-500/25'
+                    : 'text-slate-700 hover:text-slate-900 hover:bg-slate-200/70'
+                }`}
+                title="Activity & Audit Logs"
+              >
+                <div className="flex items-center gap-2.5 min-w-0">
+                  <Activity size={16} className={activeTab === 'activity_logs' ? 'text-white' : 'text-slate-500'} />
+                  {!collapsed && <span className="truncate">Audit &amp; Activity Logs</span>}
+                </div>
+              </button>
+
+              {/* Data Backup & Restore */}
+              <button
+                onClick={() => selectTab('backup_restore')}
+                className={`w-full flex items-center ${collapsed ? 'justify-center px-0' : 'justify-between px-3'} py-2 rounded-lg font-semibold transition-colors cursor-pointer ${
+                  activeTab === 'backup_restore' || activeTab === 'data_import' || activeTab === 'data_export'
+                    ? 'bg-[#F97316] text-white font-bold shadow-md shadow-orange-500/25'
+                    : 'text-slate-700 hover:text-slate-900 hover:bg-slate-200/70'
+                }`}
+                title="Backup & Restore"
+              >
+                <div className="flex items-center gap-2.5 min-w-0">
+                  <Database size={16} className={activeTab === 'backup_restore' ? 'text-white' : 'text-slate-500'} />
+                  {!collapsed && <span className="truncate">Backup &amp; Restore</span>}
+                </div>
+              </button>
+
+              {/* Logout */}
+              {onLogout && (
+                <button
+                  onClick={onLogout}
+                  className="w-full flex items-center justify-between px-3 py-2 rounded-lg font-semibold text-rose-600 hover:text-rose-700 hover:bg-rose-50 transition-colors cursor-pointer"
+                  title="Logout"
+                >
+                  <div className="flex items-center gap-2.5 min-w-0">
+                    <LogOut size={16} className="text-rose-600" />
+                    {!collapsed && <span className="truncate">Sign Out</span>}
+                  </div>
+                </button>
+              )}
+            </div>
           </div>
         </div>
+
+        {/* Bottom Current User Card */}
+        {!collapsed && currentUser && (
+          <div className="p-3 border-t border-slate-200/90 bg-white shrink-0">
+            <div className="flex items-center justify-between gap-2 p-2 rounded-lg bg-slate-50 border border-slate-200/80">
+              <div className="flex items-center gap-2 min-w-0">
+                <div className="w-7 h-7 rounded-full bg-orange-500 text-white font-bold text-xs flex items-center justify-center shrink-0">
+                  {currentUser.name.charAt(0)}
+                </div>
+                <div className="min-w-0">
+                  <p className="text-[11px] font-bold text-slate-900 truncate leading-tight">
+                    {currentUser.name}
+                  </p>
+                  <p className="text-[10px] text-orange-600 font-semibold truncate leading-tight">
+                    {currentUser.role || 'Super Admin'}
+                  </p>
+                </div>
+              </div>
+            </div>
+          </div>
+        )}
       </aside>
     </>
   );

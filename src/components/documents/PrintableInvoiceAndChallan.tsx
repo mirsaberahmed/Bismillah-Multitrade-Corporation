@@ -2,6 +2,7 @@ import React from 'react';
 import { SalesInvoice, CompanySettings, DeliverySlip } from '../../types';
 import { formatCurrency, formatDate, numberToWordsBDT } from '../../utils/formatters';
 import { Scissors } from 'lucide-react';
+import { BISMILLAH_SIGNATURE_DATA_URI } from '../../data/signatureData';
 
 interface Props {
   invoice: SalesInvoice;
@@ -88,7 +89,7 @@ export const PrintableInvoiceAndChallan: React.FC<Props> = ({
             </div>
             <div className="col-span-4 text-right space-y-0.5 border-l border-black pl-2">
               <p><span className="font-medium">Terms:</span> <strong>{invoice.paymentTerms || 'Cash / Credit'}</strong></p>
-              {invoice.salesPerson && <p><span className="font-medium">Sales:</span> {invoice.salesPerson}</p>}
+              {invoice.salesPerson && <p><span className="font-medium">Executive:</span> {invoice.salesPerson}</p>}
               {showPaymentDetails && (
                 <p>
                   <span className="font-medium">Status:</span>{' '}
@@ -158,14 +159,19 @@ export const PrintableInvoiceAndChallan: React.FC<Props> = ({
           {/* Invoice Signatures - Line on Top, Name Below */}
           <div className="flex justify-between items-end pt-3 mt-2 text-center text-[9px] text-black px-3">
             <div>
-              <div className="h-8 flex items-end justify-center pb-0.5">
+              <div className="h-[31mm] flex items-end justify-center pb-0.5">
                 <div className="w-32 border-b border-black"></div>
               </div>
               <div className="pt-1 font-bold text-black uppercase">Customer Signature</div>
             </div>
             <div>
-              <div className="h-8 flex flex-col items-center justify-end pb-0.5">
-                <div className="w-36 border-b border-black mt-0.5"></div>
+              <div className="h-[31mm] flex flex-col items-center justify-end pb-0.5">
+                <img
+                  src={BISMILLAH_SIGNATURE_DATA_URI}
+                  alt="Bismillah Multitrade Official Seal & Signature"
+                  className="w-[29mm] h-[29mm] object-contain mb-0.5 select-none pointer-events-none"
+                />
+                <div className="w-36 border-b border-black"></div>
               </div>
               <div className="pt-1 font-bold text-black uppercase">
                 BISMILLAH MULTITRADE CORPORATION
@@ -277,7 +283,12 @@ export const PrintableInvoiceAndChallan: React.FC<Props> = ({
           {/* Challan Signature - Signature on Top, Name Below */}
           <div className="pt-4 border-t border-black flex justify-end">
             <div className="text-center w-52">
-              <div className="h-10 flex items-end justify-center pb-0.5">
+              <div className="h-[31mm] flex flex-col items-center justify-end pb-0.5">
+                <img
+                  src={BISMILLAH_SIGNATURE_DATA_URI}
+                  alt="Bismillah Multitrade Official Seal & Signature"
+                  className="w-[29mm] h-[29mm] object-contain mb-0.5 select-none pointer-events-none"
+                />
                 <div className="w-48 border-b border-black"></div>
               </div>
               <div className="pt-1 font-bold text-black uppercase text-[9px]">

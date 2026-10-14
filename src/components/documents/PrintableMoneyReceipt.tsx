@@ -1,6 +1,7 @@
 import React from 'react';
 import { PaymentRecord, CompanySettings } from '../../types';
 import { formatDate, formatCurrency } from '../../utils/formatters';
+import { BISMILLAH_SIGNATURE_DATA_URI } from '../../data/signatureData';
 
 interface Props {
   payment: PaymentRecord;
@@ -87,15 +88,20 @@ export const PrintableMoneyReceipt: React.FC<Props> = ({ payment, settings }) =>
       {/* Signatures at Bottom */}
       <div className="flex justify-between items-end pt-12 px-4 text-center text-xs text-black">
         <div>
-          <div className="h-14 flex items-end justify-center pb-1">
+          <div className="h-[32mm] flex items-end justify-center pb-1">
             <div className="w-48 border-b-2 border-black"></div>
           </div>
           <div className="pt-2 font-bold text-black uppercase tracking-wide">Depositor / Payer Signature</div>
         </div>
 
         <div>
-          <div className="h-14 flex flex-col items-center justify-end pb-1">
-            <div className="w-56 border-b-2 border-black mt-1"></div>
+          <div className="h-[32mm] flex flex-col items-center justify-end pb-1">
+            <img
+              src={BISMILLAH_SIGNATURE_DATA_URI}
+              alt="Bismillah Multitrade Official Seal & Signature"
+              className="w-[29mm] h-[29mm] object-contain mb-0.5 select-none pointer-events-none"
+            />
+            <div className="w-56 border-b-2 border-black"></div>
           </div>
           <div className="pt-2 font-bold text-black uppercase tracking-wide">
             BISMILLAH MULTITRADE CORPORATION

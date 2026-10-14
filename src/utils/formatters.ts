@@ -11,7 +11,7 @@ export function formatCurrency(
     amount = 0;
   }
 
-  const symbol = currency === 'BDT' ? '৳' : currency + ' ';
+  const symbol = currency === 'BDT' ? 'BDT ' : currency + ' ';
   
   // Format with commas and 2 decimals
   const parts = Math.abs(amount).toFixed(2).split('.');

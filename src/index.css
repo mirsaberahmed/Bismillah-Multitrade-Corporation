@@ -2,10 +2,147 @@
 
 @layer base {
   body {
-    font-family: 'Plus Jakarta Sans', system-ui, -apple-system, BlinkMacSystemFont, 'Segoe UI', Roboto, Oxygen, Ubuntu, Cantarell, sans-serif;
-    color: #18181b;
-    background-color: #f8fafc;
+    font-family: 'Inter', system-ui, -apple-system, BlinkMacSystemFont, 'Segoe UI', Roboto, Oxygen, Ubuntu, Cantarell, sans-serif;
+    color: #111827;
+    background-color: #f8f7f4;
     -webkit-font-smoothing: antialiased;
+  }
+}
+
+/* Global Cream & White Theme Remapping for all ERP Modules & Modals */
+@media screen {
+  .bg-zinc-950,
+  .bg-zinc-950\/60,
+  .bg-zinc-950\/50,
+  .bg-zinc-950\/80 {
+    background-color: #faf6ee !important;
+  }
+
+  .bg-zinc-900,
+  .bg-zinc-900\/90,
+  .bg-zinc-900\/80,
+  .bg-zinc-900\/50 {
+    background-color: #ffffff !important;
+  }
+
+  .bg-zinc-800,
+  .bg-zinc-800\/80,
+  .bg-zinc-800\/60,
+  .bg-zinc-800\/50,
+  .bg-zinc-800\/40,
+  .bg-zinc-800\/30 {
+    background-color: #f3ede0 !important;
+  }
+
+  .hover\:bg-zinc-800:hover,
+  .hover\:bg-zinc-800\/60:hover,
+  .hover\:bg-zinc-800\/40:hover,
+  .hover\:bg-zinc-800\/30:hover,
+  .hover\:bg-zinc-700:hover {
+    background-color: #ebe3d2 !important;
+  }
+
+  .border-zinc-800,
+  .border-zinc-800\/80,
+  .border-zinc-800\/70,
+  .border-zinc-800\/60,
+  .border-zinc-700,
+  .border-zinc-700\/80,
+  .border-zinc-600 {
+    border-color: #e4dccb !important;
+  }
+
+  .divide-zinc-800 > :not(:last-child),
+  .divide-zinc-800\/60 > :not(:last-child),
+  .divide-zinc-700 > :not(:last-child) {
+    border-color: #ebe4d5 !important;
+  }
+
+  .text-zinc-100,
+  .text-zinc-200 {
+    color: #1c1917 !important;
+  }
+
+  .text-zinc-300 {
+    color: #3f3a34 !important;
+  }
+
+  .text-zinc-400 {
+    color: #57534e !important;
+  }
+
+  .text-zinc-500 {
+    color: #78716c !important;
+  }
+
+  /* High-contrast semantic accents on Cream & White surfaces */
+  .text-amber-400,
+  .text-amber-300 {
+    color: #b45309 !important;
+  }
+
+  .text-emerald-400,
+  .text-emerald-300 {
+    color: #047857 !important;
+  }
+
+  .text-blue-400,
+  .text-blue-300,
+  .text-blue-200 {
+    color: #1d4ed8 !important;
+  }
+
+  .text-red-400,
+  .text-red-300 {
+    color: #b91c1c !important;
+  }
+
+  .text-purple-400,
+  .text-purple-300 {
+    color: #6d28d9 !important;
+  }
+
+  .bg-emerald-950,
+  .bg-emerald-950\/30,
+  .bg-emerald-950\/20 {
+    background-color: #ecfdf5 !important;
+  }
+
+  .bg-blue-950,
+  .bg-blue-950\/30,
+  .bg-blue-950\/20 {
+    background-color: #eff6ff !important;
+  }
+
+  .bg-amber-950,
+  .bg-amber-950\/30,
+  .bg-amber-950\/20 {
+    background-color: #fffbeb !important;
+  }
+
+  .bg-red-950,
+  .bg-red-950\/30,
+  .bg-red-950\/20 {
+    background-color: #fef2f2 !important;
+  }
+
+  .bg-purple-950,
+  .bg-purple-950\/30,
+  .bg-purple-950\/20 {
+    background-color: #faf5ff !important;
+  }
+
+  input:not([type="checkbox"]):not([type="radio"]),
+  select,
+  textarea {
+    background-color: #ffffff !important;
+    color: #1c1917 !important;
+    border-color: #d6cbb5 !important;
+  }
+
+  input::placeholder,
+  textarea::placeholder {
+    color: #8c8273 !important;
   }
 }
 
@@ -94,6 +231,18 @@
     page-break-before: always !important;
     break-before: page !important;
   }
+
+  .combo-invoice-page {
+    page-break-after: always !important;
+    break-after: page !important;
+  }
+
+  .combo-slip-page {
+    page-break-before: auto !important;
+    break-before: auto !important;
+    page-break-after: avoid !important;
+    break-after: avoid !important;
+  }
   
   .print-container {
     width: 100% !important;
@@ -137,14 +286,21 @@
 }
 
 ::-webkit-scrollbar-track {
-  background: #f1f5f9;
+  background: #f5efe2;
 }
 
 ::-webkit-scrollbar-thumb {
-  background: #cbd5e1;
+  background: #d6cbb5;
   border-radius: 4px;
 }
 
 ::-webkit-scrollbar-thumb:hover {
-  background: #94a3b8;
+  background: #b8a98e;
+}
+
+/* Hide placeholder when input is focused/clicked so 0 disappears immediately */
+input:focus::placeholder,
+textarea:focus::placeholder {
+  color: transparent !important;
+  opacity: 0 !important;
 }

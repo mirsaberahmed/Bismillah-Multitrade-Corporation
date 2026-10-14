@@ -12,7 +12,8 @@ import {
   X,
   Download,
   Edit,
-  Trash2
+  Trash2,
+  MessageSquare
 } from 'lucide-react';
 import { useData } from '../../context/DataContext';
 import { DeliverySlip, DeliveryStatus } from '../../types';
@@ -23,6 +24,8 @@ import { downloadElementAsPdf } from '../../utils/pdfExport';
 import { printElement } from '../../utils/printHelper';
 import { DeliverySlipModal } from './DeliverySlipModal';
 import { ConfirmModal } from '../common/ConfirmModal';
+import { WhatsAppSendModal } from '../common/WhatsAppSendModal';
+import { generateDeliverySlipWhatsAppText } from '../../utils/whatsapp';
 
 interface Props {
   onSelectInvoice: (invoiceId: string) => void;
@@ -38,6 +41,7 @@ export const DeliverySlipList: React.FC<Props> = ({ onSelectInvoice }) => {
   const [slipToDelete, setSlipToDelete] = useState<DeliverySlip | null>(null);
   const [pdfSlip, setPdfSlip] = useState<DeliverySlip | null>(null);
   const [isDownloadingPdf, setIsDownloadingPdf] = useState(false);
+  const [whatsAppSlip, setWhatsAppSlip] = useState<DeliverySlip | null>(null);
 
   const filteredSlips = deliverySlips.filter(s => {
     const q = searchQuery.toLowerCase();
@@ -254,6 +258,14 @@ export const DeliverySlipList: React.FC<Props> = ({ onSelectInvoice }) => {
                         >
                           <Printer size={15} />
                         </button>
+                        {/* Send via WhatsApp directly */}
+                        <button
+                          onClick={() => setWhatsAppSlip(slip)}
+                          className="p-1.5 bg-emerald-950/40 hover:bg-emerald-900/60 rounded text-emerald-400 border border-emerald-900/40 transition-colors cursor-pointer"
+                          title="Send Delivery Slip to WhatsApp"
+                        >
+                          <MessageSquare size={15} />
+                        </button>
                         {/* Download PDF */}
                         <button
                           onClick={() => handleDownloadPdf(slip)}
@@ -314,8 +326,20 @@ export const DeliverySlipList: React.FC<Props> = ({ onSelectInvoice }) => {
             setSlipToDelete(null);
           }
         }}
-        onCancel={() => setSlipToDelete(null)}
+        onClose={() => setSlipToDelete(null)}
       />
+
+      {/* WhatsApp Direct Send Modal */}
+      {whatsAppSlip && (
+        <WhatsAppSendModal
+          isOpen={true}
+          onClose={() => setWhatsAppSlip(null)}
+          title={`Send Delivery Challan #${whatsAppSlip.deliverySlipNumber} via WhatsApp`}
+          defaultPhone={whatsAppSlip.receiverPhone || whatsAppSlip.phone || ''}
+          initialMessage={generateDeliverySlipWhatsAppText(whatsAppSlip, settings?.companyName || 'Bismillah Multitrade Corporation')}
+          recipientLabel="Receiver / Customer WhatsApp Phone"
+        />
+      )}
     </div>
   );
 };

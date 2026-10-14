@@ -9,7 +9,8 @@ interface ConfirmModalProps {
   cancelText?: string;
   variant?: 'danger' | 'warning' | 'info';
   onConfirm: () => void;
-  onCancel: () => void;
+  onCancel?: () => void;
+  onClose?: () => void;
 }
 
 export const ConfirmModal: React.FC<ConfirmModalProps> = ({
@@ -20,8 +21,10 @@ export const ConfirmModal: React.FC<ConfirmModalProps> = ({
   cancelText = 'Cancel',
   variant = 'danger',
   onConfirm,
-  onCancel
+  onCancel,
+  onClose
 }) => {
+  const handleClose = onCancel || onClose || (() => {});
   if (!isOpen) return null;
 
   return (
@@ -45,7 +48,7 @@ export const ConfirmModal: React.FC<ConfirmModalProps> = ({
           </div>
 
           <button
-            onClick={onCancel}
+            onClick={handleClose}
             className="p-1 rounded-lg text-zinc-400 hover:text-zinc-200 hover:bg-zinc-800 transition-colors"
           >
             <X size={18} />
@@ -55,7 +58,7 @@ export const ConfirmModal: React.FC<ConfirmModalProps> = ({
         <div className="flex items-center justify-end gap-2.5 px-5 py-3.5 bg-zinc-950/60 border-t border-zinc-800/80">
           <button
             type="button"
-            onClick={onCancel}
+            onClick={handleClose}
             className="px-4 py-2 bg-zinc-800 hover:bg-zinc-700 text-zinc-300 rounded-lg text-xs font-semibold transition-colors"
           >
             {cancelText}

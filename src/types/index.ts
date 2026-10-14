@@ -57,6 +57,10 @@ export interface Supplier {
   notes?: string;
   currentPayable: number; // Positive = we owe supplier (Payable)
   currentBalance?: number; // Alias for currentPayable
+  totalDue?: number; // Total unpaid due amount
+  orderedProductQty?: number; // Total ordered quantity
+  deliveredProductQty?: number; // Total delivered quantity
+  suppliedProductQty?: number; // Alias for product quantity
   createdAt: string;
   updatedAt: string;
 }
@@ -786,6 +790,7 @@ export interface ExpenseRecord {
   exportReference?: string;
   notes?: string;
   createdAt: string;
+  updatedAt?: string;
 }
 
 export type StockMovementType =
@@ -814,15 +819,53 @@ export interface StockMovement {
   createdBy: string;
 }
 
+export type UserRole =
+  | 'Super Admin'
+  | 'Admin'
+  | 'Manager'
+  | 'Accountant'
+  | 'Sales Executive'
+  | 'Inventory Manager'
+  | 'Delivery Executive'
+  | 'Sales'
+  | 'Purchase'
+  | 'Store'
+  | 'Cashier'
+  | 'Viewer';
+
+export type UserStatus = 'Pending' | 'Active' | 'Suspended' | 'Rejected' | 'Deactivated';
+
+export type UserDepartment =
+  | 'Administration'
+  | 'Accounts & Finance'
+  | 'Sales'
+  | 'Purchase'
+  | 'Inventory'
+  | 'Delivery & Logistics'
+  | 'Management';
+
 export interface UserAccount {
   id: string;
   name: string;
+  fullName?: string;
+  username: string;
   email: string;
-  role: 'Super Admin' | 'Admin' | 'Manager' | 'Accountant' | 'Sales' | 'Purchase' | 'Store' | 'Cashier' | 'Viewer';
+  phone?: string;
+  employeeId?: string;
+  department?: UserDepartment | string;
+  designation?: string;
+  role: UserRole;
+  status?: UserStatus;
   permissions: string[];
   active: boolean;
-  phone?: string;
+  avatarUrl?: string;
+  emailVerified?: boolean;
+  registeredAt?: string;
+  approvedAt?: string;
+  approvedBy?: string;
+  lastLoginAt?: string;
   createdAt: string;
+  updatedAt?: string;
 }
 
 export interface ActivityLog {

@@ -1,6 +1,7 @@
 import React from 'react';
 import { SalesInvoice, CompanySettings } from '../../types';
 import { formatCurrency, formatDate, numberToWordsBDT } from '../../utils/formatters';
+import { BISMILLAH_SIGNATURE_DATA_URI } from '../../data/signatureData';
 
 interface Props {
   invoice: SalesInvoice;
@@ -70,7 +71,7 @@ export const PrintableInvoice: React.FC<Props> = ({ invoice, settings, showPayme
               {invoice.currency && invoice.currency !== 'BDT' && (
                 <p>
                   <span className="font-medium">Currency:</span>{' '}
-                  <strong>{invoice.currency} (Rate: ৳{invoice.exchangeRate})</strong>
+                  <strong>{invoice.currency} (Rate: BDT {invoice.exchangeRate})</strong>
                 </p>
               )}
             </div>
@@ -112,7 +113,7 @@ export const PrintableInvoice: React.FC<Props> = ({ invoice, settings, showPayme
 
               {invoice.salesPerson && (
                 <>
-                  <span className="font-medium">Sales Representative:</span>
+                  <span className="font-medium">Executive:</span>
                   <span className="font-bold">{invoice.salesPerson}</span>
                 </>
               )}
@@ -316,15 +317,20 @@ export const PrintableInvoice: React.FC<Props> = ({ invoice, settings, showPayme
 
         <div className="flex justify-between items-end pt-8 mt-[1in] px-4 text-center text-xs text-black">
           <div>
-            <div className="h-16 flex items-end justify-center pb-1">
+            <div className="h-[32mm] flex items-end justify-center pb-1">
               <div className="w-52 border-b border-black"></div>
             </div>
             <div className="pt-1.5 font-bold text-black uppercase tracking-wide">CUSTOMER SIGNATURE</div>
           </div>
 
           <div>
-            <div className="h-16 flex flex-col items-center justify-end pb-1">
-              <div className="w-64 border-b border-black mt-1"></div>
+            <div className="h-[32mm] flex flex-col items-center justify-end pb-1">
+              <img
+                src={BISMILLAH_SIGNATURE_DATA_URI}
+                alt="Bismillah Multitrade Official Seal & Signature"
+                className="w-[29mm] h-[29mm] object-contain mb-0.5 select-none pointer-events-none"
+              />
+              <div className="w-64 border-b border-black"></div>
             </div>
             <div className="pt-1.5 font-bold text-black uppercase tracking-wide">
               BISMILLAH MULTITRADE CORPORATION

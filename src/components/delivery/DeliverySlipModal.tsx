@@ -12,7 +12,8 @@ import {
   Calendar,
   User,
   Phone,
-  MapPin
+  MapPin,
+  MessageSquare
 } from 'lucide-react';
 import { DeliverySlip, DeliveryStatus, DeliveryMethod } from '../../types';
 import { useData } from '../../context/DataContext';
@@ -20,6 +21,8 @@ import { PrintableDeliverySlip } from '../documents/PrintableDeliverySlip';
 import { downloadElementAsPdf } from '../../utils/pdfExport';
 import { printElement } from '../../utils/printHelper';
 import { ConfirmModal } from '../common/ConfirmModal';
+import { WhatsAppSendModal } from '../common/WhatsAppSendModal';
+import { generateDeliverySlipWhatsAppText } from '../../utils/whatsapp';
 
 interface Props {
   slip: DeliverySlip | null;
@@ -63,6 +66,7 @@ export const DeliverySlipModal: React.FC<Props> = ({
   const [totalBoxes, setTotalBoxes] = useState('');
   const [totalWeight, setTotalWeight] = useState('');
   const [showDeleteConfirm, setShowDeleteConfirm] = useState(false);
+  const [showWhatsAppModal, setShowWhatsAppModal] = useState(false);
 
   useEffect(() => {
     if (slip) {
@@ -228,6 +232,19 @@ export const DeliverySlipModal: React.FC<Props> = ({
               </button>
             )}
 
+            {/* WhatsApp Send Button */}
+            {slip && (
+              <button
+                type="button"
+                onClick={() => setShowWhatsAppModal(true)}
+                className="flex items-center gap-1 px-3 py-1.5 rounded-lg bg-emerald-600 hover:bg-emerald-500 text-white text-xs font-bold shadow-xs transition-colors cursor-pointer"
+                title="Send Delivery Slip to WhatsApp"
+              >
+                <MessageSquare size={14} />
+                <span>WhatsApp</span>
+              </button>
+            )}
+
             {/* Print Button */}
             <button
               type="button"
@@ -388,6 +405,50 @@ export const DeliverySlipModal: React.FC<Props> = ({
                 </div>
               </div>
 
+              {/* Customer Representative & Receiver Info - Visible FIRST */}
+              <div className="bg-zinc-950 border border-amber-500/30 rounded-xl p-4 space-y-3">
+                <div className="flex items-center justify-between pb-1 border-b border-zinc-800">
+                  <h4 className="font-bold text-amber-400 uppercase tracking-tight text-xs flex items-center gap-2">
+                    <User size={15} className="text-amber-500" />
+                    Customer Representative &amp; Receiver Information
+                  </h4>
+                  <span className="text-[10px] text-zinc-400">Handover Details</span>
+                </div>
+
+                <div className="grid grid-cols-1 sm:grid-cols-3 gap-3">
+                  <div>
+                    <label className="block text-zinc-300 font-semibold mb-1">Customer Representative / Receiver *</label>
+                    <input
+                      type="text"
+                      placeholder="Receiver person name"
+                      value={receiverName}
+                      onChange={(e) => setReceiverName(e.target.value)}
+                      className="w-full bg-zinc-900 border border-zinc-700 rounded-lg px-3 py-2 text-zinc-100 font-semibold focus:outline-none focus:border-amber-500"
+                    />
+                  </div>
+                  <div>
+                    <label className="block text-zinc-300 font-semibold mb-1">Representative Phone</label>
+                    <input
+                      type="text"
+                      placeholder="Contact number"
+                      value={receiverPhone}
+                      onChange={(e) => setReceiverPhone(e.target.value)}
+                      className="w-full bg-zinc-900 border border-zinc-700 rounded-lg px-3 py-2 text-zinc-100 font-mono focus:outline-none focus:border-amber-500"
+                    />
+                  </div>
+                  <div>
+                    <label className="block text-zinc-300 font-semibold mb-1">Designation</label>
+                    <input
+                      type="text"
+                      placeholder="e.g. Store Manager / Representative"
+                      value={receiverDesignation}
+                      onChange={(e) => setReceiverDesignation(e.target.value)}
+                      className="w-full bg-zinc-900 border border-zinc-700 rounded-lg px-3 py-2 text-zinc-100 focus:outline-none focus:border-amber-500"
+                    />
+                  </div>
+                </div>
+              </div>
+
               {/* Items Quantity To Deliver */}
               <div className="bg-zinc-950 border border-zinc-800 rounded-xl p-4 space-y-3">
                 <h4 className="font-bold text-zinc-200 uppercase tracking-tight text-xs flex items-center justify-between">
@@ -493,45 +554,12 @@ export const DeliverySlipModal: React.FC<Props> = ({
                 </div>
               </div>
 
-              {/* Receiver & Acknowledgement */}
+              {/* Remarks & Handling Instructions */}
               <div className="bg-zinc-950 border border-zinc-800 rounded-xl p-4 space-y-3">
                 <h4 className="font-bold text-zinc-200 uppercase tracking-tight text-xs">
-                  Customer Receiver Information
+                  Delivery Remarks &amp; Handling Notes
                 </h4>
-                <div className="grid grid-cols-1 sm:grid-cols-3 gap-3">
-                  <div>
-                    <label className="block text-zinc-400 mb-1">Receiver Name</label>
-                    <input
-                      type="text"
-                      placeholder="Receiver person name"
-                      value={receiverName}
-                      onChange={(e) => setReceiverName(e.target.value)}
-                      className="w-full bg-zinc-900 border border-zinc-700 rounded-lg px-3 py-2 text-zinc-200 focus:outline-none focus:border-amber-500"
-                    />
-                  </div>
-                  <div>
-                    <label className="block text-zinc-400 mb-1">Receiver Phone</label>
-                    <input
-                      type="text"
-                      placeholder="Contact number"
-                      value={receiverPhone}
-                      onChange={(e) => setReceiverPhone(e.target.value)}
-                      className="w-full bg-zinc-900 border border-zinc-700 rounded-lg px-3 py-2 text-zinc-200 focus:outline-none focus:border-amber-500"
-                    />
-                  </div>
-                  <div>
-                    <label className="block text-zinc-400 mb-1">Designation</label>
-                    <input
-                      type="text"
-                      placeholder="e.g. Store Manager"
-                      value={receiverDesignation}
-                      onChange={(e) => setReceiverDesignation(e.target.value)}
-                      className="w-full bg-zinc-900 border border-zinc-700 rounded-lg px-3 py-2 text-zinc-200 focus:outline-none focus:border-amber-500"
-                    />
-                  </div>
-                </div>
-
-                <div className="grid grid-cols-1 sm:grid-cols-2 gap-3 pt-2">
+                <div className="grid grid-cols-1 sm:grid-cols-2 gap-3">
                   <div>
                     <label className="block text-zinc-400 mb-1">Delivery Remarks</label>
                     <input
@@ -587,6 +615,16 @@ export const DeliverySlipModal: React.FC<Props> = ({
         onConfirm={handleConfirmDelete}
         onCancel={() => setShowDeleteConfirm(false)}
       />
+
+      {slip && (
+        <WhatsAppSendModal
+          isOpen={showWhatsAppModal}
+          onClose={() => setShowWhatsAppModal(false)}
+          title={`Send Delivery Challan #${slip.deliverySlipNumber} to WhatsApp`}
+          defaultPhone={slip.receiverPhone || slip.phone || ''}
+          initialMessage={generateDeliverySlipWhatsAppText(slip, settings?.companyName || 'Bismillah Multitrade Corporation')}
+        />
+      )}
     </div>
   );
 };

@@ -30,6 +30,7 @@ export const CustomerList: React.FC<Props> = () => {
   const [showModal, setShowModal] = useState(false);
   const [editingCustomer, setEditingCustomer] = useState<Customer | null>(null);
   const [customerToDelete, setCustomerToDelete] = useState<Customer | null>(null);
+  const [savedToast, setSavedToast] = useState<string | null>(null);
 
   // Form fields
   const [customerName, setCustomerName] = useState('');
@@ -90,28 +91,27 @@ export const CustomerList: React.FC<Props> = () => {
 
   const handleSubmit = (e: React.FormEvent) => {
     e.preventDefault();
-    if (!customerName.trim() || !phone.trim()) {
-      alert('Customer Name and Phone are required.');
+    if (!customerName.trim()) {
       return;
     }
 
     const newCustomer: Customer = {
       id: editingCustomer?.id || 'cust-' + Date.now(),
       customerId: editingCustomer?.customerId || ('CUST-' + Date.now().toString().slice(-4)),
-      customerName,
-      companyName: companyName || customerName,
+      customerName: customerName.trim(),
+      companyName: (companyName || customerName).trim(),
       customerType,
-      contactPerson,
-      phone,
-      email,
-      billingAddress,
-      shippingAddress: shippingAddress || billingAddress,
+      contactPerson: (contactPerson || customerName).trim(),
+      phone: phone.trim(),
+      email: email.trim(),
+      billingAddress: billingAddress.trim(),
+      shippingAddress: (shippingAddress || billingAddress).trim(),
       city,
       district,
       country: 'Bangladesh',
       postalCode: editingCustomer?.postalCode || '1216',
-      binNumber,
-      tinNumber,
+      binNumber: binNumber.trim(),
+      tinNumber: tinNumber.trim(),
       openingBalance,
       currentBalance: editingCustomer ? editingCustomer.currentBalance : openingBalance,
       creditLimit,
@@ -122,6 +122,8 @@ export const CustomerList: React.FC<Props> = () => {
 
     saveCustomer(newCustomer);
     setShowModal(false);
+    setSavedToast(`Customer "${newCustomer.customerName}" saved to cloud.`);
+    setTimeout(() => setSavedToast(null), 3500);
   };
 
   const filteredCustomers = customers.filter(c => {
@@ -177,13 +179,22 @@ export const CustomerList: React.FC<Props> = () => {
           </button>
           <button
             onClick={openAddModal}
-            className="flex items-center gap-1.5 px-4 py-2 bg-amber-500 hover:bg-amber-400 text-zinc-950 font-bold rounded-lg text-xs shadow-md shadow-amber-500/20 active:scale-[0.98] transition-all"
+            className="flex items-center gap-1.5 px-4 py-2 bg-amber-500 hover:bg-amber-400 text-zinc-950 font-bold rounded-lg text-xs shadow-md shadow-amber-500/20 active:scale-[0.98] transition-all cursor-pointer"
           >
             <Plus size={16} className="stroke-[3]" />
             <span>Add Customer</span>
           </button>
         </div>
       </div>
+
+      {savedToast && (
+        <div className="bg-emerald-950/80 border border-emerald-500/50 text-emerald-300 px-4 py-2.5 rounded-xl text-xs font-bold flex items-center justify-between">
+          <span>✓ {savedToast}</span>
+          <button onClick={() => setSavedToast(null)} className="text-emerald-400 hover:text-white">
+            <X size={14} />
+          </button>
+        </div>
+      )}
 
       {/* Search Toolbar */}
       <div className="bg-zinc-900 border border-zinc-800 p-4 rounded-xl">
@@ -331,10 +342,10 @@ export const CustomerList: React.FC<Props> = () => {
                 </div>
 
                 <div>
-                  <label className="block text-zinc-400 mb-1">Primary Phone *</label>
+                  <label className="block text-zinc-400 mb-1">Primary Phone</label>
                   <input
                     type="text"
-                    required
+                    placeholder="017XXXXXXXX"
                     value={phone}
                     onChange={(e) => setPhone(e.target.value)}
                     className="w-full bg-zinc-950 border border-zinc-700 rounded-lg px-3 py-1.5 text-zinc-100 font-mono"
