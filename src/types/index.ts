@@ -769,21 +769,35 @@ export type ExpenseCategory =
   | 'Other'
   | string;
 
+export interface ExpenseItem {
+  id: string;
+  particulars: string;
+  category?: string;
+  quantity: number;
+  unit?: string;
+  unitPrice: number;
+  amount: number;
+}
+
 export interface ExpenseRecord {
   id: string;
   expenseNumber?: string; // EXPNS-2026-0001
   voucherNumber?: string; // Voucher Alias
   date?: string;
   expenseDate?: string; // Date Alias
-  category: ExpenseCategory;
+  category: ExpenseCategory | string;
   description?: string;
   paidTo?: string;
   amount: number;
+  items?: ExpenseItem[];
+  subtotal?: number;
   currency?: string;
   paymentMethod: PaymentMethod | string;
   reference?: string;
   referenceNumber?: string;
   approvedBy?: string;
+  preparedBy?: string;
+  checkedBy?: string;
   supplierId?: string;
   supplierName?: string;
   importReference?: string;

@@ -188,29 +188,34 @@ export const Dashboard: React.FC<DashboardProps> = ({
     return list;
   }, [invoices, lowStockCount, deliverySlips]);
 
-  // Top products
-  const productSalesMap: Record<string, { name: string; qty: number; total: number }> = {};
-  invoices.forEach(inv => {
-    inv.items.forEach(item => {
-      const key = item.productId || item.productName;
-      if (!productSalesMap[key]) {
-        productSalesMap[key] = { name: item.productName, qty: 0, total: 0 };
-      }
-      productSalesMap[key].qty += item.quantity;
-      productSalesMap[key].total += item.amount;
+  // Real Database Calculation: Top selling products by summing quantity across all sales invoices
+  const topProductsList = useMemo(() => {
+    const productSalesMap: Record<string, { name: string; qty: number; total: number; invoiceCount: number }> = {};
+    (invoices || []).forEach(inv => {
+      (inv.items || []).forEach(item => {
+        const rawName = (item.productName || item.description || '').trim();
+        if (!rawName) return;
+        const key = rawName.toUpperCase();
+        if (!productSalesMap[key]) {
+          productSalesMap[key] = {
+            name: rawName,
+            qty: 0,
+            total: 0,
+            invoiceCount: 0
+          };
+        }
+        const quantity = Number(item.quantity) || 0;
+        const unitPrice = Number(item.unitPrice) || 0;
+        const lineTotal = Number(item.amount) || (quantity * unitPrice) || 0;
+        productSalesMap[key].qty += quantity;
+        productSalesMap[key].total += lineTotal;
+        productSalesMap[key].invoiceCount += 1;
+      });
     });
-  });
+    return Object.values(productSalesMap).sort((a, b) => b.qty - a.qty);
+  }, [invoices]);
 
-  const topProductsList = Object.values(productSalesMap).sort((a, b) => b.qty - a.qty);
-  // Guarantee clean list matching visual layout
-  const displayTopProducts = topProductsList.length > 0 ? topProductsList.slice(0, 5) : [
-    { name: 'Burmis Pain Relief Balm', qty: 2424, total: 363600 },
-    { name: 'Product B', qty: 1120, total: 168000 },
-    { name: 'Product C', qty: 850, total: 127500 },
-    { name: 'Product D', qty: 430, total: 64500 },
-    { name: 'Product E', qty: 320, total: 48000 }
-  ];
-  const maxQty = Math.max(...displayTopProducts.map(p => p.qty), 1);
+  const maxQty = Math.max(...topProductsList.map(p => p.qty), 1);
 
   // Latest created invoices and delivery slips sorted date-wise on top
   const sortedInvoices = useMemo(() => {
@@ -755,29 +760,50 @@ export const Dashboard: React.FC<DashboardProps> = ({
 
           {/* Top Products Compact List */}
           <div className="space-y-2 pt-2 border-t border-slate-100">
-            <span className="text-[10px] font-bold text-slate-400 uppercase tracking-wider block">
-              Top Selling Product Demand
-            </span>
-            <div className="space-y-2">
-              {displayTopProducts.slice(0, 3).map((p, idx) => {
-                const pct = Math.min(100, Math.round((p.qty / maxQty) * 100));
-                return (
-                  <div key={idx} className="space-y-1">
-                    <div className="flex items-center justify-between text-xs">
-                      <span className="font-semibold text-slate-800 truncate pr-2">{p.name}</span>
-                      <span className="font-mono font-bold text-slate-900 text-xs shrink-0">
-                        {p.qty.toLocaleString()} units
-                      </span>
+            <div className="flex items-center justify-between">
+              <span className="text-[10px] font-bold text-slate-400 uppercase tracking-wider block">
+                Top Selling Product Demand (Invoice Qty)
+              </span>
+              <span className="text-[10px] text-orange-600 font-semibold">
+                {topProductsList.length} Products Sold
+              </span>
+            </div>
+            <div className="space-y-2.5">
+              {topProductsList.length === 0 ? (
+                <div className="py-3 text-center text-xs text-slate-400 bg-slate-50 rounded-lg">
+                  No sales invoices recorded yet.
+                </div>
+              ) : (
+                topProductsList.slice(0, 5).map((p, idx) => {
+                  const pct = Math.min(100, Math.round((p.qty / maxQty) * 100));
+                  return (
+                    <div key={idx} className="space-y-1">
+                      <div className="flex items-center justify-between text-xs">
+                        <div className="flex items-center gap-1.5 truncate pr-2">
+                          <span className="w-4 h-4 rounded-full bg-orange-100 text-orange-700 font-bold text-[9px] flex items-center justify-center shrink-0">
+                            {idx + 1}
+                          </span>
+                          <span className="font-semibold text-slate-800 truncate">{p.name}</span>
+                        </div>
+                        <div className="text-right shrink-0">
+                          <span className="font-mono font-bold text-slate-900 text-xs block">
+                            {p.qty.toLocaleString()} units
+                          </span>
+                          <span className="text-[10px] text-slate-400 font-mono">
+                            BDT {p.total.toLocaleString()}
+                          </span>
+                        </div>
+                      </div>
+                      <div className="h-1.5 w-full bg-slate-100 rounded-full overflow-hidden">
+                        <div
+                          className="h-full bg-gradient-to-r from-orange-500 to-amber-400 rounded-full transition-all duration-500"
+                          style={{ width: `${pct}%` }}
+                        />
+                      </div>
                     </div>
-                    <div className="h-1.5 w-full bg-slate-100 rounded-full overflow-hidden">
-                      <div
-                        className="h-full bg-gradient-to-r from-orange-500 to-orange-400 rounded-full"
-                        style={{ width: `${pct}%` }}
-                      />
-                    </div>
-                  </div>
-                );
-              })}
+                  );
+                })
+              )}
             </div>
           </div>
         </div>

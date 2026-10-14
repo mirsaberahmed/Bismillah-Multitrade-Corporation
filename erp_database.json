@@ -209,10 +209,12 @@
       "currentPayable": 127500,
       "currentBalance": 127500,
       "totalDue": 65000,
-      "suppliedProductQty": 25000,
+      "orderedProductQty": 25000,
+      "deliveredProductQty": 7000,
+      "suppliedProductQty": 7000,
       "paymentTerms": "30 Days LC / TT",
       "createdAt": "2026-10-11",
-      "updatedAt": "2026-10-13"
+      "updatedAt": "2026-10-14"
     },
     {
       "id": "sup-1791717345209",
@@ -259,10 +261,12 @@
       "currentPayable": 50000,
       "currentBalance": 50000,
       "totalDue": 50000,
-      "suppliedProductQty": 5000,
+      "orderedProductQty": 5000,
+      "deliveredProductQty": 2688,
+      "suppliedProductQty": 2688,
       "paymentTerms": "30 Days LC / TT",
       "createdAt": "2026-10-11",
-      "updatedAt": "2026-10-13"
+      "updatedAt": "2026-10-14"
     },
     {
       "id": "sup-1791841314872",
@@ -893,6 +897,38 @@
     }
   ],
   "activityLogs": [
+    {
+      "id": "act-1791984636713-c08g",
+      "user": "Super Admin",
+      "action": "Supplier Updated",
+      "date": "2026-10-14",
+      "time": "07:30 PM",
+      "details": "Updated supplier: MASUM BHAI"
+    },
+    {
+      "id": "act-1791984587675-vyny",
+      "user": "Super Admin",
+      "action": "Supplier Updated",
+      "date": "2026-10-14",
+      "time": "07:29 PM",
+      "details": "Updated supplier: RAJJAK UNCLE"
+    },
+    {
+      "id": "act-1791983941107-qc12",
+      "user": "AKIL",
+      "action": "User Deleted",
+      "date": "2026-10-14",
+      "time": "07:19 PM",
+      "details": "Super Admin deleted user account admin"
+    },
+    {
+      "id": "act-1791983867791-qouk",
+      "user": "Super Admin",
+      "action": "Successful Login",
+      "date": "2026-10-14",
+      "time": "07:17 PM",
+      "details": "User akil (AKIL) logged in"
+    },
     {
       "id": "act-1791981069556-25ad",
       "user": "Super Admin",
@@ -1734,5 +1770,5 @@
       "details": "Deleted invoice INV-2026-161425"
     }
   ],
-  "updatedAtServer": "2026-10-14T12:53:34.511Z"
+  "updatedAtServer": "2026-10-14T13:30:38.559Z"
 }
