@@ -874,6 +874,35 @@
   ],
   "users": [
     {
+      "id": "usr-admin",
+      "name": "Super Admin",
+      "fullName": "Super Admin",
+      "username": "admin",
+      "email": "admin@bismillah.com",
+      "phone": "+880 1400967693",
+      "employeeId": "EMP-001",
+      "department": "Management",
+      "designation": "Managing Director",
+      "role": "Super Admin",
+      "status": "Active",
+      "active": true,
+      "permissions": [
+        "All Modules",
+        "Manage Users",
+        "Approve Registrations",
+        "Assign Roles",
+        "Manage Permissions",
+        "View Financial Reports",
+        "Manage Settings",
+        "Access Audit Logs"
+      ],
+      "registeredAt": "2026-01-01",
+      "approvedAt": "2026-01-01",
+      "approvedBy": "System",
+      "lastLoginAt": "2026-10-14 09:30 AM",
+      "createdAt": "2026-01-01"
+    },
+    {
       "id": "usr-1791973416236",
       "name": "AKIL",
       "fullName": "AKIL",
@@ -1770,5 +1799,5 @@
       "details": "Deleted invoice INV-2026-161425"
     }
   ],
-  "updatedAtServer": "2026-10-14T13:30:38.559Z"
+  "updatedAtServer": "2026-10-14T13:43:27.580Z"
 }

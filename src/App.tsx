@@ -20,6 +20,10 @@ import { UserProfileModal } from './components/system/UserProfileModal';
 import { QuotationManager } from './components/quotations/QuotationManager';
 import { LoginPage } from './components/auth/LoginPage';
 
+import { ExpenseList } from './components/finance/ExpenseList';
+import { ExpenseForm } from './components/finance/ExpenseForm';
+import { ExpenseDetails } from './components/finance/ExpenseDetails';
+
 const SESSION_AUTH_KEY = 'bismillah_erp_session_authenticated_v1';
 
 const AppContent: React.FC = () => {
@@ -34,6 +38,10 @@ const AppContent: React.FC = () => {
   const [invoiceView, setInvoiceView] = useState<'list' | 'create' | 'edit' | 'details'>('list');
   const [selectedInvoiceId, setSelectedInvoiceId] = useState<string | null>(null);
 
+  // Expenses module sub-navigation (Exact same 1st class architecture as Invoices)
+  const [expenseView, setExpenseView] = useState<'list' | 'create' | 'edit' | 'details'>('list');
+  const [selectedExpenseId, setSelectedExpenseId] = useState<string | null>(null);
+
   const handleNavigate = (tab: string | ActiveTab) => {
     if (tab === 'create_invoice') {
       handleOpenCreateInvoice();
@@ -43,6 +51,10 @@ const AppContent: React.FC = () => {
     if (tab === 'invoices') {
       setInvoiceView('list');
       setSelectedInvoiceId(null);
+    }
+    if (tab === 'expenses') {
+      setExpenseView('list');
+      setSelectedExpenseId(null);
     }
   };
 
@@ -62,6 +74,24 @@ const AppContent: React.FC = () => {
     setActiveTab('invoices');
     setSelectedInvoiceId(id);
     setInvoiceView('edit');
+  };
+
+  const handleOpenCreateExpense = () => {
+    setActiveTab('expenses');
+    setSelectedExpenseId(null);
+    setExpenseView('create');
+  };
+
+  const handleSelectExpense = (id: string) => {
+    setActiveTab('expenses');
+    setSelectedExpenseId(id);
+    setExpenseView('details');
+  };
+
+  const handleEditExpense = (id: string) => {
+    setActiveTab('expenses');
+    setSelectedExpenseId(id);
+    setExpenseView('edit');
   };
 
   const handleLogout = () => {
@@ -194,9 +224,57 @@ const AppContent: React.FC = () => {
             {/* 7. IMPORT-EXPORT & TRADE */}
             {(activeTab === 'import_records' || activeTab === 'export_records' || activeTab === 'proforma_invoices' || activeTab === 'commercial_invoices' || activeTab === 'lc_management' || activeTab === 'shipments') && <ImportExportManager />}
 
-            {/* 8. PAYMENTS & FINANCIAL ACCOUNTS */}
-            {(activeTab === 'payments' || activeTab === 'expenses') && (
-              <FinanceManager defaultTab={activeTab === 'expenses' ? 'expenses' : 'collections'} />
+            {/* 8. EXPENSES & DEBIT VOUCHERS (1ST-CLASS INVOICE-MATCHED ARCHITECTURE) */}
+            {activeTab === 'expenses' && (
+              <>
+                {expenseView === 'list' && (
+                  <ExpenseList
+                    onSelectExpense={handleSelectExpense}
+                    onNewExpense={handleOpenCreateExpense}
+                    onEditExpense={handleEditExpense}
+                  />
+                )}
+
+                {expenseView === 'create' && (
+                  <ExpenseForm
+                    onCancel={() => setExpenseView('list')}
+                    onSuccess={(savedId) => {
+                      if (savedId) {
+                        handleSelectExpense(savedId);
+                      } else {
+                        setExpenseView('list');
+                      }
+                    }}
+                  />
+                )}
+
+                {expenseView === 'edit' && selectedExpenseId && (
+                  <ExpenseForm
+                    expenseId={selectedExpenseId}
+                    onCancel={() => setExpenseView('list')}
+                    onSuccess={(savedId) => {
+                      if (savedId) {
+                        handleSelectExpense(savedId);
+                      } else {
+                        setExpenseView('list');
+                      }
+                    }}
+                  />
+                )}
+
+                {expenseView === 'details' && selectedExpenseId && (
+                  <ExpenseDetails
+                    expenseId={selectedExpenseId}
+                    onBack={() => setExpenseView('list')}
+                    onEdit={(id) => handleEditExpense(id)}
+                  />
+                )}
+              </>
+            )}
+
+            {/* 9. PAYMENTS & FINANCIAL ACCOUNTS (TREASURY & COLLECTIONS) */}
+            {activeTab === 'payments' && (
+              <FinanceManager defaultTab="collections" />
             )}
 
             {/* 9. REPORTS & INTELLIGENCE */}

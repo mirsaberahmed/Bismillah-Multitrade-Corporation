@@ -8,24 +8,16 @@ import {
   Printer,
   FileSpreadsheet,
   Calendar,
-  Search,
-  Filter,
-  Trash2,
-  Receipt,
-  Edit,
-  Eye,
-  FileText,
-  X
+  Receipt
 } from 'lucide-react';
 import { useData } from '../../context/DataContext';
 import { PaymentRecord, ExpenseRecord } from '../../types';
 import { formatCurrency, formatDate, getTodayDateString } from '../../utils/formatters';
 import { PrintableMoneyReceipt } from '../documents/PrintableMoneyReceipt';
-import { PrintableExpenseSheet } from '../documents/PrintableExpenseSheet';
 import { exportToExcel } from '../../utils/exportImport';
-import { ConfirmModal } from '../common/ConfirmModal';
-import { ExpenseFormModal, PRESET_EXPENSE_CATEGORIES } from './ExpenseFormModal';
-import { ExpensePrintModal } from './ExpensePrintModal';
+import { ExpenseList } from './ExpenseList';
+import { ExpenseForm } from './ExpenseForm';
+import { ExpenseDetails } from './ExpenseDetails';
 
 interface FinanceManagerProps {
   initialTab?: 'collections' | 'expenses';
@@ -39,13 +31,7 @@ export const FinanceManager: React.FC<FinanceManagerProps> = ({
   const {
     payments,
     expenses,
-    settings,
-    recordPayment,
-    saveExpense,
-    deleteExpense,
-    customers,
-    suppliers,
-    getNextNumber
+    settings
   } = useData();
 
   const [activeTab, setActiveTab] = useState<'collections' | 'expenses'>(
@@ -57,55 +43,28 @@ export const FinanceManager: React.FC<FinanceManagerProps> = ({
     else if (initialTab) setActiveTab(initialTab);
   }, [defaultTab, initialTab]);
 
-  // Modal states
-  const [showExpenseModal, setShowExpenseModal] = useState(false);
-  const [editingExpense, setEditingExpense] = useState<ExpenseRecord | null>(null);
-  const [selectedExpenseForPdf, setSelectedExpenseForPdf] = useState<ExpenseRecord | null>(null);
-  const [printingPayment, setPrintingPayment] = useState<PaymentRecord | null>(null);
-  const [expenseToDelete, setExpenseToDelete] = useState<ExpenseRecord | null>(null);
+  // Expenses sub-views
+  const [expenseSubView, setExpenseSubView] = useState<'list' | 'create' | 'edit' | 'details'>('list');
+  const [selectedExpId, setSelectedExpId] = useState<string | null>(null);
 
-  // Filters for expenses
-  const [expenseSearchQuery, setExpenseSearchQuery] = useState('');
-  const [expenseCategoryFilter, setExpenseCategoryFilter] = useState('All');
+  const [printingPayment, setPrintingPayment] = useState<PaymentRecord | null>(null);
 
   // Financial calculations
   const totalCollections = payments.filter(p => p.type === 'Customer Collection').reduce((s, p) => s + p.amount, 0);
-  const totalExpenses = expenses.reduce((s, e) => s + e.amount, 0);
+  const totalExpenses = expenses.reduce((s, e) => s + (Number(e.amount) || 0), 0);
   const netCashflow = totalCollections - totalExpenses;
 
   const todayStr = getTodayDateString();
   const currentMonth = todayStr.substring(0, 7);
   const thisMonthExpenses = expenses
     .filter(e => (e.expenseDate || e.date || '').startsWith(currentMonth))
-    .reduce((s, e) => s + e.amount, 0);
+    .reduce((s, e) => s + (Number(e.amount) || 0), 0);
 
   const handlePrintReceipt = (p: PaymentRecord) => {
     setPrintingPayment(p);
     setTimeout(() => {
       window.print();
     }, 200);
-  };
-
-  const handleOpenExpensePdf = (e: ExpenseRecord) => {
-    setSelectedExpenseForPdf(e);
-  };
-
-  const openAddExpenseModal = () => {
-    setEditingExpense(null);
-    setShowExpenseModal(true);
-  };
-
-  const openEditExpenseModal = (e: ExpenseRecord) => {
-    setEditingExpense(e);
-    setShowExpenseModal(true);
-  };
-
-  const handleSaveExpense = (newOrUpdatedExpense: ExpenseRecord) => {
-    saveExpense(newOrUpdatedExpense);
-    // If the PDF modal was open with this expense, update it too
-    if (selectedExpenseForPdf && selectedExpenseForPdf.id === newOrUpdatedExpense.id) {
-      setSelectedExpenseForPdf(newOrUpdatedExpense);
-    }
   };
 
   const handleExportPayments = () => {
@@ -123,37 +82,61 @@ export const FinanceManager: React.FC<FinanceManagerProps> = ({
     exportToExcel(data, `Money_Receipts_${new Date().toISOString().slice(0, 10)}`);
   };
 
-  const handleExportExpenses = () => {
-    const data = filteredExpenses.map(e => ({
-      'Voucher No': e.voucherNumber || e.expenseNumber,
-      'Date': e.expenseDate || e.date,
-      'Category': e.category,
-      'Paid To': e.paidTo,
-      'Amount (BDT)': e.amount,
-      'Items Count': e.items?.length || 1,
-      'Payment Method': e.paymentMethod,
-      'Reference': e.referenceNumber || '',
-      'Particulars': e.notes || ''
-    }));
-    exportToExcel(data, `Operating_Expenses_${new Date().toISOString().slice(0, 10)}`);
-  };
+  // If in expenses tab, render the dedicated 1st-class Expense experience
+  if (activeTab === 'expenses') {
+    return (
+      <div className="space-y-4">
+        {expenseSubView === 'list' && (
+          <ExpenseList
+            onSelectExpense={(id) => {
+              setSelectedExpId(id);
+              setExpenseSubView('details');
+            }}
+            onNewExpense={() => {
+              setSelectedExpId(null);
+              setExpenseSubView('create');
+            }}
+            onEditExpense={(id) => {
+              setSelectedExpId(id);
+              setExpenseSubView('edit');
+            }}
+          />
+        )}
 
-  const filteredExpenses = expenses.filter(e => {
-    const q = expenseSearchQuery.toLowerCase().trim();
-    const matchSearch =
-      !q ||
-      (e.voucherNumber || e.expenseNumber || '').toLowerCase().includes(q) ||
-      (e.category || '').toLowerCase().includes(q) ||
-      (e.paidTo || '').toLowerCase().includes(q) ||
-      (e.notes || '').toLowerCase().includes(q) ||
-      (e.referenceNumber || '').toLowerCase().includes(q) ||
-      (e.items && e.items.some(it => it.particulars.toLowerCase().includes(q)));
+        {expenseSubView === 'create' && (
+          <ExpenseForm
+            onCancel={() => setExpenseSubView('list')}
+            onSuccess={(id) => {
+              setSelectedExpId(id);
+              setExpenseSubView('details');
+            }}
+          />
+        )}
 
-    const matchCategory =
-      expenseCategoryFilter === 'All' || e.category === expenseCategoryFilter;
+        {expenseSubView === 'edit' && selectedExpId && (
+          <ExpenseForm
+            expenseId={selectedExpId}
+            onCancel={() => setExpenseSubView('list')}
+            onSuccess={(id) => {
+              setSelectedExpId(id);
+              setExpenseSubView('details');
+            }}
+          />
+        )}
 
-    return matchSearch && matchCategory;
-  });
+        {expenseSubView === 'details' && selectedExpId && (
+          <ExpenseDetails
+            expenseId={selectedExpId}
+            onBack={() => setExpenseSubView('list')}
+            onEdit={(id) => {
+              setSelectedExpId(id);
+              setExpenseSubView('edit');
+            }}
+          />
+        )}
+      </div>
+    );
+  }
 
   return (
     <div className="space-y-4">
@@ -168,44 +151,22 @@ export const FinanceManager: React.FC<FinanceManagerProps> = ({
       <div className="print:hidden flex flex-col sm:flex-row sm:items-center justify-between gap-3 bg-zinc-900 border border-zinc-800 p-4 rounded-xl">
         <div>
           <h1 className="text-xl font-black text-zinc-100 uppercase tracking-tight flex items-center gap-2">
-            <Receipt size={22} className="text-red-400" />
-            {activeTab === 'expenses' ? 'Operating Expense & Debit Voucher Management' : 'Financial Accounts & Collections'}
+            <CreditCard size={22} className="text-emerald-400" />
+            <span>Financial Accounts &amp; Customer Collections</span>
           </h1>
           <p className="text-xs text-zinc-400">
-            {activeTab === 'expenses'
-              ? 'Create itemized expense sheets like invoices, print official debit vouchers, edit entries, and export PDFs.'
-              : `Bank: ${settings.bankName || 'General Bank'} • A/C: ${settings.accountNumber || 'Primary'} • Track collections & cashflow.`}
+            Bank: {settings.bankName || 'General Bank'} • A/C: {settings.accountNumber || 'Primary'} • Track collections &amp; treasury inflows.
           </p>
         </div>
 
         <div className="flex items-center gap-2">
-          {activeTab === 'collections' ? (
-            <button
-              onClick={handleExportPayments}
-              className="flex items-center gap-1.5 px-3 py-1.5 bg-zinc-800 hover:bg-zinc-700 text-zinc-200 rounded-lg text-xs font-semibold border border-zinc-700 transition-colors cursor-pointer"
-            >
-              <FileSpreadsheet size={15} className="text-emerald-400" />
-              <span>Export Receipts</span>
-            </button>
-          ) : (
-            <button
-              onClick={handleExportExpenses}
-              className="flex items-center gap-1.5 px-3 py-1.5 bg-zinc-800 hover:bg-zinc-700 text-zinc-200 rounded-lg text-xs font-semibold border border-zinc-700 transition-colors cursor-pointer"
-            >
-              <FileSpreadsheet size={15} className="text-emerald-400" />
-              <span>Export Expenses</span>
-            </button>
-          )}
-
-          {activeTab === 'expenses' && (
-            <button
-              onClick={openAddExpenseModal}
-              className="flex items-center gap-1.5 px-4 py-2 bg-red-600 hover:bg-red-500 text-white font-bold rounded-lg text-xs shadow-md active:scale-[0.98] transition-all cursor-pointer"
-            >
-              <Plus size={16} />
-              <span>+ Create Expense Sheet</span>
-            </button>
-          )}
+          <button
+            onClick={handleExportPayments}
+            className="flex items-center gap-1.5 px-3 py-1.5 bg-zinc-800 hover:bg-zinc-700 text-zinc-200 rounded-lg text-xs font-semibold border border-zinc-700 transition-colors cursor-pointer"
+          >
+            <FileSpreadsheet size={15} className="text-emerald-400" />
+            <span>Export Receipts</span>
+          </button>
         </div>
       </div>
 
@@ -244,312 +205,72 @@ export const FinanceManager: React.FC<FinanceManagerProps> = ({
         </div>
       </div>
 
-      {/* Tabs */}
-      <div className="print:hidden flex border-b border-zinc-800 gap-4 text-xs font-semibold">
-        <button
-          onClick={() => setActiveTab('expenses')}
-          className={`pb-2.5 px-2 flex items-center gap-2 cursor-pointer transition-colors ${
-            activeTab === 'expenses'
-              ? 'text-red-400 border-b-2 border-red-400 font-bold'
-              : 'text-zinc-400 hover:text-zinc-200'
-          }`}
-        >
-          <Receipt size={16} />
-          <span>Expense Sheets &amp; Vouchers ({expenses.length})</span>
-        </button>
+      {/* Collections Table */}
+      <div className="bg-zinc-900 border border-zinc-800 rounded-xl overflow-hidden shadow-lg">
+        <div className="p-3 bg-zinc-950 border-b border-zinc-800 flex items-center justify-between">
+          <h3 className="text-xs font-bold text-zinc-200 flex items-center gap-2">
+            <DollarSign size={16} className="text-emerald-400" />
+            <span>Money Receipts &amp; Invoice Payments ({payments.length})</span>
+          </h3>
+          <span className="text-xs text-zinc-400">Verified cash &amp; bank ledger</span>
+        </div>
 
-        <button
-          onClick={() => setActiveTab('collections')}
-          className={`pb-2.5 px-2 flex items-center gap-2 cursor-pointer transition-colors ${
-            activeTab === 'collections'
-              ? 'text-emerald-400 border-b-2 border-emerald-400 font-bold'
-              : 'text-zinc-400 hover:text-zinc-200'
-          }`}
-        >
-          <CreditCard size={16} />
-          <span>Money Receipts &amp; Collections ({payments.length})</span>
-        </button>
-      </div>
-
-      {/* TAB 1: COLLECTIONS & MONEY RECEIPTS */}
-      {activeTab === 'collections' && (
-        <div className="space-y-3">
-          <div className="bg-zinc-900 border border-zinc-800 rounded-xl overflow-hidden">
-            <table className="w-full text-left text-xs">
-              <thead>
-                <tr className="bg-zinc-950 border-b border-zinc-800 text-zinc-400 font-semibold">
-                  <th className="p-3">Receipt No</th>
-                  <th className="p-3">Date</th>
-                  <th className="p-3">Customer / Entity</th>
-                  <th className="p-3">Method &amp; Ref</th>
-                  <th className="p-3 text-right">Amount (BDT)</th>
-                  <th className="p-3">Collected By</th>
-                  <th className="p-3 text-right">Action</th>
+        <div className="overflow-x-auto">
+          <table className="w-full text-left text-xs border-collapse">
+            <thead>
+              <tr className="bg-zinc-950 border-b border-zinc-800 text-zinc-400 font-semibold">
+                <th className="p-3">Receipt No</th>
+                <th className="p-3">Date</th>
+                <th className="p-3">Customer / Client</th>
+                <th className="p-3">Method &amp; Ref</th>
+                <th className="p-3 text-right">Amount (BDT)</th>
+                <th className="p-3">Collected By</th>
+                <th className="p-3 text-right">Print</th>
+              </tr>
+            </thead>
+            <tbody className="divide-y divide-zinc-800">
+              {payments.length === 0 ? (
+                <tr>
+                  <td colSpan={7} className="py-8 text-center text-zinc-500">
+                    No payment records found. Record a payment from an Invoice to see it here.
+                  </td>
                 </tr>
-              </thead>
-              <tbody className="divide-y divide-zinc-800">
-                {payments.length === 0 ? (
-                  <tr>
-                    <td colSpan={7} className="py-8 text-center text-zinc-500">
-                      No collections recorded yet. Payments received against invoices will appear here.
+              ) : (
+                payments.map(p => (
+                  <tr key={p.id} className="hover:bg-zinc-800/40 transition-colors">
+                    <td className="p-3 font-mono font-bold text-emerald-400">
+                      {p.receiptNumber}
+                    </td>
+                    <td className="p-3 text-zinc-300">{formatDate(p.paymentDate || p.date)}</td>
+                    <td className="p-3 font-medium text-zinc-200">{p.entityName}</td>
+                    <td className="p-3 text-zinc-400">
+                      <span className="font-semibold text-zinc-300">{p.paymentMethod}</span>
+                      {p.transactionReference && (
+                        <span className="block font-mono text-[10px] text-zinc-500">
+                          {p.transactionReference}
+                        </span>
+                      )}
+                    </td>
+                    <td className="p-3 text-right font-mono font-bold text-emerald-400">
+                      {formatCurrency(p.amount)}
+                    </td>
+                    <td className="p-3 text-zinc-400">{p.collectedBy || p.receivedBy || 'System'}</td>
+                    <td className="p-3 text-right">
+                      <button
+                        onClick={() => handlePrintReceipt(p)}
+                        className="p-1.5 bg-zinc-800 hover:bg-zinc-700 text-zinc-300 hover:text-emerald-400 rounded cursor-pointer transition-colors"
+                        title="Print Money Receipt"
+                      >
+                        <Printer size={14} />
+                      </button>
                     </td>
                   </tr>
-                ) : (
-                  payments.map((p) => (
-                    <tr key={p.id} className="hover:bg-zinc-800/40 transition-colors">
-                      <td className="p-3 font-mono font-bold text-emerald-400">
-                        {p.receiptNumber}
-                      </td>
-                      <td className="p-3 text-zinc-300">{formatDate(p.paymentDate || p.date)}</td>
-                      <td className="p-3 font-medium text-zinc-200">{p.entityName}</td>
-                      <td className="p-3 text-zinc-400">
-                        <span className="font-semibold text-zinc-300">{p.paymentMethod}</span>
-                        {p.transactionReference && (
-                          <span className="block font-mono text-[10px] text-zinc-500">
-                            {p.transactionReference}
-                          </span>
-                        )}
-                      </td>
-                      <td className="p-3 text-right font-mono font-bold text-emerald-400">
-                        {formatCurrency(p.amount)}
-                      </td>
-                      <td className="p-3 text-zinc-400">{p.collectedBy || p.receivedBy || 'System'}</td>
-                      <td className="p-3 text-right">
-                        <button
-                          onClick={() => handlePrintReceipt(p)}
-                          className="p-1.5 bg-zinc-800 hover:bg-zinc-700 text-zinc-300 hover:text-emerald-400 rounded cursor-pointer transition-colors"
-                          title="Print Money Receipt"
-                        >
-                          <Printer size={14} />
-                        </button>
-                      </td>
-                    </tr>
-                  ))
-                )}
-              </tbody>
-            </table>
-          </div>
+                ))
+              )}
+            </tbody>
+          </table>
         </div>
-      )}
-
-      {/* TAB 2: EXPENSES (INVOICE-LIKE SYSTEM WITH EDIT BUTTON & PDF) */}
-      {activeTab === 'expenses' && (
-        <div className="space-y-3">
-          {/* Search and Category Filter Bar */}
-          <div className="bg-zinc-900 border border-zinc-800 p-3 rounded-xl flex flex-col sm:flex-row gap-2 sm:items-center justify-between">
-            <div className="relative flex-1">
-              <Search size={15} className="absolute left-3 top-1/2 -translate-y-1/2 text-zinc-400" />
-              <input
-                type="text"
-                placeholder="Search voucher no, payee, particulars, item descriptions, ref..."
-                value={expenseSearchQuery}
-                onChange={(e) => setExpenseSearchQuery(e.target.value)}
-                className="w-full bg-zinc-950 border border-zinc-700 rounded-lg pl-9 pr-3 py-2 text-xs text-zinc-200 placeholder-zinc-500 focus:outline-none focus:border-red-500"
-              />
-            </div>
-
-            <div className="flex items-center gap-2">
-              <span className="text-zinc-400 text-xs shrink-0 flex items-center gap-1">
-                <Filter size={13} />
-                Category:
-              </span>
-              <select
-                value={expenseCategoryFilter}
-                onChange={(e) => setExpenseCategoryFilter(e.target.value)}
-                className="bg-zinc-950 border border-zinc-700 rounded-lg px-2.5 py-1.5 text-xs text-zinc-200"
-              >
-                <option value="All">All Categories</option>
-                {Array.from(new Set([
-                  ...PRESET_EXPENSE_CATEGORIES.filter(c => c !== 'Other / Custom Category'),
-                  ...expenses.map(e => e.category).filter(Boolean)
-                ])).map(cat => (
-                  <option key={cat} value={cat}>{cat}</option>
-                ))}
-              </select>
-            </div>
-          </div>
-
-          {/* Clean Professional Expense Sheet Table */}
-          <div className="bg-zinc-900 border border-zinc-800 rounded-xl overflow-hidden shadow-lg">
-            <div className="p-3 bg-zinc-950 border-b border-zinc-800 flex items-center justify-between">
-              <div>
-                <h3 className="text-xs font-bold text-zinc-200 flex items-center gap-2">
-                  <Receipt size={16} className="text-red-400" />
-                  <span>Expense Sheets &amp; Vouchers List</span>
-                </h3>
-                <p className="text-[11px] text-zinc-400">
-                  Every expense sheet is itemized with full editability and PDF/Print output matching invoice standard.
-                </p>
-              </div>
-
-              <div className="text-xs text-zinc-400">
-                Total Shown: <strong className="text-zinc-200">{filteredExpenses.length}</strong> vouchers
-              </div>
-            </div>
-
-            <div className="overflow-x-auto">
-              <table className="w-full text-left text-xs border-collapse">
-                <thead>
-                  <tr className="bg-zinc-950 border-b border-zinc-800 text-zinc-400 font-semibold">
-                    <th className="p-3 w-32">Voucher No</th>
-                    <th className="p-3 w-28">Date</th>
-                    <th className="p-3">Paid To / Payee</th>
-                    <th className="p-3">Category / Head</th>
-                    <th className="p-3 w-28">Items</th>
-                    <th className="p-3">Payment &amp; Ref</th>
-                    <th className="p-3 text-right w-36">Total Amount (BDT)</th>
-                    <th className="p-3">Remarks / Particulars</th>
-                    <th className="p-3 text-right w-36">Actions</th>
-                  </tr>
-                </thead>
-                <tbody className="divide-y divide-zinc-800">
-                  {filteredExpenses.length === 0 ? (
-                    <tr>
-                      <td colSpan={9} className="py-12 text-center text-zinc-500">
-                        <Receipt size={32} className="mx-auto mb-2 opacity-30 text-red-400" />
-                        <p className="font-semibold text-zinc-300">No expense vouchers found</p>
-                        <p className="text-[11px] text-zinc-500 mt-1">
-                          Click <strong>+ Create Expense Sheet</strong> above to record and itemize a new expense.
-                        </p>
-                      </td>
-                    </tr>
-                  ) : (
-                    filteredExpenses.map((e) => {
-                      const itemsCount = e.items?.length || 1;
-                      return (
-                        <tr key={e.id} className="hover:bg-zinc-800/40 transition-colors">
-                          <td className="p-3 font-mono font-bold text-red-400">
-                            <button
-                              type="button"
-                              onClick={() => handleOpenExpensePdf(e)}
-                              className="hover:underline flex items-center gap-1.5 cursor-pointer text-left"
-                              title="Click to view full Expense Sheet PDF"
-                            >
-                              <FileText size={13} className="shrink-0" />
-                              <span>{e.voucherNumber || e.expenseNumber}</span>
-                            </button>
-                          </td>
-                          <td className="p-3 text-zinc-300">
-                            {formatDate(e.expenseDate || e.date)}
-                          </td>
-                          <td className="p-3 font-bold text-zinc-100">
-                            {e.paidTo || 'Cash Expense'}
-                          </td>
-                          <td className="p-3 text-zinc-300">
-                            <span className="px-2 py-0.5 rounded bg-zinc-800 border border-zinc-700 text-zinc-200 text-[11px]">
-                              {e.category}
-                            </span>
-                          </td>
-                          <td className="p-3 text-zinc-400">
-                            <span className="font-mono text-xs text-zinc-300 font-semibold">
-                              {itemsCount} {itemsCount === 1 ? 'item' : 'items'}
-                            </span>
-                          </td>
-                          <td className="p-3 text-zinc-400">
-                            <span className="font-semibold text-zinc-300">{e.paymentMethod}</span>
-                            {e.referenceNumber && (
-                              <span className="block font-mono text-[10px] text-zinc-500">
-                                {e.referenceNumber}
-                              </span>
-                            )}
-                          </td>
-                          <td className="p-3 text-right font-mono font-black text-red-400 text-sm">
-                            {formatCurrency(e.amount)}
-                          </td>
-                          <td className="p-3 text-zinc-400 max-w-xs truncate" title={e.notes || ''}>
-                            {e.notes || e.description || '-'}
-                          </td>
-                          <td className="p-3 text-right">
-                            <div className="flex items-center justify-end gap-1.5">
-                              {/* View / Open PDF Modal Button */}
-                              <button
-                                type="button"
-                                onClick={() => handleOpenExpensePdf(e)}
-                                className="p-1.5 bg-zinc-800 hover:bg-zinc-700 text-zinc-300 hover:text-amber-400 rounded cursor-pointer transition-colors"
-                                title="Open Expense Sheet PDF Preview"
-                              >
-                                <Eye size={14} />
-                              </button>
-
-                              {/* DIRECT EDIT BUTTON (Just like Invoice Edit) */}
-                              <button
-                                type="button"
-                                onClick={() => openEditExpenseModal(e)}
-                                className="p-1.5 bg-zinc-800 hover:bg-zinc-700 text-zinc-300 hover:text-blue-400 rounded cursor-pointer transition-colors"
-                                title="Edit Expense Sheet (Invoice style)"
-                              >
-                                <Edit size={14} />
-                              </button>
-
-                              {/* Direct Quick Print */}
-                              <button
-                                type="button"
-                                onClick={() => handleOpenExpensePdf(e)}
-                                className="p-1.5 bg-zinc-800 hover:bg-zinc-700 text-zinc-300 hover:text-red-400 rounded cursor-pointer transition-colors"
-                                title="Print / Download PDF"
-                              >
-                                <Printer size={14} />
-                              </button>
-
-                              {/* Delete Button */}
-                              <button
-                                type="button"
-                                onClick={() => setExpenseToDelete(e)}
-                                className="p-1.5 bg-zinc-800 hover:bg-zinc-700 text-zinc-400 hover:text-red-400 rounded cursor-pointer transition-colors"
-                                title="Delete Expense Voucher"
-                              >
-                                <Trash2 size={14} />
-                              </button>
-                            </div>
-                          </td>
-                        </tr>
-                      );
-                    })
-                  )}
-                </tbody>
-              </table>
-            </div>
-          </div>
-        </div>
-      )}
-
-      {/* Invoice-style Expense Creation & Edit Modal */}
-      <ExpenseFormModal
-        isOpen={showExpenseModal}
-        onClose={() => setShowExpenseModal(false)}
-        onSave={handleSaveExpense}
-        editingExpense={editingExpense}
-        getNextNumber={getNextNumber}
-      />
-
-      {/* Professional PDF & Print Modal matching Invoice */}
-      <ExpensePrintModal
-        isOpen={Boolean(selectedExpenseForPdf)}
-        onClose={() => setSelectedExpenseForPdf(null)}
-        expense={selectedExpenseForPdf}
-        settings={settings}
-        onEdit={(exp) => {
-          setSelectedExpenseForPdf(null);
-          openEditExpenseModal(exp);
-        }}
-      />
-
-      {/* Delete Expense Modal */}
-      <ConfirmModal
-        isOpen={!!expenseToDelete}
-        title="Delete Expense Voucher"
-        message={`Are you sure you want to delete expense voucher ${expenseToDelete?.voucherNumber || expenseToDelete?.expenseNumber} for BDT ${expenseToDelete?.amount.toLocaleString()}?`}
-        confirmText="Delete Voucher"
-        cancelText="Cancel"
-        variant="danger"
-        onConfirm={() => {
-          if (expenseToDelete) {
-            deleteExpense(expenseToDelete.id);
-            setExpenseToDelete(null);
-          }
-        }}
-        onCancel={() => setExpenseToDelete(null)}
-      />
+      </div>
     </div>
   );
 };

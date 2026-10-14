@@ -9,15 +9,15 @@ interface Props {
 }
 
 export const PrintableExpenseSheet: React.FC<Props> = ({ expense, settings }) => {
-  const amountWords = numberToWordsBDT(expense.amount);
+  const totalInWords = numberToWordsBDT(expense.amount);
 
-  // Normalize items: If expense has itemized rows, use them. Otherwise, create a clean default item.
+  // Normalize items: If expense has itemized rows, use them; otherwise, create a clean default item.
   const displayItems = (expense.items && expense.items.length > 0)
     ? expense.items
     : [
         {
           id: 'item-1',
-          particulars: expense.notes || expense.description || `${expense.category} Payment`,
+          particulars: expense.notes || expense.description || `${expense.category} Expense`,
           category: expense.category,
           quantity: 1,
           unit: 'Lot',
@@ -26,28 +26,31 @@ export const PrintableExpenseSheet: React.FC<Props> = ({ expense, settings }) =>
         }
       ];
 
-  const subtotal = displayItems.reduce((sum, it) => sum + (Number(it.amount) || (it.quantity * it.unitPrice) || 0), 0);
+  const subtotal = displayItems.reduce(
+    (sum, it) => sum + (Number(it.amount) || ((Number(it.quantity) || 1) * (Number(it.unitPrice) || 0))),
+    0
+  );
 
   return (
     <div
       id={`printable-expense-${expense.id}`}
       className="printable-sheet bg-white text-black w-full max-w-4xl mx-auto p-8 font-sans print:p-0 print:max-w-[185mm] print:mx-auto text-sm leading-normal"
     >
-      {/* Header - Identical to Invoice Layout */}
+      {/* 1. Header - Exact 1-to-1 Match with PrintableInvoice */}
       <div className="border-b border-black pb-4 mb-6">
         <div className="flex justify-between items-start gap-4">
           {/* Company Info */}
           <div className="flex-1">
             <h1 className="text-2xl font-black tracking-tight text-black uppercase mb-0.5">
-              {settings.companyName}
+              {settings.companyName || 'BISMILLAH MULTITRADE CORPORATION'}
             </h1>
             <p className="text-black font-semibold text-xs tracking-wider uppercase mb-2">
-              {settings.businessType}
+              {settings.businessType || 'General Merchant, Importer & Supplier'}
             </p>
             <div className="text-black text-xs space-y-0.5 leading-relaxed">
-              <p>{settings.address}</p>
+              <p>{settings.address || 'House-02, Road-01, Section-11, Block-B, Mirpur, Dhaka-1216, Bangladesh'}</p>
               <p>
-                <span className="font-semibold">Phone:</span> {settings.phonePrimary}
+                <span className="font-semibold">Phone:</span> {settings.phonePrimary || '+880 1711-000000'}
                 {settings.phoneSecondary && ` | ${settings.phoneSecondary}`}
               </p>
               {settings.email && (
@@ -59,7 +62,7 @@ export const PrintableExpenseSheet: React.FC<Props> = ({ expense, settings }) =>
             </div>
           </div>
 
-          {/* Document Badge & Voucher Details */}
+          {/* Document Label & Voucher Details */}
           <div className="text-right">
             <div className="inline-block border border-black bg-white text-black px-4 py-1.5 font-bold text-lg tracking-widest uppercase mb-3">
               EXPENSE SHEET
@@ -67,7 +70,7 @@ export const PrintableExpenseSheet: React.FC<Props> = ({ expense, settings }) =>
             <div className="space-y-1 text-xs text-black">
               <p>
                 <span className="font-medium">Voucher No:</span>{' '}
-                <strong className="font-mono text-sm">{expense.voucherNumber || expense.expenseNumber}</strong>
+                <strong className="font-mono text-sm">{expense.voucherNumber || expense.expenseNumber || 'EXP-001'}</strong>
               </p>
               <p>
                 <span className="font-medium">Date:</span>{' '}
@@ -75,7 +78,7 @@ export const PrintableExpenseSheet: React.FC<Props> = ({ expense, settings }) =>
               </p>
               <p>
                 <span className="font-medium">Payment Mode:</span>{' '}
-                <strong>{expense.paymentMethod}</strong>
+                <strong>{expense.paymentMethod || 'Cash'}</strong>
               </p>
               {expense.referenceNumber && (
                 <p>
@@ -83,10 +86,10 @@ export const PrintableExpenseSheet: React.FC<Props> = ({ expense, settings }) =>
                   <strong className="font-mono">{expense.referenceNumber}</strong>
                 </p>
               )}
-              {expense.approvedBy && (
+              {expense.currency && expense.currency !== 'BDT' && (
                 <p>
-                  <span className="font-medium">Approved By:</span>{' '}
-                  <strong>{expense.approvedBy}</strong>
+                  <span className="font-medium">Currency:</span>{' '}
+                  <strong>{expense.currency}</strong>
                 </p>
               )}
             </div>
@@ -94,91 +97,108 @@ export const PrintableExpenseSheet: React.FC<Props> = ({ expense, settings }) =>
         </div>
       </div>
 
-      {/* Payee / Party Box & Expense Particulars - 2 Column Layout like Invoice Bill To */}
+      {/* 2. Two Column: Paid To & Voucher Information (Same 1px black border boxes as PrintableInvoice) */}
       <div className="grid grid-cols-2 gap-6 mb-6">
-        <div className="border border-black p-3.5 bg-gray-50/50">
-          <p className="text-[10px] font-bold text-black tracking-wider uppercase mb-1.5 border-b border-black/40 pb-1">
-            PAID TO / BENEFICIARY
-          </p>
-          <div className="text-xs text-black space-y-1">
-            <p className="font-black text-sm text-black uppercase tracking-tight">
-              {expense.paidTo || 'Self / Cash Expense'}
-            </p>
-            <p>
-              <span className="font-medium text-gray-700">Account Head / Category:</span>{' '}
-              <strong className="text-black">{expense.category}</strong>
+        {/* Paid To / Beneficiary */}
+        <div className="border border-black bg-white p-4 flex flex-col justify-between">
+          <div>
+            <div className="text-xs font-bold tracking-wider text-black uppercase mb-1.5">
+              PAID TO / BENEFICIARY
+            </div>
+            <p className="font-bold text-black text-sm">{expense.paidTo || 'Cash Expense / Self'}</p>
+            <p className="text-xs font-semibold text-black mt-0.5">
+              Category: {expense.category}
             </p>
             {expense.supplierName && (
-              <p>
-                <span className="font-medium text-gray-700">Vendor / Supplier:</span>{' '}
-                <strong>{expense.supplierName}</strong>
+              <p className="text-xs text-black mt-1">
+                <span className="font-medium">Supplier / Vendor:</span> {expense.supplierName}
               </p>
             )}
+            <p className="text-xs text-black mt-1 whitespace-pre-line leading-relaxed">
+              {expense.notes ? `Purpose: ${expense.notes}` : 'Official Operating Expense Voucher'}
+            </p>
+          </div>
+          <div className="mt-3 pt-2 border-t border-black text-xs space-y-0.5 text-black">
+            <p><span className="font-medium">Settlement:</span> Cash / Official Treasury</p>
           </div>
         </div>
 
-        <div className="border border-black p-3.5 bg-gray-50/50">
-          <p className="text-[10px] font-bold text-black tracking-wider uppercase mb-1.5 border-b border-black/40 pb-1">
-            VOUCHER PARTICULARS & PURPOSE
-          </p>
-          <div className="text-xs text-black space-y-1">
-            <p>
-              <span className="font-medium text-gray-700">Payment Status:</span>{' '}
-              <strong className="text-black uppercase">PAID &amp; SETTLED</strong>
-            </p>
-            <p>
-              <span className="font-medium text-gray-700">Currency:</span>{' '}
-              <strong>{expense.currency || 'BDT'}</strong>
-            </p>
-            {expense.notes && (
-              <p className="line-clamp-2">
-                <span className="font-medium text-gray-700">Remarks:</span>{' '}
-                <span className="italic">{expense.notes}</span>
-              </p>
-            )}
+        {/* Voucher Information */}
+        <div className="border border-black bg-white p-4 flex flex-col justify-between">
+          <div>
+            <div className="text-xs font-bold tracking-wider text-black uppercase mb-1.5">
+              VOUCHER INFORMATION
+            </div>
+            <div className="grid grid-cols-2 gap-y-1.5 text-xs text-black">
+              <span className="font-medium">Payment Status:</span>
+              <span className="font-bold uppercase text-black">PAID &amp; SETTLED</span>
+
+              <span className="font-medium">Payment Method:</span>
+              <span className="font-bold">{expense.paymentMethod}</span>
+
+              {expense.referenceNumber && (
+                <>
+                  <span className="font-medium">Reference No:</span>
+                  <span className="font-bold font-mono">{expense.referenceNumber}</span>
+                </>
+              )}
+
+              <span className="font-medium">Prepared By:</span>
+              <span className="font-bold">{expense.preparedBy || 'Accounts Officer'}</span>
+
+              <span className="font-medium">Approved By:</span>
+              <span className="font-bold">{expense.approvedBy || 'Managing Director'}</span>
+            </div>
           </div>
+          {expense.notes && (
+            <div className="mt-2 pt-2 border-t border-black text-xs text-black">
+              <span className="font-medium">Remarks: </span>
+              {expense.notes}
+            </div>
+          )}
         </div>
       </div>
 
-      {/* Itemized Table - Exactly Matching Invoice Table Styling */}
-      <div className="mb-6 overflow-hidden">
-        <table className="w-full text-xs border-collapse">
+      {/* 3. Expense Items Table - Exact Line Items Table Layout */}
+      <div className="mb-6">
+        <table className="w-full border-collapse text-left text-xs border border-black">
           <thead>
-            <tr className="border border-black bg-gray-100 text-black font-bold uppercase text-[11px]">
-              <th className="border border-black py-2 px-2 text-center w-10">SL</th>
-              <th className="border border-black py-2 px-3 text-left">Particulars / Expense Description</th>
-              <th className="border border-black py-2 px-2 text-left w-36">Category</th>
-              <th className="border border-black py-2 px-2 text-center w-16">Qty</th>
-              <th className="border border-black py-2 px-2 text-center w-16">Unit</th>
-              <th className="border border-black py-2 px-3 text-right w-24">Rate (BDT)</th>
-              <th className="border border-black py-2 px-3 text-right w-28">Amount (BDT)</th>
+            <tr className="bg-white text-black font-bold border-b border-black">
+              <th className="p-2.5 w-12 text-center border-r border-black">SL</th>
+              <th className="p-2.5 border-r border-black">Particulars / Expense Details</th>
+              <th className="p-2.5 w-36 border-r border-black">Category</th>
+              <th className="p-2.5 w-24 text-right border-r border-black">Qty</th>
+              <th className="p-2.5 w-20 text-center border-r border-black">Unit</th>
+              <th className="p-2.5 w-32 text-right border-r border-black">Unit Price</th>
+              <th className="p-2.5 w-36 text-right">Total Amount</th>
             </tr>
           </thead>
           <tbody>
             {displayItems.map((item, index) => {
               const itemTotal = Number(item.amount) || ((Number(item.quantity) || 1) * (Number(item.unitPrice) || 0));
               return (
-                <tr key={item.id || index} className="border border-black">
-                  <td className="border border-black py-2 px-2 text-center font-mono font-medium">
-                    {index + 1}
+                <tr
+                  key={item.id || index}
+                  className="border-b border-black bg-white"
+                >
+                  <td className="p-2.5 text-center text-black font-medium border-r border-black">{index + 1}</td>
+                  <td className="p-2.5 border-r border-black">
+                    <p className="font-bold text-black text-xs">{item.particulars}</p>
                   </td>
-                  <td className="border border-black py-2 px-3 text-black">
-                    <p className="font-semibold text-black">{item.particulars}</p>
-                  </td>
-                  <td className="border border-black py-2 px-2 text-gray-800">
+                  <td className="p-2.5 border-r border-black text-black">
                     {item.category || expense.category}
                   </td>
-                  <td className="border border-black py-2 px-2 text-center font-mono">
+                  <td className="p-2.5 text-right font-bold font-mono text-black border-r border-black">
                     {item.quantity || 1}
                   </td>
-                  <td className="border border-black py-2 px-2 text-center text-gray-700">
-                    {item.unit || 'Items'}
+                  <td className="p-2.5 text-center text-black font-medium text-xs border-r border-black">
+                    {item.unit || 'Lot'}
                   </td>
-                  <td className="border border-black py-2 px-3 text-right font-mono">
-                    {formatCurrency(item.unitPrice || 0, '')}
+                  <td className="p-2.5 text-right font-mono text-black border-r border-black">
+                    {formatCurrency(item.unitPrice || itemTotal, expense.currency || 'BDT')}
                   </td>
-                  <td className="border border-black py-2 px-3 text-right font-mono font-bold">
-                    {formatCurrency(itemTotal, '')}
+                  <td className="p-2.5 text-right font-mono font-bold text-black">
+                    {formatCurrency(itemTotal, expense.currency || 'BDT')}
                   </td>
                 </tr>
               );
@@ -187,68 +207,92 @@ export const PrintableExpenseSheet: React.FC<Props> = ({ expense, settings }) =>
         </table>
       </div>
 
-      {/* Financial Summary & Amount in Words - Formatted like Invoice */}
-      <div className="grid grid-cols-12 gap-6 mb-8 items-start">
-        {/* Left Side: Amount in Words & Notes */}
-        <div className="col-span-7 space-y-3">
-          <div className="border border-black p-3 bg-gray-50/50">
-            <span className="text-[10px] font-bold text-black uppercase tracking-wider block mb-1">
-              Amount in Words:
+      {/* 4. Summary Area (Exact 12-column grid matching PrintableInvoice) */}
+      <div className="grid grid-cols-12 gap-6 mb-6">
+        {/* Left 7 Columns: Amount in Words & Payment / Approval Details */}
+        <div className="col-span-7 space-y-4">
+          <div className="border border-black bg-white p-4">
+            <span className="text-xs font-bold text-black uppercase tracking-wider block mb-1">
+              Amount in Words
             </span>
-            <p className="font-bold text-black text-xs italic capitalize leading-relaxed">
-              {amountWords}
+            <p className="text-xs font-bold text-black italic">
+              {totalInWords} TAKA ONLY
             </p>
           </div>
 
-          {expense.notes && (
-            <div className="border border-black p-2.5">
-              <span className="text-[10px] font-bold text-black uppercase tracking-wider block mb-1">
-                Office Notes &amp; Particulars:
-              </span>
-              <p className="text-xs text-gray-800 whitespace-pre-line leading-relaxed">
-                {expense.notes}
-              </p>
+          <div className="border border-black bg-white p-4 text-xs text-black">
+            <span className="font-bold text-black uppercase tracking-wider text-xs block mb-2">
+              Payment &amp; Settlement Details
+            </span>
+            <div className="grid grid-cols-2 gap-x-3 gap-y-1.5 text-black">
+              <p><span className="font-medium">Payment Mode:</span> <strong>{expense.paymentMethod}</strong></p>
+              <p><span className="font-medium">Status:</span> <strong>PAID &amp; SETTLED</strong></p>
+              {expense.referenceNumber && (
+                <p><span className="font-medium">Ref / Voucher:</span> <strong className="font-mono">{expense.referenceNumber}</strong></p>
+              )}
+              <p><span className="font-medium">Treasury Head:</span> <strong>Operating Account</strong></p>
+              {settings.bankName && (
+                <p><span className="font-medium">Bank A/C:</span> {settings.bankName} ({settings.accountNumber || 'Primary'})</p>
+              )}
             </div>
-          )}
+          </div>
         </div>
 
-        {/* Right Side: Totals Calculation Box */}
-        <div className="col-span-5 border border-black">
-          <div className="p-2.5 flex justify-between items-center text-xs border-b border-black/30">
-            <span className="font-medium text-black">Subtotal:</span>
-            <span className="font-mono font-semibold text-black">
-              {formatCurrency(subtotal || expense.amount, 'BDT')}
-            </span>
-          </div>
+        {/* Right 5 Columns: Financial Calculations */}
+        <div className="col-span-5">
+          <div className="border border-black bg-white text-xs text-black">
+            <div className="flex justify-between p-2 px-3 border-b border-black">
+              <span className="font-medium">Subtotal:</span>
+              <span className="font-mono font-bold">{formatCurrency(subtotal, expense.currency || 'BDT')}</span>
+            </div>
 
-          <div className="p-3 bg-gray-100 flex justify-between items-center border-t-2 border-black">
-            <span className="font-black text-xs uppercase tracking-wider text-black">
-              Grand Total:
-            </span>
-            <span className="font-mono font-black text-base text-black">
-              {formatCurrency(expense.amount, 'BDT')}
-            </span>
+            {/* GRAND TOTAL */}
+            <div className="flex justify-between p-2.5 px-3 bg-white text-black font-black text-sm border-b border-black">
+              <span>GRAND TOTAL:</span>
+              <span className="font-mono text-base tracking-tight">{formatCurrency(expense.amount, expense.currency || 'BDT')}</span>
+            </div>
+
+            <div className="flex justify-between p-2 px-3 border-b border-black">
+              <span className="font-medium">Total Paid:</span>
+              <span className="font-mono font-bold text-black">{formatCurrency(expense.amount, expense.currency || 'BDT')}</span>
+            </div>
+
+            <div className="flex justify-between p-2 px-3 bg-white font-bold text-black">
+              <span>Balance Due:</span>
+              <span className="font-mono text-sm">৳0.00</span>
+            </div>
           </div>
         </div>
       </div>
 
-      {/* Signatures & Corporate Seal - Matching Invoice & Delivery Challan */}
-      <div className="grid grid-cols-4 gap-4 pt-12 text-center text-xs">
+      {/* 5. Official Signatures & Seal Section */}
+      <div className="grid grid-cols-4 gap-4 pt-10 text-center text-xs">
         <div>
-          <div className="border-t border-black pt-1 font-bold text-black">Prepared By</div>
-          <div className="text-[10px] text-gray-700">{expense.preparedBy || 'Accounts Officer'}</div>
+          <div className="border-t border-black pt-1.5 font-bold text-black">
+            {expense.preparedBy || 'Prepared By'}
+          </div>
+          <div className="text-[10px] text-gray-700">Accounts Officer</div>
         </div>
+
         <div>
-          <div className="border-t border-black pt-1 font-bold text-black">Checked By</div>
-          <div className="text-[10px] text-gray-700">{expense.checkedBy || 'Internal Audit'}</div>
+          <div className="border-t border-black pt-1.5 font-bold text-black">
+            {expense.checkedBy || 'Checked By'}
+          </div>
+          <div className="text-[10px] text-gray-700">Internal Audit</div>
         </div>
+
         <div>
-          <div className="border-t border-black pt-1 font-bold text-black">Received By</div>
-          <div className="text-[10px] text-gray-700">Payee Signature</div>
+          <div className="border-t border-black pt-1.5 font-bold text-black">
+            Payee Signature
+          </div>
+          <div className="text-[10px] text-gray-700">Received By / Beneficiary</div>
         </div>
+
         <div className="relative">
-          <div className="border-t border-black pt-1 font-bold text-black">Authorized Signatory</div>
-          <div className="text-[10px] text-gray-700">{expense.approvedBy || 'Managing Director'}</div>
+          <div className="border-t border-black pt-1.5 font-bold text-black">
+            {expense.approvedBy || 'Authorized Signature'}
+          </div>
+          <div className="text-[10px] text-gray-700">Managing Director / CEO</div>
           {BISMILLAH_SIGNATURE_DATA_URI && (
             <img
               src={BISMILLAH_SIGNATURE_DATA_URI}
