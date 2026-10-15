@@ -491,7 +491,7 @@ export const InvoiceDetails: React.FC<Props> = ({ invoiceId, onBack, onEdit }) =
       </div>
 
       {/* Off-screen render container for high resolution Delivery Slip PDF export */}
-      <div style={{ position: 'fixed', left: '-9999px', top: 0, width: '820px', zIndex: -100, background: '#ffffff' }}>
+      <div style={{ position: 'fixed', left: '0', top: 0, width: '800px', zIndex: -9999, background: '#ffffff', pointerEvents: 'none' }}>
         {selectedSlipForPdf && (
           <div id={`pdf-render-slip-${selectedSlipForPdf.id}`}>
             <PrintableDeliverySlip deliverySlip={selectedSlipForPdf} settings={settings} />
@@ -1934,11 +1934,11 @@ export const InvoiceDetails: React.FC<Props> = ({ invoiceId, onBack, onEdit }) =
         id={`printable-invoice-${invoice.id}`}
         style={{
           position: 'fixed',
-          left: '-9999px',
+          left: '0',
           top: '0',
           width: '800px',
           backgroundColor: '#ffffff',
-          zIndex: -100,
+          zIndex: -9999,
           pointerEvents: 'none'
         }}
       >
@@ -1951,11 +1951,11 @@ export const InvoiceDetails: React.FC<Props> = ({ invoiceId, onBack, onEdit }) =
           id={`modal-printable-slip-${s.id}`}
           style={{
             position: 'fixed',
-            left: '-9999px',
+            left: '0',
             top: '0',
             width: '800px',
             backgroundColor: '#ffffff',
-            zIndex: -100,
+            zIndex: -9999,
             pointerEvents: 'none'
           }}
         >

@@ -42,7 +42,6 @@ export const InvoicePrintModal: React.FC<Props> = ({
       await downloadElementAsPdf(el, `Invoice-${invoice.invoiceNumber}`, setIsDownloadingPdf);
     } catch (err) {
       console.error('PDF error:', err);
-      handlePrint();
     } finally {
       setIsDownloadingPdf(false);
     }

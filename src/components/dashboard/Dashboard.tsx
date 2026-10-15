@@ -1293,11 +1293,11 @@ export const Dashboard: React.FC<DashboardProps> = ({
           id={`dashboard-printable-invoice-${activeWhatsAppInvoice.id}`}
           style={{
             position: 'fixed',
-            left: '-9999px',
+            left: '0',
             top: '0',
             width: '800px',
             backgroundColor: '#ffffff',
-            zIndex: -100,
+            zIndex: -9999,
             pointerEvents: 'none'
           }}
         >
@@ -1310,11 +1310,11 @@ export const Dashboard: React.FC<DashboardProps> = ({
           id={`dashboard-printable-slip-${activeWhatsAppSlip.id}`}
           style={{
             position: 'fixed',
-            left: '-9999px',
+            left: '0',
             top: '0',
             width: '800px',
             backgroundColor: '#ffffff',
-            zIndex: -100,
+            zIndex: -9999,
             pointerEvents: 'none'
           }}
         >

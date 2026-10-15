@@ -69,7 +69,6 @@ export const ExpenseDetails: React.FC<Props> = ({ expenseId, onBack, onEdit }) =
       );
     } catch (err) {
       console.error('PDF error:', err);
-      handlePrint();
     } finally {
       setIsDownloadingPdf(false);
     }

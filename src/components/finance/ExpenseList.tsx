@@ -10,13 +10,17 @@ import {
   Edit,
   Eye,
   Trash2,
-  FileText
+  FileText,
+  MessageSquare
 } from 'lucide-react';
 import { useData } from '../../context/DataContext';
 import { ExpenseRecord } from '../../types';
 import { formatCurrency, formatDate, getTodayDateString } from '../../utils/formatters';
 import { exportToExcel } from '../../utils/exportImport';
 import { ConfirmModal } from '../common/ConfirmModal';
+import { PrintableExpenseSheet } from '../documents/PrintableExpenseSheet';
+import { WhatsAppSendModal } from '../common/WhatsAppSendModal';
+import { generateExpenseWhatsAppText } from '../../utils/whatsapp';
 
 interface Props {
   onSelectExpense: (id: string) => void;
@@ -47,11 +51,12 @@ export const ExpenseList: React.FC<Props> = ({
   onNewExpense,
   onEditExpense
 }) => {
-  const { expenses, deleteExpense } = useData();
+  const { expenses, settings, deleteExpense } = useData();
 
   const [searchQuery, setSearchQuery] = useState('');
   const [categoryFilter, setCategoryFilter] = useState('All');
   const [expenseToDelete, setExpenseToDelete] = useState<ExpenseRecord | null>(null);
+  const [whatsAppExpense, setWhatsAppExpense] = useState<ExpenseRecord | null>(null);
 
   // Financial calculations
   const totalExpenses = expenses.reduce((s, e) => s + (Number(e.amount) || 0), 0);
@@ -274,6 +279,16 @@ export const ExpenseList: React.FC<Props> = ({
                       </td>
                       <td className="p-3 text-right">
                         <div className="flex items-center justify-end gap-1.5">
+                          {/* Send PDF to WhatsApp Directly */}
+                          <button
+                            type="button"
+                            onClick={() => setWhatsAppExpense(e)}
+                            className="p-1.5 bg-zinc-800 hover:bg-emerald-900/50 text-emerald-400 hover:text-emerald-300 rounded cursor-pointer transition-colors"
+                            title="Send Expense Sheet PDF directly to WhatsApp"
+                          >
+                            <MessageSquare size={14} />
+                          </button>
+
                           {/* View Details */}
                           <button
                             type="button"
@@ -328,6 +343,38 @@ export const ExpenseList: React.FC<Props> = ({
           }}
           onCancel={() => setExpenseToDelete(null)}
         />
+      )}
+
+      {/* Offscreen container for high-res PDF generation & WhatsApp modal */}
+      {whatsAppExpense && (
+        <>
+          <div
+            id={`expense-list-printable-${whatsAppExpense.id}`}
+            style={{
+              position: 'fixed',
+              left: '0',
+              top: '0',
+              width: '800px',
+              backgroundColor: '#ffffff',
+              zIndex: -9999,
+              pointerEvents: 'none'
+            }}
+          >
+            <PrintableExpenseSheet expense={whatsAppExpense} settings={settings} />
+          </div>
+
+          <WhatsAppSendModal
+            isOpen={Boolean(whatsAppExpense)}
+            onClose={() => setWhatsAppExpense(null)}
+            title={`Send Expense Sheet #${whatsAppExpense.voucherNumber || whatsAppExpense.expenseNumber || whatsAppExpense.id} to WhatsApp`}
+            defaultPhone=""
+            initialMessage={generateExpenseWhatsAppText(whatsAppExpense, settings?.companyName || 'Bismillah Multitrade Corporation')}
+            recipientLabel="Receiver / Payee WhatsApp Phone"
+            pdfElementId={`expense-list-printable-${whatsAppExpense.id}`}
+            pdfFilename={`Expense-Sheet-${whatsAppExpense.voucherNumber || whatsAppExpense.expenseNumber || whatsAppExpense.id}`}
+            documentType="Expense Sheet"
+          />
+        </>
       )}
     </div>
   );

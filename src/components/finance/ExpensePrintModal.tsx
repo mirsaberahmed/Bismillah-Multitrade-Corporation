@@ -46,7 +46,6 @@ export const ExpensePrintModal: React.FC<Props> = ({
       await downloadElementAsPdf(el, filename, setIsDownloadingPdf);
     } catch (err) {
       console.error('PDF export error:', err);
-      handlePrint();
     } finally {
       setIsDownloadingPdf(false);
     }

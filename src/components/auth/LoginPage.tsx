@@ -535,13 +535,14 @@ export const LoginPage: React.FC<LoginPageProps> = ({ onLoginSuccess }) => {
           className="bg-[#0f1f38] text-white p-6 sm:p-8 lg:p-10 flex flex-col justify-between items-center text-center relative overflow-hidden"
           style={{ backgroundColor: '#0f1f38' }}
         >
-          {/* Amber Balm Factory Image (Exact image used in Dashboard) */}
+          {/* Background 30ml Amber Bottle Balm Factory Image (Exact image copied from Dashboard) */}
           <div 
-            className="absolute inset-0 bg-cover bg-center opacity-15 mix-blend-luminosity pointer-events-none"
+            className="absolute inset-0 bg-cover bg-center opacity-35 mix-blend-luminosity pointer-events-none scale-105"
             style={{ 
               backgroundImage: `url('/amber-balm-factory.jpg')` 
             }}
           />
+          <div className="absolute inset-0 bg-[#0f1f38]/75 pointer-events-none" />
 
           {/* Subtle Ambient Background Gradients */}
           <div className="absolute top-0 right-0 -mr-20 -mt-20 w-64 h-64 rounded-full bg-orange-500/10 blur-3xl pointer-events-none" />
@@ -681,7 +682,7 @@ export const LoginPage: React.FC<LoginPageProps> = ({ onLoginSuccess }) => {
                         required
                         value={password}
                         onChange={(e) => setPassword(e.target.value)}
-                        placeholder="••••••••"
+                        placeholder=""
                         className="w-full pl-10 pr-10 py-2.5 bg-white border border-slate-300 focus:border-[#f97316] rounded-xl text-sm text-slate-900 placeholder:text-slate-400 focus:outline-none transition-all"
                       />
                       <button

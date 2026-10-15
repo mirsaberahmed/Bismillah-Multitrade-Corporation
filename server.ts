@@ -9,6 +9,7 @@ const __dirname = path.dirname(__filename);
 
 const DATA_DIR = path.join(__dirname, 'data');
 const TENANTS_DIR = path.join(DATA_DIR, 'tenants');
+const SHARED_PDFS_DIR = path.join(DATA_DIR, 'shared_pdfs');
 const USERS_FILE = path.join(DATA_DIR, 'users_registry.json');
 const LEGACY_DB_FILE = path.join(__dirname, 'erp_database.json');
 
@@ -18,6 +19,9 @@ if (!fs.existsSync(DATA_DIR)) {
 }
 if (!fs.existsSync(TENANTS_DIR)) {
   fs.mkdirSync(TENANTS_DIR, { recursive: true });
+}
+if (!fs.existsSync(SHARED_PDFS_DIR)) {
+  fs.mkdirSync(SHARED_PDFS_DIR, { recursive: true });
 }
 
 // Active session tokens and password reset OTP sessions
@@ -820,6 +824,63 @@ async function startServer() {
 
     // Unauthenticated visitors get null / blank state to protect privacy
     res.json({ ok: true, data: null, message: 'Unauthenticated visitor: fresh blank state.' });
+  });
+
+  // =========================================================================
+  // PDF SHARING & DIRECT WHATSAPP ACCESS API
+  // =========================================================================
+  // Endpoint: Save generated PDF for direct WhatsApp link sharing
+  app.post('/api/pdf/share', (req, res) => {
+    try {
+      const { filename, pdfBase64 } = req.body;
+      if (!filename || !pdfBase64) {
+        res.status(400).json({ ok: false, error: 'filename and pdfBase64 are required' });
+        return;
+      }
+
+      const cleanFilename = path.basename(filename).replace(/[^a-zA-Z0-9._-]/g, '_');
+      const safeName = cleanFilename.endsWith('.pdf') ? cleanFilename : `${cleanFilename}.pdf`;
+      const filePath = path.join(SHARED_PDFS_DIR, safeName);
+
+      const base64Data = pdfBase64.replace(/^data:application\/pdf;base64,/, '');
+      const buffer = Buffer.from(base64Data, 'base64');
+      fs.writeFileSync(filePath, buffer);
+
+      const proto = req.headers['x-forwarded-proto'] || req.protocol || 'https';
+      const host = req.get('host') || 'localhost:3000';
+      const fullUrl = `${proto}://${host}/api/pdf/${safeName}`;
+
+      res.json({
+        ok: true,
+        filename: safeName,
+        url: `/api/pdf/${safeName}`,
+        fullUrl
+      });
+    } catch (err: any) {
+      console.error('Error saving shared PDF:', err);
+      res.status(500).json({ ok: false, error: err.message || 'Failed to save PDF' });
+    }
+  });
+
+  // Endpoint: Serve shared PDF directly
+  app.get('/api/pdf/:filename', (req, res) => {
+    try {
+      const filename = path.basename(req.params.filename);
+      const filePath = path.join(SHARED_PDFS_DIR, filename);
+
+      if (!fs.existsSync(filePath)) {
+        res.status(404).send('PDF document not found or expired.');
+        return;
+      }
+
+      res.setHeader('Content-Type', 'application/pdf');
+      res.setHeader('Content-Disposition', `inline; filename="${filename}"`);
+      const fileStream = fs.createReadStream(filePath);
+      fileStream.pipe(res);
+    } catch (err: any) {
+      console.error('Error streaming PDF:', err);
+      res.status(500).send('Error reading PDF document');
+    }
   });
 
   // Vite development / production static hosting

@@ -120,7 +120,6 @@ export const DeliverySlipModal: React.FC<Props> = ({
       await downloadElementAsPdf(el, `Delivery-Slip-${slip.deliverySlipNumber}`, setIsDownloadingPdf);
     } catch (err) {
       console.error('PDF error:', err);
-      handlePrint();
     } finally {
       setIsDownloadingPdf(false);
     }

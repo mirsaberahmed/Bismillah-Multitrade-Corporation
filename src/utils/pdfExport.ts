@@ -10,7 +10,7 @@ export async function downloadElementAsPdf(
   onProgress?: (loading: boolean) => void
 ): Promise<void> {
   if (!element) {
-    window.print();
+    console.warn('downloadElementAsPdf: target element not found for', filename);
     return;
   }
 
@@ -57,8 +57,7 @@ export async function downloadElementAsPdf(
 
     pdf.save(filename.endsWith('.pdf') ? filename : `${filename}.pdf`);
   } catch (err) {
-    console.warn('Fast PDF export encountered issue, falling back to browser print dialog:', err);
-    window.print();
+    console.error('PDF export error:', err);
   } finally {
     if (onProgress) onProgress(false);
   }

@@ -83,6 +83,34 @@ export const WhatsAppSendModal: React.FC<WhatsAppSendModalProps> = ({
     }
   };
 
+  // Convert Blob to Base64 and upload to server for a direct PDF link
+  const uploadPdfForSharing = async (blob: Blob, filename: string): Promise<string | null> => {
+    return new Promise((resolve) => {
+      const reader = new FileReader();
+      reader.onloadend = async () => {
+        try {
+          const base64 = reader.result as string;
+          const res = await fetch('/api/pdf/share', {
+            method: 'POST',
+            headers: { 'Content-Type': 'application/json' },
+            body: JSON.stringify({ filename, pdfBase64: base64 })
+          });
+          const data = await res.json();
+          if (data?.ok && data?.fullUrl) {
+            resolve(data.fullUrl);
+          } else {
+            resolve(null);
+          }
+        } catch (err) {
+          console.warn('Could not upload PDF for public share link:', err);
+          resolve(null);
+        }
+      };
+      reader.onerror = () => resolve(null);
+      reader.readAsDataURL(blob);
+    });
+  };
+
   // Send PDF via WhatsApp
   const handleSendPdfToWhatsApp = async () => {
     const el = getTargetElement();
@@ -92,37 +120,48 @@ export const WhatsAppSendModal: React.FC<WhatsAppSendModalProps> = ({
     try {
       let pdfFile: File | null = null;
       let pdfBlob: Blob | null = null;
+      let directPdfUrl: string | null = null;
 
       if (el) {
         const result = await generateElementAsPdfBlob(el, pdfFilename);
         if (result) {
           pdfFile = result.file;
           pdfBlob = result.blob;
+          // Upload to server for direct view & download link
+          directPdfUrl = await uploadPdfForSharing(result.blob, pdfFilename);
         }
       }
 
-      // Check if Web Share API level 2 with file sharing is available
+      // Build message with direct PDF link
+      let outgoingMessage = message;
+      if (directPdfUrl) {
+        outgoingMessage = `${message}\n\n📄 *Official PDF Document Link:*\n${directPdfUrl}\n_(Tap link to view or download full PDF document)_`;
+      }
+
+      const directWhatsAppUrl = getWhatsAppUrl(phone, outgoingMessage);
+
+      // Check if Web Share API with file sharing is available (Mobile / Android / iOS)
       if (pdfFile && navigator.canShare && navigator.canShare({ files: [pdfFile] })) {
         try {
           await navigator.share({
             title: pdfFilename,
-            text: message,
+            text: outgoingMessage,
             files: [pdfFile]
           });
           setStatusNotice(`✅ Shared ${documentType} PDF to WhatsApp!`);
-          setTimeout(onClose, 1000);
+          setTimeout(onClose, 1200);
           return;
         } catch (shareErr: any) {
           if (shareErr.name === 'AbortError') {
             setIsExportingPdf(false);
             return;
           }
-          console.warn('Native share error, falling back to download & WhatsApp Web:', shareErr);
+          console.warn('Native share failed, falling back to download & WhatsApp Web:', shareErr);
         }
       }
 
-      // Fallback for Desktop WhatsApp Web or browsers without file share:
-      // 1. Download the generated PDF to the user's downloads
+      // Desktop WhatsApp Web / Browser Fallback:
+      // 1. Download the generated PDF to the user's computer
       if (pdfBlob) {
         const url = URL.createObjectURL(pdfBlob);
         const a = document.createElement('a');
@@ -137,18 +176,18 @@ export const WhatsAppSendModal: React.FC<WhatsAppSendModalProps> = ({
         await downloadElementAsPdf(el, pdfFilename);
       }
 
-      // 2. Copy summary message
+      // 2. Copy the final message with PDF link to clipboard
       try {
-        await navigator.clipboard.writeText(message);
+        await navigator.clipboard.writeText(outgoingMessage);
       } catch (err) {
         console.warn('Clipboard write failed:', err);
       }
 
-      // 3. Open WhatsApp Web or wa.me chat
-      window.open(whatsappUrl, '_blank');
+      // 3. Open WhatsApp Web or wa.me chat directly
+      window.open(directWhatsAppUrl, '_blank');
 
       setStatusNotice(
-        `📄 ${documentType} PDF downloaded to your device! Simply attach it into your WhatsApp chat.`
+        `📄 ${documentType} PDF downloaded and direct PDF link added to WhatsApp! Chat opened with recipient.`
       );
     } catch (err) {
       console.error('Send PDF error:', err);

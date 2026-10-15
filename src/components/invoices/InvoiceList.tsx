@@ -490,11 +490,11 @@ export const InvoiceList: React.FC<Props> = ({
               id={`invoice-list-printable-${whatsAppModal.invoice.id}`}
               style={{
                 position: 'fixed',
-                left: '-9999px',
+                left: '0',
                 top: '0',
                 width: '800px',
                 backgroundColor: '#ffffff',
-                zIndex: -100,
+                zIndex: -9999,
                 pointerEvents: 'none'
               }}
             >
