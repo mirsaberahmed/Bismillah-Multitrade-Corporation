@@ -409,7 +409,7 @@ export const QuotationManager: React.FC<Props> = ({ onNavigateToInvoice }) => {
             <Search className="absolute left-3 top-2.5 text-slate-400" size={16} />
             <input
               type="text"
-              placeholder="Search by quote no, customer or company..."
+              placeholder="Search"
               value={searchQuery}
               onChange={(e) => setSearchQuery(e.target.value)}
               className="w-full pl-9 pr-3 py-2 bg-slate-50 border border-slate-200 rounded-lg text-xs text-slate-800 placeholder-slate-400 focus:outline-none focus:border-orange-500"

@@ -49,9 +49,9 @@ export const LoginPage: React.FC<LoginPageProps> = ({ onLoginSuccess }) => {
   // Mode: 'login' | 'register' | 'forgot_password'
   const [mode, setMode] = useState<'login' | 'register' | 'forgot_password'>('login');
 
-  // Login credentials - default pre-filled with admin / 1234
+  // Login credentials - default empty unless saved via Remember Me
   const [loginIdentifier, setLoginIdentifier] = useState(() => {
-    return localStorage.getItem(REMEMBER_ME_KEY) || 'admin';
+    return localStorage.getItem(REMEMBER_ME_KEY) || '';
   });
   const [password, setPassword] = useState('');
   const [showPassword, setShowPassword] = useState(false);
@@ -249,12 +249,44 @@ export const LoginPage: React.FC<LoginPageProps> = ({ onLoginSuccess }) => {
   };
 
   const completeBiometricLogin = async () => {
-    const target = (loginIdentifier || 'admin').trim();
+    const target = loginIdentifier.trim();
+    if (!target) {
+      setError('Please enter your registered Email or Username to authenticate with fingerprint.');
+      setShowBiometricModal(false);
+      return;
+    }
+
+    setIsLoading(true);
+    setError('');
+
     try {
+      // 1. Trigger hardware device fingerprint sensor if available on device (PC / Laptop / Android)
+      let deviceCredentialId: string | undefined = undefined;
+      if (typeof window !== 'undefined' && window.PublicKeyCredential && navigator.credentials) {
+        try {
+          const challenge = new Uint8Array(32);
+          window.crypto.getRandomValues(challenge);
+          const cred = await navigator.credentials.get({
+            publicKey: {
+              challenge,
+              timeout: 60000,
+              userVerification: 'preferred'
+            }
+          });
+          if (cred && cred.id) {
+            deviceCredentialId = cred.id;
+          }
+        } catch (credErr) {
+          // Hardware biometric prompt dismissed or not yet mapped, proceed to server registry check
+          console.log('Hardware biometric prompt status:', credErr);
+        }
+      }
+
+      // 2. Validate against registered user registry on server
       const response = await fetch('/api/auth/biometrics/verify', {
         method: 'POST',
         headers: { 'Content-Type': 'application/json' },
-        body: JSON.stringify({ identifier: target })
+        body: JSON.stringify({ identifier: target, credentialId: deviceCredentialId })
       });
       const result = await response.json();
 
@@ -277,8 +309,9 @@ export const LoginPage: React.FC<LoginPageProps> = ({ onLoginSuccess }) => {
           permissions: ['All Modules'],
           createdAt: new Date().toISOString()
         };
+        setScanVerified(true);
         setCurrentUser(bioUser);
-        logActivity('Biometric Login', `User ${bioUser.username} authenticated via biometric sensor`);
+        logActivity('Biometric Login', `User ${bioUser.username} authenticated via device fingerprint sensor`);
         setTimeout(() => {
           setShowBiometricModal(false);
           onLoginSuccess(bioUser);
@@ -286,49 +319,14 @@ export const LoginPage: React.FC<LoginPageProps> = ({ onLoginSuccess }) => {
         return;
       }
 
-      // Offline instant biometric match for admin & akil
-      if (target === 'admin' || target === 'akil') {
-        const bioUser: UserAccount = {
-          id: target === 'admin' ? 'usr-admin' : 'usr-1791973416236',
-          name: target === 'admin' ? 'Super Admin' : 'AKIL',
-          fullName: target === 'admin' ? 'Super Admin' : 'MIR SABER AHMED AKIL',
-          username: target,
-          email: target === 'admin' ? 'admin@bismillah.com' : 'mirsaberahmed75@gmail.com',
-          role: 'Super Admin',
-          department: 'Management',
-          status: 'Active',
-          active: true,
-          permissions: ['All Modules'],
-          createdAt: new Date().toISOString()
-        };
-        setCurrentUser(bioUser);
-        setTimeout(() => {
-          setShowBiometricModal(false);
-          onLoginSuccess(bioUser);
-        }, 400);
-        return;
-      }
-
-      setError('Biometric sensor could not verify identity. Please enter password.');
+      // Strict rejection: user registered na thakle login hobe na!
+      setError(result.error || 'Account not found. User must be registered first.');
+      setShowBiometricModal(false);
     } catch {
-      const bioUser: UserAccount = {
-        id: 'usr-1791973416236',
-        name: 'AKIL',
-        fullName: 'MIR SABER AHMED AKIL',
-        username: 'akil',
-        email: 'mirsaberahmed75@gmail.com',
-        role: 'Super Admin',
-        department: 'Management',
-        status: 'Active',
-        active: true,
-        permissions: ['All Modules'],
-        createdAt: new Date().toISOString()
-      };
-      setCurrentUser(bioUser);
-      setTimeout(() => {
-        setShowBiometricModal(false);
-        onLoginSuccess(bioUser);
-      }, 400);
+      setError('Biometric authentication failed. User must be registered.');
+      setShowBiometricModal(false);
+    } finally {
+      setIsLoading(false);
     }
   };
 
@@ -459,11 +457,13 @@ export const LoginPage: React.FC<LoginPageProps> = ({ onLoginSuccess }) => {
       }
 
       setResetSessionId(result.resetSessionId);
-      if (result.verificationCode) {
-        setOtpHint(result.verificationCode);
-        setNotice(`Verification code: ${result.verificationCode}. Enter below to reset.`);
+      const code = result.verificationCode || result.verificationCodeHint;
+      if (code) {
+        setOtpHint(code);
+        setResetOtp(code);
+        setNotice(`Verification code sent to ${forgotEmail.trim()}! Code: ${code} (auto-filled below).`);
       } else {
-        setNotice('Verification code sent to your email.');
+        setNotice('Verification code sent to your email. Please check your inbox.');
       }
     } catch {
       setError('Failed to process recovery request.');
@@ -535,14 +535,14 @@ export const LoginPage: React.FC<LoginPageProps> = ({ onLoginSuccess }) => {
           className="bg-[#0f1f38] text-white p-6 sm:p-8 lg:p-10 flex flex-col justify-between items-center text-center relative overflow-hidden"
           style={{ backgroundColor: '#0f1f38' }}
         >
-          {/* Background 30ml Amber Bottle Balm Factory Image (Exact image copied from Dashboard) */}
+          {/* Background 30ml Amber Bottle Balm Factory Image */}
           <div 
-            className="absolute inset-0 bg-cover bg-center opacity-35 mix-blend-luminosity pointer-events-none scale-105"
+            className="absolute inset-0 bg-cover bg-center opacity-15 mix-blend-luminosity pointer-events-none scale-105"
             style={{ 
               backgroundImage: `url('/amber-balm-factory.jpg')` 
             }}
           />
-          <div className="absolute inset-0 bg-[#0f1f38]/75 pointer-events-none" />
+          <div className="absolute inset-0 bg-[#0f1f38]/90 pointer-events-none" />
 
           {/* Subtle Ambient Background Gradients */}
           <div className="absolute top-0 right-0 -mr-20 -mt-20 w-64 h-64 rounded-full bg-orange-500/10 blur-3xl pointer-events-none" />
@@ -716,10 +716,10 @@ export const LoginPage: React.FC<LoginPageProps> = ({ onLoginSuccess }) => {
                         setScanVerified(false);
                       }}
                       className="flex items-center gap-1.5 text-xs sm:text-[13px] text-slate-800 hover:text-[#f97316] font-semibold cursor-pointer transition-colors"
-                      title="Sign in with device biometric sensor"
+                      title="Touch & Hold to sign in"
                     >
                       <Fingerprint size={16} className="text-[#f97316]" />
-                      <span>Biometric Login</span>
+                      <span>Touch & Hold</span>
                     </button>
                   </div>
 
@@ -1044,11 +1044,11 @@ export const LoginPage: React.FC<LoginPageProps> = ({ onLoginSuccess }) => {
       </div>
 
       {/* ========================================================================= */}
-      {/* BIOMETRIC AUTHENTICATION MODAL (Triggered by 'Biometric Login')           */}
+      {/* TOUCH & HOLD BIOMETRIC MODAL                                              */}
       {/* ========================================================================= */}
       {showBiometricModal && (
         <div className="fixed inset-0 z-50 bg-black/60 backdrop-blur-xs flex items-center justify-center p-4 animate-in fade-in">
-          <div className="bg-white rounded-2xl max-w-sm w-full p-6 text-center shadow-2xl border border-slate-200 relative">
+          <div className="bg-white rounded-2xl max-w-xs w-full p-6 text-center shadow-2xl border border-slate-200 relative">
             
             <button
               type="button"
@@ -1056,22 +1056,13 @@ export const LoginPage: React.FC<LoginPageProps> = ({ onLoginSuccess }) => {
                 cancelSensorHold();
                 setShowBiometricModal(false);
               }}
-              className="absolute top-4 right-4 text-slate-400 hover:text-slate-600 p-1 rounded-lg cursor-pointer"
+              className="absolute top-3.5 right-3.5 text-slate-400 hover:text-slate-600 p-1 rounded-lg cursor-pointer transition-colors"
             >
               <X size={18} />
             </button>
 
-            <div className="w-12 h-12 rounded-full bg-orange-50 border border-orange-200 flex items-center justify-center mx-auto mb-3 text-[#f97316]">
-              <Fingerprint size={28} />
-            </div>
-
-            <h3 className="text-lg font-bold text-slate-900">Biometric Login</h3>
-            <p className="text-xs text-slate-500 mt-1 mb-5">
-              Touch and hold the fingerprint sensor to authenticate instantly.
-            </p>
-
-            <div className="flex flex-col items-center justify-center mb-4">
-              <div className="relative">
+            <div className="flex flex-col items-center justify-center py-4">
+              <div className="relative mb-4">
                 <button
                   type="button"
                   onMouseDown={startSensorHold}
@@ -1081,7 +1072,7 @@ export const LoginPage: React.FC<LoginPageProps> = ({ onLoginSuccess }) => {
                   onTouchEnd={cancelSensorHold}
                   onClick={() => completeBiometricLogin()}
                   disabled={scanVerified}
-                  className={`w-20 h-20 rounded-full flex items-center justify-center transition-all select-none shadow-lg cursor-pointer ${
+                  className={`w-24 h-24 rounded-full flex items-center justify-center transition-all select-none shadow-xl cursor-pointer ${
                     scanVerified
                       ? 'bg-emerald-500 text-white ring-4 ring-emerald-200'
                       : isHoldingSensor
@@ -1090,37 +1081,21 @@ export const LoginPage: React.FC<LoginPageProps> = ({ onLoginSuccess }) => {
                   }`}
                 >
                   {scanVerified ? (
-                    <CheckCircle2 size={36} className="animate-in zoom-in-75" />
+                    <CheckCircle2 size={44} className="animate-in zoom-in-75" />
                   ) : (
-                    <Fingerprint size={40} className={isHoldingSensor ? 'animate-pulse' : ''} />
+                    <Fingerprint size={48} className={isHoldingSensor ? 'animate-pulse' : ''} />
                   )}
                 </button>
 
                 {isHoldingSensor && (
-                  <div className="absolute -inset-1.5 rounded-full border-2 border-[#f97316] animate-spin border-t-transparent" />
+                  <div className="absolute -inset-2 rounded-full border-2 border-[#f97316] animate-spin border-t-transparent" />
                 )}
               </div>
 
-              <p className="text-xs font-bold text-slate-800 mt-3">
-                {scanVerified
-                  ? '✓ Fingerprint Matched!'
-                  : isHoldingSensor
-                  ? `Scanning Sensor... ${scanProgress}%`
-                  : 'Touch & Hold Fingerprint Sensor'}
+              {/* Only text on biometric page per user instruction */}
+              <p className="text-sm font-bold text-slate-800 tracking-wide">
+                Touch & Hold
               </p>
-              <p className="text-[11px] text-slate-400 mt-0.5">
-                or click once for fast biometric verification
-              </p>
-            </div>
-
-            <div className="pt-3 border-t border-slate-100 flex items-center justify-center gap-2">
-              <button
-                type="button"
-                onClick={() => completeBiometricLogin()}
-                className="w-full py-2 px-3 bg-slate-100 hover:bg-slate-200 text-slate-700 font-semibold text-xs rounded-lg transition-colors cursor-pointer"
-              >
-                1-Click Instant Match
-              </button>
             </div>
           </div>
         </div>

@@ -8,10 +8,15 @@ import {
   FileText,
   User,
   DollarSign,
-  AlertCircle
+  AlertCircle,
+  MessageSquare
 } from 'lucide-react';
 import { ExpenseRecord, ExpenseItem, PaymentMethod } from '../../types';
 import { getTodayDateString, numberToWordsBDT, formatCurrency } from '../../utils/formatters';
+import { WhatsAppSendModal } from '../common/WhatsAppSendModal';
+import { generateExpenseWhatsAppText } from '../../utils/whatsapp';
+import { PrintableExpenseSheet } from '../documents/PrintableExpenseSheet';
+import { useData } from '../../context/DataContext';
 
 interface Props {
   isOpen: boolean;
@@ -46,7 +51,9 @@ export const ExpenseFormModal: React.FC<Props> = ({
   editingExpense,
   getNextNumber
 }) => {
+  const { settings } = useData();
   const isEditing = Boolean(editingExpense);
+  const [savedForWhatsApp, setSavedForWhatsApp] = useState<ExpenseRecord | null>(null);
 
   const [voucherNumber, setVoucherNumber] = useState('');
   const [expenseDate, setExpenseDate] = useState(getTodayDateString());
@@ -164,8 +171,8 @@ export const ExpenseFormModal: React.FC<Props> = ({
   const totalAmount = items.reduce((sum, it) => sum + (Number(it.amount) || 0), 0);
   const totalInWords = numberToWordsBDT(totalAmount);
 
-  const handleSubmit = (e: React.FormEvent) => {
-    e.preventDefault();
+  const handleSubmit = (e?: React.FormEvent, andSendWhatsApp = false) => {
+    if (e) e.preventDefault();
 
     if (!paidTo.trim()) {
       alert('Please enter Paid To / Beneficiary name.');
@@ -211,7 +218,12 @@ export const ExpenseFormModal: React.FC<Props> = ({
     };
 
     onSave(payload);
-    onClose();
+
+    if (andSendWhatsApp) {
+      setSavedForWhatsApp(payload);
+    } else {
+      onClose();
+    }
   };
 
   return (
@@ -542,23 +554,67 @@ export const ExpenseFormModal: React.FC<Props> = ({
           </div>
 
           {/* Modal Footer Controls */}
-          <div className="flex items-center justify-end gap-3 pt-4 border-t border-zinc-800">
+          <div className="flex flex-wrap items-center justify-end gap-2.5 pt-4 border-t border-zinc-800">
             <button
               type="button"
               onClick={onClose}
-              className="px-4 py-2 bg-zinc-800 hover:bg-zinc-700 text-zinc-300 rounded-xl font-medium transition-colors cursor-pointer"
+              className="px-4 py-2 bg-zinc-800 hover:bg-zinc-700 text-zinc-300 rounded-xl font-medium transition-colors cursor-pointer text-xs"
             >
               Cancel
             </button>
             <button
+              type="button"
+              onClick={(e) => handleSubmit(e, true)}
+              className="px-4 py-2 bg-emerald-600 hover:bg-emerald-500 text-white font-bold rounded-xl shadow-lg transition-colors cursor-pointer flex items-center gap-1.5 text-xs"
+              title="Save expense sheet and send PDF directly to WhatsApp"
+            >
+              <MessageSquare size={14} />
+              <span>Save &amp; Send to WhatsApp</span>
+            </button>
+            <button
               type="submit"
-              className="px-6 py-2 bg-red-600 hover:bg-red-500 text-white font-bold rounded-xl shadow-lg transition-colors cursor-pointer flex items-center gap-2"
+              className="px-5 py-2 bg-red-600 hover:bg-red-500 text-white font-bold rounded-xl shadow-lg transition-colors cursor-pointer flex items-center gap-2 text-xs"
             >
               <span>{isEditing ? 'Update Expense Sheet' : 'Save & Record Expense'}</span>
             </button>
           </div>
         </form>
       </div>
+
+      {/* Direct WhatsApp Modal with Offscreen Printable Container */}
+      {savedForWhatsApp && (
+        <>
+          <div
+            id={`modal-created-expense-${savedForWhatsApp.id}`}
+            style={{
+              position: 'fixed',
+              left: '0',
+              top: '0',
+              width: '800px',
+              backgroundColor: '#ffffff',
+              zIndex: -9999,
+              pointerEvents: 'none'
+            }}
+          >
+            <PrintableExpenseSheet expense={savedForWhatsApp} settings={settings} />
+          </div>
+
+          <WhatsAppSendModal
+            isOpen={Boolean(savedForWhatsApp)}
+            onClose={() => {
+              setSavedForWhatsApp(null);
+              onClose();
+            }}
+            title={`Expense Sheet #${savedForWhatsApp.voucherNumber || savedForWhatsApp.id} Saved! Send to WhatsApp`}
+            defaultPhone=""
+            initialMessage={generateExpenseWhatsAppText(savedForWhatsApp, settings?.companyName || 'Bismillah Multitrade Corporation')}
+            recipientLabel="Receiver / Payee WhatsApp Phone"
+            pdfElementId={`modal-created-expense-${savedForWhatsApp.id}`}
+            pdfFilename={`Expense-Sheet-${savedForWhatsApp.voucherNumber || savedForWhatsApp.id}`}
+            documentType="Expense Sheet"
+          />
+        </>
+      )}
     </div>
   );
 };

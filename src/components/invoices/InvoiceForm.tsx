@@ -16,6 +16,7 @@ import { SalesInvoice, InvoiceItem } from '../../types';
 import { getTodayDateString, numberToWordsBDT, formatCurrency } from '../../utils/formatters';
 import { WhatsAppSendModal } from '../common/WhatsAppSendModal';
 import { generateInvoiceWhatsAppText } from '../../utils/whatsapp';
+import { PrintableInvoice } from '../documents/PrintableInvoice';
 import { MessageSquare, CheckCircle2 } from 'lucide-react';
 
 interface Props {
@@ -1100,6 +1101,24 @@ export const InvoiceForm: React.FC<Props> = ({ invoiceId, onCancel, onSuccess })
       </div>
     </form>
 
+      {/* Offscreen container for high-res PDF generation */}
+      {createdInvoice && (
+        <div
+          id={`created-invoice-printable-${createdInvoice.id}`}
+          style={{
+            position: 'fixed',
+            left: '0',
+            top: '0',
+            width: '800px',
+            backgroundColor: '#ffffff',
+            zIndex: -9999,
+            pointerEvents: 'none'
+          }}
+        >
+          <PrintableInvoice invoice={createdInvoice} settings={settings} />
+        </div>
+      )}
+
       {/* Direct WhatsApp Send Modal after Invoice Creation */}
       <WhatsAppSendModal
         isOpen={whatsAppModalOpen}
@@ -1116,6 +1135,9 @@ export const InvoiceForm: React.FC<Props> = ({ invoiceId, onCancel, onSuccess })
             ? generateInvoiceWhatsAppText(createdInvoice, settings?.companyName || 'Bismillah Multitrade Corporation')
             : ''
         }
+        pdfElementId={createdInvoice ? `created-invoice-printable-${createdInvoice.id}` : undefined}
+        pdfFilename={createdInvoice ? `Invoice-${createdInvoice.invoiceNumber}` : undefined}
+        documentType="Invoice"
       />
     </>
   );

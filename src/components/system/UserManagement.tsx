@@ -581,7 +581,7 @@ export const UserManagement: React.FC<UserManagementProps> = ({ initialTab = 'us
               <Search size={14} className="absolute left-3 top-1/2 -translate-y-1/2 text-slate-400" />
               <input
                 type="text"
-                placeholder="Search by name, username, email, ID..."
+                placeholder="Search"
                 value={searchQuery}
                 onChange={(e) => {
                   setSearchQuery(e.target.value);
@@ -893,7 +893,7 @@ export const UserManagement: React.FC<UserManagementProps> = ({ initialTab = 'us
               <Search size={14} className="absolute left-3 top-1/2 -translate-y-1/2 text-slate-400" />
               <input
                 type="text"
-                placeholder="Search logs by user, action, details..."
+                placeholder="Search"
                 value={logSearch}
                 onChange={(e) => setLogSearch(e.target.value)}
                 className="w-full bg-slate-50 border border-slate-200 focus:border-orange-500 focus:bg-white rounded-xl pl-9 pr-3 py-2 text-xs text-slate-900 placeholder:text-slate-400 focus:outline-none transition-all"

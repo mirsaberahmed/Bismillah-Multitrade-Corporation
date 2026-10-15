@@ -180,7 +180,7 @@ export const InvoiceList: React.FC<Props> = ({
             <Search size={15} className="absolute left-3 top-1/2 -translate-y-1/2 text-zinc-400" />
             <input
               type="text"
-              placeholder="Search Invoice #, Customer, Phone, PO..."
+              placeholder="Search"
               value={searchQuery}
               onChange={(e) => setSearchQuery(e.target.value)}
               className="w-full bg-zinc-950 border border-zinc-700 rounded-lg pl-9 pr-3 py-1.5 text-xs text-zinc-200 placeholder-zinc-500 focus:outline-none focus:border-amber-500"

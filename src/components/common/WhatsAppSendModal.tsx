@@ -33,6 +33,7 @@ export const WhatsAppSendModal: React.FC<WhatsAppSendModalProps> = ({
   const [copied, setCopied] = useState(false);
   const [isExportingPdf, setIsExportingPdf] = useState(false);
   const [statusNotice, setStatusNotice] = useState<string | null>(null);
+  const [readyWhatsAppUrl, setReadyWhatsAppUrl] = useState<string | null>(null);
 
   // Sync when opened
   React.useEffect(() => {
@@ -42,6 +43,7 @@ export const WhatsAppSendModal: React.FC<WhatsAppSendModalProps> = ({
       setCopied(false);
       setIsExportingPdf(false);
       setStatusNotice(null);
+      setReadyWhatsAppUrl(null);
     }
   }, [isOpen, defaultPhone, initialMessage]);
 
@@ -183,11 +185,23 @@ export const WhatsAppSendModal: React.FC<WhatsAppSendModalProps> = ({
         console.warn('Clipboard write failed:', err);
       }
 
-      // 3. Open WhatsApp Web or wa.me chat directly
-      window.open(directWhatsAppUrl, '_blank');
+      setReadyWhatsAppUrl(directWhatsAppUrl);
+
+      // 3. Open WhatsApp Web or wa.me chat directly via anchor click
+      try {
+        const link = document.createElement('a');
+        link.href = directWhatsAppUrl;
+        link.target = '_blank';
+        link.rel = 'noopener noreferrer';
+        document.body.appendChild(link);
+        link.click();
+        document.body.removeChild(link);
+      } catch (openErr) {
+        console.warn('Link click failed:', openErr);
+      }
 
       setStatusNotice(
-        `📄 ${documentType} PDF downloaded and direct PDF link added to WhatsApp! Chat opened with recipient.`
+        `📄 ${documentType} PDF ready with shareable link! Click below to send on WhatsApp.`
       );
     } catch (err) {
       console.error('Send PDF error:', err);
@@ -305,6 +319,25 @@ export const WhatsAppSendModal: React.FC<WhatsAppSendModalProps> = ({
             className="w-full bg-zinc-950 border border-zinc-800 rounded-lg p-3 text-zinc-300 font-mono text-[11px] leading-relaxed focus:outline-none focus:border-zinc-700 resize-none"
           />
         </div>
+
+        {/* Ready WhatsApp Link Banner */}
+        {readyWhatsAppUrl && (
+          <div className="p-3 bg-emerald-950/70 border border-emerald-500 rounded-xl space-y-2 text-center animate-in zoom-in-95">
+            <div className="flex items-center justify-center gap-1.5 text-emerald-300 font-bold text-xs">
+              <CheckCircle2 size={16} className="text-emerald-400" />
+              <span>{documentType} PDF Ready with Official Link!</span>
+            </div>
+            <a
+              href={readyWhatsAppUrl}
+              target="_blank"
+              rel="noopener noreferrer"
+              className="inline-flex items-center justify-center gap-2 w-full py-2.5 px-4 bg-emerald-500 hover:bg-emerald-400 text-zinc-950 font-black text-xs rounded-lg shadow-lg cursor-pointer transition-all active:scale-[0.99]"
+            >
+              <MessageSquare size={16} />
+              <span>Open WhatsApp Chat Now &amp; Send</span>
+            </a>
+          </div>
+        )}
 
         {/* Action Buttons */}
         <div className="flex flex-col sm:flex-row items-center justify-between pt-2 border-t border-zinc-800 gap-2.5">
