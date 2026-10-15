@@ -55,7 +55,7 @@ export const ExpenseFormModal: React.FC<Props> = ({
   const [paymentMethod, setPaymentMethod] = useState<PaymentMethod | string>('Cash');
   const [referenceNumber, setReferenceNumber] = useState('');
   const [preparedBy, setPreparedBy] = useState('Accounts Officer');
-  const [approvedBy, setApprovedBy] = useState('Managing Director');
+  const [approvedBy, setApprovedBy] = useState('MIR SABER AHMED AKIL');
   const [notes, setNotes] = useState('');
 
   // Itemized line items (just like invoice items)
@@ -80,7 +80,7 @@ export const ExpenseFormModal: React.FC<Props> = ({
       setPaymentMethod(editingExpense.paymentMethod || 'Cash');
       setReferenceNumber(editingExpense.referenceNumber || '');
       setPreparedBy(editingExpense.preparedBy || 'Accounts Officer');
-      setApprovedBy(editingExpense.approvedBy || 'Managing Director');
+      setApprovedBy(editingExpense.approvedBy || 'MIR SABER AHMED AKIL');
       setNotes(editingExpense.notes || '');
 
       if (editingExpense.items && editingExpense.items.length > 0) {
@@ -278,7 +278,7 @@ export const ExpenseFormModal: React.FC<Props> = ({
             <div className="md:col-span-2">
               <label className="block text-zinc-400 font-medium mb-1 flex items-center gap-1.5">
                 <User size={13} className="text-zinc-400" />
-                <span>Paid To / Payee / Beneficiary *</span>
+                <span>Paid To *</span>
               </label>
               <input
                 type="text"
@@ -292,7 +292,7 @@ export const ExpenseFormModal: React.FC<Props> = ({
 
             <div>
               <label className="block text-zinc-400 font-medium mb-1">
-                Expense Category / Head *
+                Expense Category *
               </label>
               <select
                 value={PRESET_EXPENSE_CATEGORIES.includes(category) ? category : 'Other / Custom Category'}
@@ -311,7 +311,7 @@ export const ExpenseFormModal: React.FC<Props> = ({
 
             <div>
               <label className="block text-zinc-400 font-medium mb-1">
-                Custom Head / Category
+                Custom Category
               </label>
               <input
                 type="text"
@@ -353,26 +353,25 @@ export const ExpenseFormModal: React.FC<Props> = ({
             </div>
           </div>
 
-          {/* ITEMIZATION SECTION (Exactly like Invoice Items Table) */}
+          {/* ITEMIZATION SECTION */}
           <div className="space-y-3">
             <div className="flex items-center justify-between">
               <div>
                 <h3 className="text-sm font-bold text-zinc-100 flex items-center gap-2">
                   <DollarSign size={16} className="text-red-400" />
-                  <span>Expense Items &amp; Particulars (Invoice-style Breakdown)</span>
+                  <span>Expanse Breakdown</span>
                 </h3>
                 <p className="text-[11px] text-zinc-400">
-                  Itemize multiple expenses, quantities, unit prices, and amounts just like an invoice.
+                  Expanse Breakdown
                 </p>
               </div>
 
               <button
                 type="button"
                 onClick={handleAddItem}
-                className="flex items-center gap-1.5 px-3 py-1.5 rounded-lg bg-red-600 hover:bg-red-500 text-white font-bold text-xs shadow-xs transition-colors cursor-pointer"
+                className="px-3.5 py-1.5 rounded-lg bg-red-600 hover:bg-red-500 text-white font-bold text-xs shadow-xs transition-colors cursor-pointer"
               >
-                <Plus size={14} />
-                <span>+ Add Item Row</span>
+                ADD ROW
               </button>
             </div>
 
@@ -381,8 +380,8 @@ export const ExpenseFormModal: React.FC<Props> = ({
                 <thead>
                   <tr className="bg-zinc-900 border-b border-zinc-800 text-zinc-400 font-semibold">
                     <th className="p-3 w-10 text-center">#</th>
-                    <th className="p-3">Particulars / Description *</th>
-                    <th className="p-3 w-36">Category / Head</th>
+                    <th className="p-3">Expense Details *</th>
+                    <th className="p-3 w-36">Category</th>
                     <th className="p-3 w-20 text-center">Qty</th>
                     <th className="p-3 w-24">Unit</th>
                     <th className="p-3 w-28 text-right">Rate (BDT)</th>
@@ -528,13 +527,15 @@ export const ExpenseFormModal: React.FC<Props> = ({
                   />
                 </div>
                 <div>
-                  <label className="block text-zinc-500 mb-0.5">Approved By</label>
-                  <input
-                    type="text"
+                  <label className="block text-zinc-500 mb-0.5">Approved by</label>
+                  <select
                     value={approvedBy}
                     onChange={(e) => setApprovedBy(e.target.value)}
                     className="w-full bg-zinc-900 border border-zinc-800 rounded px-2 py-1 text-zinc-200"
-                  />
+                  >
+                    <option value="MIR SABER AHMED AKIL">MIR SABER AHMED AKIL</option>
+                    <option value="ZUHEB HASAN">ZUHEB HASAN</option>
+                  </select>
                 </div>
               </div>
             </div>

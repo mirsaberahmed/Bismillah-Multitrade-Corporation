@@ -312,7 +312,8 @@ export const DataProvider: React.FC<{ children: React.ReactNode }> = ({ children
 
   const [expenses, setExpenses] = useState<ExpenseRecord[]>(() => {
     const saved = localStorage.getItem(STORAGE_PREFIX + 'expenses');
-    return saved ? JSON.parse(saved) : initialExpenses;
+    const list: ExpenseRecord[] = saved ? JSON.parse(saved) : initialExpenses;
+    return list.filter(e => e.voucherNumber !== 'EXPNS-2026-0004' && e.expenseNumber !== 'EXPNS-2026-0004');
   });
 
   const [stockMovements, setStockMovements] = useState<StockMovement[]>(() => {

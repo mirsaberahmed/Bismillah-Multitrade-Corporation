@@ -129,11 +129,17 @@ export const InvoiceDetails: React.FC<Props> = ({ invoiceId, onBack, onEdit }) =
     title: string;
     phone: string;
     message: string;
+    pdfElementId?: string;
+    pdfFilename?: string;
+    documentType?: string;
   }>({
     isOpen: false,
     title: '',
     phone: '',
-    message: ''
+    message: '',
+    pdfElementId: undefined,
+    pdfFilename: undefined,
+    documentType: undefined
   });
 
   if (!invoice) {
@@ -276,7 +282,10 @@ export const InvoiceDetails: React.FC<Props> = ({ invoiceId, onBack, onEdit }) =
       isOpen: true,
       title: `Delivery Slip #${createdSlip.deliverySlipNumber} Created! Send to WhatsApp`,
       phone: createdSlip.receiverPhone || createdSlip.phone || invoice.customerPhone || '',
-      message: text
+      message: text,
+      pdfElementId: `modal-printable-slip-${createdSlip.id}`,
+      pdfFilename: `Delivery-Slip-${createdSlip.deliverySlipNumber}`,
+      documentType: 'Delivery Slip'
     });
   };
 
@@ -553,7 +562,10 @@ export const InvoiceDetails: React.FC<Props> = ({ invoiceId, onBack, onEdit }) =
                   isOpen: true,
                   title: `Send Invoice #${invoice.invoiceNumber} to WhatsApp`,
                   phone: invoice.customerPhone || '',
-                  message: text
+                  message: text,
+                  pdfElementId: `printable-invoice-${invoice.id}`,
+                  pdfFilename: `Invoice-${invoice.invoiceNumber}`,
+                  documentType: 'Invoice'
                 });
               }}
               className="flex items-center gap-1.5 px-3 py-2 bg-emerald-600 hover:bg-emerald-500 text-white rounded-lg text-xs font-bold transition-all shadow-xs cursor-pointer"
@@ -980,7 +992,10 @@ export const InvoiceDetails: React.FC<Props> = ({ invoiceId, onBack, onEdit }) =
                               isOpen: true,
                               title: `Send Delivery Slip #${slip.deliverySlipNumber} to WhatsApp`,
                               phone: slip.receiverPhone || slip.phone || invoice.customerPhone || '',
-                              message: text
+                              message: text,
+                              pdfElementId: `modal-printable-slip-${slip.id}`,
+                              pdfFilename: `Delivery-Slip-${slip.deliverySlipNumber}`,
+                              documentType: 'Delivery Slip'
                             });
                           }}
                           className="flex items-center gap-1 px-2.5 py-1 bg-emerald-800/80 hover:bg-emerald-700 text-white rounded text-xs font-semibold border border-emerald-700 transition-colors cursor-pointer"
@@ -1902,14 +1917,51 @@ export const InvoiceDetails: React.FC<Props> = ({ invoiceId, onBack, onEdit }) =
         onCancel={() => setSlipToDelete(null)}
       />
 
-      {/* WhatsApp Direct Send Modal */}
+      {/* WhatsApp Direct Send Modal with PDF Support */}
       <WhatsAppSendModal
         isOpen={whatsAppModalProps.isOpen}
         onClose={() => setWhatsAppModalProps(prev => ({ ...prev, isOpen: false }))}
         title={whatsAppModalProps.title}
         defaultPhone={whatsAppModalProps.phone}
         initialMessage={whatsAppModalProps.message}
+        pdfElementId={whatsAppModalProps.pdfElementId}
+        pdfFilename={whatsAppModalProps.pdfFilename}
+        documentType={whatsAppModalProps.documentType}
       />
+
+      {/* Offscreen Printable Containers for High-Fidelity PDF Generation */}
+      <div
+        id={`printable-invoice-${invoice.id}`}
+        style={{
+          position: 'fixed',
+          left: '-9999px',
+          top: '0',
+          width: '800px',
+          backgroundColor: '#ffffff',
+          zIndex: -100,
+          pointerEvents: 'none'
+        }}
+      >
+        <PrintableInvoice invoice={invoice} settings={settings} />
+      </div>
+
+      {invoiceSlips.map(s => (
+        <div
+          key={`offscreen-slip-${s.id}`}
+          id={`modal-printable-slip-${s.id}`}
+          style={{
+            position: 'fixed',
+            left: '-9999px',
+            top: '0',
+            width: '800px',
+            backgroundColor: '#ffffff',
+            zIndex: -100,
+            pointerEvents: 'none'
+          }}
+        >
+          <PrintableDeliverySlip deliverySlip={s} settings={settings} />
+        </div>
+      ))}
     </div>
   );
 };

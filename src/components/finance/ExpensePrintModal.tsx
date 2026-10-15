@@ -4,12 +4,15 @@ import {
   Printer,
   Download,
   FileText,
-  Edit
+  Edit,
+  MessageSquare
 } from 'lucide-react';
 import { ExpenseRecord, CompanySettings } from '../../types';
 import { PrintableExpenseSheet } from '../documents/PrintableExpenseSheet';
 import { downloadElementAsPdf } from '../../utils/pdfExport';
 import { printElement } from '../../utils/printHelper';
+import { WhatsAppSendModal } from '../common/WhatsAppSendModal';
+import { generateExpenseWhatsAppText } from '../../utils/whatsapp';
 
 interface Props {
   expense: ExpenseRecord | null;
@@ -27,6 +30,7 @@ export const ExpensePrintModal: React.FC<Props> = ({
   onEdit
 }) => {
   const [isDownloadingPdf, setIsDownloadingPdf] = useState(false);
+  const [showWhatsAppModal, setShowWhatsAppModal] = useState(false);
 
   if (!isOpen || !expense) return null;
 
@@ -110,6 +114,17 @@ export const ExpensePrintModal: React.FC<Props> = ({
               <span>{isDownloadingPdf ? 'Exporting...' : 'Save PDF'}</span>
             </button>
 
+            {/* Send to WhatsApp with PDF */}
+            <button
+              type="button"
+              onClick={() => setShowWhatsAppModal(true)}
+              className="flex items-center gap-1.5 px-3.5 py-2 rounded-lg bg-emerald-600 hover:bg-emerald-500 text-white text-xs font-bold shadow-md transition-colors cursor-pointer"
+              title="Send Expense Sheet PDF directly to WhatsApp"
+            >
+              <MessageSquare size={14} />
+              <span>Send WhatsApp</span>
+            </button>
+
             {/* Close Button */}
             <button
               type="button"
@@ -131,6 +146,18 @@ export const ExpensePrintModal: React.FC<Props> = ({
           </div>
         </div>
       </div>
+
+      {/* WhatsApp Send Modal with Direct PDF Attachment */}
+      <WhatsAppSendModal
+        isOpen={showWhatsAppModal}
+        onClose={() => setShowWhatsAppModal(false)}
+        title={`Send Expense Sheet #${expense.voucherNumber || expense.expenseNumber || expense.id} to WhatsApp`}
+        defaultPhone=""
+        initialMessage={generateExpenseWhatsAppText(expense, settings?.companyName || 'Bismillah Multitrade Corporation')}
+        pdfElementId={`modal-printable-expense-${expense.id}`}
+        pdfFilename={`Expense-Sheet-${expense.voucherNumber || expense.expenseNumber || expense.id}`}
+        documentType="Expense Sheet"
+      />
     </div>
   );
 };

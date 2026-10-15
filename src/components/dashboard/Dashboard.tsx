@@ -34,6 +34,8 @@ import { ActiveTab } from '../layout/Sidebar';
 import { WhatsAppSendModal } from '../common/WhatsAppSendModal';
 import { generateInvoiceWhatsAppText, generateDeliverySlipWhatsAppText } from '../../utils/whatsapp';
 import { SalesInvoice, DeliverySlip } from '../../types';
+import { PrintableInvoice } from '../documents/PrintableInvoice';
+import { PrintableDeliverySlip } from '../documents/PrintableDeliverySlip';
 
 interface DashboardProps {
   setActiveTab?: (tab: ActiveTab) => void;
@@ -122,6 +124,11 @@ export const Dashboard: React.FC<DashboardProps> = ({
   const [whatsAppTitle, setWhatsAppTitle] = useState('');
   const [whatsAppPhone, setWhatsAppPhone] = useState('');
   const [whatsAppMessage, setWhatsAppMessage] = useState('');
+  const [whatsAppPdfElementId, setWhatsAppPdfElementId] = useState<string | undefined>(undefined);
+  const [whatsAppPdfFilename, setWhatsAppPdfFilename] = useState<string | undefined>(undefined);
+  const [whatsAppDocType, setWhatsAppDocType] = useState<string | undefined>(undefined);
+  const [activeWhatsAppInvoice, setActiveWhatsAppInvoice] = useState<SalesInvoice | null>(null);
+  const [activeWhatsAppSlip, setActiveWhatsAppSlip] = useState<DeliverySlip | null>(null);
 
   // Open WhatsApp for an invoice
   const handleOpenInvoiceWhatsApp = (inv: SalesInvoice) => {
@@ -129,6 +136,11 @@ export const Dashboard: React.FC<DashboardProps> = ({
     setWhatsAppTitle(`Send Invoice #${inv.invoiceNumber} to WhatsApp`);
     setWhatsAppPhone(inv.customerPhone || '');
     setWhatsAppMessage(text);
+    setWhatsAppPdfElementId(`dashboard-printable-invoice-${inv.id}`);
+    setWhatsAppPdfFilename(`Invoice-${inv.invoiceNumber}`);
+    setWhatsAppDocType('Invoice');
+    setActiveWhatsAppInvoice(inv);
+    setActiveWhatsAppSlip(null);
     setWhatsAppModalOpen(true);
     setActiveInvoiceMenu(null);
   };
@@ -139,6 +151,11 @@ export const Dashboard: React.FC<DashboardProps> = ({
     setWhatsAppTitle(`Send Delivery Challan #${slip.deliverySlipNumber} to WhatsApp`);
     setWhatsAppPhone(slip.receiverPhone || slip.phone || '');
     setWhatsAppMessage(text);
+    setWhatsAppPdfElementId(`dashboard-printable-slip-${slip.id}`);
+    setWhatsAppPdfFilename(`Delivery-Slip-${slip.deliverySlipNumber}`);
+    setWhatsAppDocType('Delivery Slip');
+    setActiveWhatsAppSlip(slip);
+    setActiveWhatsAppInvoice(null);
     setWhatsAppModalOpen(true);
     setActiveSlipMenu(null);
   };
@@ -149,7 +166,7 @@ export const Dashboard: React.FC<DashboardProps> = ({
   }, [invoices, dateFilterPeriod]);
 
   const filteredPurchaseInvoices = useMemo(() => {
-    return purchaseInvoices.filter(pinv => isDateInPeriod(pinv.purchaseDate || pinv.createdAt, dateFilterPeriod));
+    return purchaseInvoices.filter(pinv => isDateInPeriod(pinv.date || pinv.createdAt, dateFilterPeriod));
   }, [purchaseInvoices, dateFilterPeriod]);
 
   const filteredExpenses = useMemo(() => {
@@ -259,11 +276,11 @@ export const Dashboard: React.FC<DashboardProps> = ({
 
   const maxQty = Math.max(...topProductsList.map(p => p.qty), 1);
 
-  // Latest created invoices and delivery slips sorted date-wise on top (prioritizing filtered period)
+  // Latest created invoices sorted date-wise (strictly reactive to selected calendar period)
   const sortedInvoices = useMemo(() => {
-    const list = filteredInvoices.length > 0 ? filteredInvoices : invoices;
+    const list = dateFilterPeriod === 'All Time' ? invoices : filteredInvoices;
     return [...list].sort((a, b) => new Date(b.invoiceDate || b.createdAt).getTime() - new Date(a.invoiceDate || a.createdAt).getTime());
-  }, [filteredInvoices, invoices]);
+  }, [filteredInvoices, invoices, dateFilterPeriod]);
 
   const sortedSlips = useMemo(() => {
     return [...deliverySlips].sort((a, b) => new Date(b.deliveryDate || b.createdAt).getTime() - new Date(a.deliveryDate || a.createdAt).getTime());
@@ -363,9 +380,9 @@ export const Dashboard: React.FC<DashboardProps> = ({
                 </div>
               </div>
               <div className="text-lg sm:text-xl font-black text-slate-900 font-sans tracking-tight">
-                {formatCurrency(totalSales > 0 ? totalSales : 238400.4)}
+                {formatCurrency(totalSales)}
               </div>
-              <p className="text-[10px] text-slate-400 mt-1">Total invoiced sales revenue</p>
+              <p className="text-[10px] text-slate-400 mt-1">Invoiced sales for {dateFilterPeriod.toLowerCase()}</p>
             </div>
 
             {/* Card 2: Total Collections */}
@@ -380,9 +397,9 @@ export const Dashboard: React.FC<DashboardProps> = ({
                 </div>
               </div>
               <div className="text-lg sm:text-xl font-black text-slate-900 font-sans tracking-tight">
-                {formatCurrency(totalCollections > 0 ? totalCollections : 108400.4)}
+                {formatCurrency(totalCollections)}
               </div>
-              <p className="text-[10px] text-slate-400 mt-1">Money received in bank &amp; cash</p>
+              <p className="text-[10px] text-slate-400 mt-1">Receipts for {dateFilterPeriod.toLowerCase()}</p>
             </div>
 
             {/* Card 3: Outstanding Receivables */}
@@ -397,7 +414,7 @@ export const Dashboard: React.FC<DashboardProps> = ({
                 </div>
               </div>
               <div className="text-lg sm:text-xl font-black text-rose-600 font-sans tracking-tight">
-                {formatCurrency(totalReceivables > 0 ? totalReceivables : 130000)}
+                {formatCurrency(totalReceivables)}
               </div>
               <p className="text-[10px] text-slate-400 mt-1">Customer pending dues</p>
             </div>
@@ -417,9 +434,9 @@ export const Dashboard: React.FC<DashboardProps> = ({
                 </div>
               </div>
               <div className="text-lg sm:text-xl font-black text-slate-900 font-sans tracking-tight">
-                {formatCurrency(totalExpenses > 0 ? totalExpenses : 193450)}
+                {formatCurrency(totalExpenses)}
               </div>
-              <p className="text-[10px] text-slate-400 mt-1">Operational overhead costs</p>
+              <p className="text-[10px] text-slate-400 mt-1">Expenses for {dateFilterPeriod.toLowerCase()}</p>
             </div>
 
             {/* Card 5: Net Profit */}
@@ -433,10 +450,10 @@ export const Dashboard: React.FC<DashboardProps> = ({
                   <TrendingUp size={16} />
                 </div>
               </div>
-              <div className="text-lg sm:text-xl font-black text-emerald-600 font-sans tracking-tight">
-                {formatCurrency(netProfit > 0 ? netProfit : 44950.4)}
+              <div className={`text-lg sm:text-xl font-black font-sans tracking-tight ${netProfit >= 0 ? 'text-emerald-600' : 'text-rose-600'}`}>
+                {formatCurrency(netProfit)}
               </div>
-              <p className="text-[10px] text-slate-400 mt-1">Net profit after expenditures</p>
+              <p className="text-[10px] text-slate-400 mt-1">Sales minus purchases and expenses</p>
             </div>
 
             {/* Card 6: Inventory Value */}
@@ -451,7 +468,7 @@ export const Dashboard: React.FC<DashboardProps> = ({
                 </div>
               </div>
               <div className="text-lg sm:text-xl font-black text-slate-900 font-sans tracking-tight">
-                {formatCurrency(inventoryValue > 0 ? inventoryValue : 99416)}
+                {formatCurrency(inventoryValue)}
               </div>
               <p className="text-[10px] text-slate-400 mt-1">Current stock valuation</p>
             </div>
@@ -566,7 +583,14 @@ export const Dashboard: React.FC<DashboardProps> = ({
                 </tr>
               </thead>
               <tbody className="divide-y divide-slate-100">
-                {sortedInvoices.slice(0, 5).map(inv => (
+                {sortedInvoices.length === 0 ? (
+                  <tr>
+                    <td colSpan={9} className="py-8 text-center text-slate-400 font-medium">
+                      No sales invoices recorded for {dateFilterPeriod}.
+                    </td>
+                  </tr>
+                ) : (
+                  sortedInvoices.slice(0, 5).map(inv => (
                   <tr key={inv.id} className="hover:bg-slate-50/70 transition-colors">
                     <td className="py-2.5 px-2.5 font-mono font-bold text-orange-600 whitespace-nowrap">
                       <button
@@ -645,7 +669,7 @@ export const Dashboard: React.FC<DashboardProps> = ({
                       )}
                     </td>
                   </tr>
-                ))}
+                )))}
               </tbody>
             </table>
           </div>
@@ -1247,14 +1271,56 @@ export const Dashboard: React.FC<DashboardProps> = ({
         </div>
       </div>
 
-      {/* WhatsApp Modal for Direct Messaging */}
+      {/* WhatsApp Modal for Direct Messaging & PDF Attachment */}
       <WhatsAppSendModal
         isOpen={whatsAppModalOpen}
-        onClose={() => setWhatsAppModalOpen(false)}
+        onClose={() => {
+          setWhatsAppModalOpen(false);
+          setActiveWhatsAppInvoice(null);
+          setActiveWhatsAppSlip(null);
+        }}
         title={whatsAppTitle}
         defaultPhone={whatsAppPhone}
         initialMessage={whatsAppMessage}
+        pdfElementId={whatsAppPdfElementId}
+        pdfFilename={whatsAppPdfFilename}
+        documentType={whatsAppDocType}
       />
+
+      {/* Offscreen Printable Containers for High-Fidelity PDF Generation */}
+      {activeWhatsAppInvoice && (
+        <div
+          id={`dashboard-printable-invoice-${activeWhatsAppInvoice.id}`}
+          style={{
+            position: 'fixed',
+            left: '-9999px',
+            top: '0',
+            width: '800px',
+            backgroundColor: '#ffffff',
+            zIndex: -100,
+            pointerEvents: 'none'
+          }}
+        >
+          <PrintableInvoice invoice={activeWhatsAppInvoice} settings={settings} />
+        </div>
+      )}
+
+      {activeWhatsAppSlip && (
+        <div
+          id={`dashboard-printable-slip-${activeWhatsAppSlip.id}`}
+          style={{
+            position: 'fixed',
+            left: '-9999px',
+            top: '0',
+            width: '800px',
+            backgroundColor: '#ffffff',
+            zIndex: -100,
+            pointerEvents: 'none'
+          }}
+        >
+          <PrintableDeliverySlip deliverySlip={activeWhatsAppSlip} settings={settings} />
+        </div>
+      )}
     </div>
   );
 };

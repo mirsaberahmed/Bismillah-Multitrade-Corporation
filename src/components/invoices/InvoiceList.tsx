@@ -24,6 +24,7 @@ import { exportToExcel, exportToCSV } from '../../utils/exportImport';
 import { ConfirmModal } from '../common/ConfirmModal';
 import { WhatsAppSendModal } from '../common/WhatsAppSendModal';
 import { generateInvoiceWhatsAppText } from '../../utils/whatsapp';
+import { PrintableInvoice } from '../documents/PrintableInvoice';
 
 interface Props {
   onSelectInvoice: (id: string) => void;
@@ -36,7 +37,7 @@ export const InvoiceList: React.FC<Props> = ({
   onNewInvoice,
   onEditInvoice
 }) => {
-  const { invoices, deleteInvoice } = useData();
+  const { invoices, deleteInvoice, settings } = useData();
 
   // Filters
   const [searchQuery, setSearchQuery] = useState('');
@@ -48,11 +49,18 @@ export const InvoiceList: React.FC<Props> = ({
   const [invoiceToDelete, setInvoiceToDelete] = useState<SalesInvoice | null>(null);
   const [selectedIds, setSelectedIds] = useState<string[]>([]);
   const [isBulkDeleting, setIsBulkDeleting] = useState(false);
-  const [whatsAppModal, setWhatsAppModal] = useState<{ isOpen: boolean; title: string; phone: string; message: string }>({
+  const [whatsAppModal, setWhatsAppModal] = useState<{
+    isOpen: boolean;
+    title: string;
+    phone: string;
+    message: string;
+    invoice?: SalesInvoice | null;
+  }>({
     isOpen: false,
     title: '',
     phone: '',
-    message: ''
+    message: '',
+    invoice: null
   });
 
   // Apply date range
@@ -400,7 +408,8 @@ export const InvoiceList: React.FC<Props> = ({
                               isOpen: true,
                               title: `Send Invoice #${inv.invoiceNumber} to WhatsApp`,
                               phone: inv.customerPhone || '',
-                              message: text
+                              message: text,
+                              invoice: inv
                             });
                           }}
                           className="p-1.5 hover:bg-emerald-900/40 rounded text-emerald-400 hover:text-emerald-300"
@@ -473,14 +482,38 @@ export const InvoiceList: React.FC<Props> = ({
         onCancel={() => setIsBulkDeleting(false)}
       />
 
-      {/* WhatsApp Modal */}
-      <WhatsAppSendModal
-        isOpen={whatsAppModal.isOpen}
-        onClose={() => setWhatsAppModal(prev => ({ ...prev, isOpen: false }))}
-        title={whatsAppModal.title}
-        defaultPhone={whatsAppModal.phone}
-        initialMessage={whatsAppModal.message}
-      />
+      {/* WhatsApp Modal with PDF Attachment Support */}
+      {whatsAppModal.isOpen && (
+        <>
+          {whatsAppModal.invoice && (
+            <div
+              id={`invoice-list-printable-${whatsAppModal.invoice.id}`}
+              style={{
+                position: 'fixed',
+                left: '-9999px',
+                top: '0',
+                width: '800px',
+                backgroundColor: '#ffffff',
+                zIndex: -100,
+                pointerEvents: 'none'
+              }}
+            >
+              <PrintableInvoice invoice={whatsAppModal.invoice} settings={settings} />
+            </div>
+          )}
+
+          <WhatsAppSendModal
+            isOpen={whatsAppModal.isOpen}
+            onClose={() => setWhatsAppModal(prev => ({ ...prev, isOpen: false, invoice: null }))}
+            title={whatsAppModal.title}
+            defaultPhone={whatsAppModal.phone}
+            initialMessage={whatsAppModal.message}
+            pdfElementId={whatsAppModal.invoice ? `invoice-list-printable-${whatsAppModal.invoice.id}` : undefined}
+            pdfFilename={whatsAppModal.invoice ? `Invoice-${whatsAppModal.invoice.invoiceNumber}` : undefined}
+            documentType="Invoice"
+          />
+        </>
+      )}
     </div>
   );
 };

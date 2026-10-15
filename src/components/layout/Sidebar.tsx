@@ -66,6 +66,7 @@ interface SidebarProps {
   mobileOpen?: boolean;
   mobileMenuOpen?: boolean;
   setMobileOpen?: (open: boolean) => void;
+  onToggle?: () => void;
   onClose?: () => void;
   onCloseMobile?: () => void;
   onNewInvoice?: () => void;
@@ -76,16 +77,29 @@ export const Sidebar: React.FC<SidebarProps> = ({
   activeTab,
   setActiveTab,
   onSelectTab,
-  isOpen,
+  isOpen = false,
   mobileOpen,
   mobileMenuOpen,
   setMobileOpen,
+  onToggle,
   onClose,
   onCloseMobile,
   onLogout
 }) => {
-  const isMenuOpen = isOpen ?? (mobileOpen || mobileMenuOpen || false);
-  const [collapsed] = useState(false);
+  // Mobile drawer open state
+  const isMobileDrawerOpen = mobileOpen || mobileMenuOpen || false;
+  // Desktop expanded state: controlled by isOpen prop or local toggle
+  const [internalExpanded, setInternalExpanded] = useState(false);
+  const isExpanded = isOpen || internalExpanded;
+  const collapsed = !isExpanded;
+
+  const toggleExpand = () => {
+    if (onToggle) {
+      onToggle();
+    } else {
+      setInternalExpanded(prev => !prev);
+    }
+  };
 
   const closeMenu = () => {
     if (onClose) onClose();
@@ -107,34 +121,50 @@ export const Sidebar: React.FC<SidebarProps> = ({
   const [openSubmenu, setOpenSubmenu] = useState<string | null>(null);
 
   const toggleSubmenu = (key: string) => {
+    if (collapsed) {
+      // If currently collapsed to icons, clicking expands sidebar and opens submenu
+      setInternalExpanded(true);
+      if (onToggle && !isOpen) onToggle();
+    }
     setOpenSubmenu(prev => (prev === key ? null : key));
   };
 
   return (
     <>
-      {/* Universal Backdrop (Closes sidebar on click outside) */}
-      {isMenuOpen && (
+      {/* Mobile Backdrop (Only for small screens when mobile drawer is open) */}
+      {isMobileDrawerOpen && (
         <div
           onClick={closeMenu}
-          className="fixed inset-0 bg-black/50 backdrop-blur-xs z-40 transition-opacity duration-300 print:hidden"
+          className="fixed inset-0 bg-black/50 backdrop-blur-xs z-40 md:hidden transition-opacity duration-300 print:hidden"
         />
       )}
 
-      {/* Main Sidebar Drawer - Starts CLOSED by default on initial app open, opens when Menu is clicked */}
+      {/* Main Sidebar:
+          - Desktop (md+): Statically positioned in flex layout. Starts collapsed (w-16, showing ONLY icons "shudu icon gulu deka jabe agher moto"), expands to w-[260px] on toggle.
+          - Mobile (<md): Off-canvas fixed drawer overlay (w-[260px]) sliding in/out.
+      */}
       <aside
-        className={`fixed top-0 bottom-0 left-0 z-50 flex flex-col bg-[#F8F9FA] border-r border-slate-200/90 text-slate-800 shadow-2xl transition-transform duration-300 ease-in-out print:hidden w-[260px] ${
-          isMenuOpen ? 'translate-x-0' : '-translate-x-full'
-        }`}
+        className={`bg-[#F8F9FA] border-r border-slate-200/90 text-slate-800 transition-all duration-300 ease-in-out print:hidden flex flex-col shrink-0 h-full select-none
+          ${/* Mobile Drawer positioning */ ''}
+          fixed md:relative top-0 bottom-0 left-0 z-50 md:z-20
+          ${isMobileDrawerOpen ? 'translate-x-0 w-[260px] shadow-2xl' : '-translate-x-full md:translate-x-0'}
+          ${/* Desktop dynamic width */ ''}
+          ${isExpanded ? 'md:w-[260px]' : 'md:w-16'}
+        `}
       >
-        {/* Top Logo Section */}
-        <div className="h-16 px-4 flex items-center justify-between border-b border-slate-200/90 bg-white/90 shrink-0">
-          <div className="flex items-center gap-3 min-w-0">
+        {/* Top Logo & Toggle Section */}
+        <div className={`h-16 px-3 flex items-center ${collapsed ? 'justify-center' : 'justify-between'} border-b border-slate-200/90 bg-white/90 shrink-0`}>
+          <div
+            onClick={toggleExpand}
+            className="flex items-center gap-2.5 min-w-0 cursor-pointer group"
+            title={collapsed ? 'Click to expand sidebar' : 'Click to collapse to icons'}
+          >
             {/* Amber Balm Bottle Logo */}
-            <div className="w-9 h-9 rounded-lg bg-orange-50 border border-orange-200/80 flex items-center justify-center shrink-0 shadow-xs">
-              <BalmBottleLogo size={26} className="shrink-0 drop-shadow-xs" />
+            <div className="w-9 h-9 rounded-lg bg-orange-50 border border-orange-200/80 flex items-center justify-center shrink-0 shadow-xs group-hover:bg-orange-100 transition-colors">
+              <BalmBottleLogo size={24} className="shrink-0 drop-shadow-xs" />
             </div>
             {!collapsed && (
-              <div className="min-w-0">
+              <div className="min-w-0 animate-in fade-in duration-200">
                 <h1 className="text-[13px] font-black tracking-wider text-slate-900 uppercase leading-tight truncate font-sans">
                   BISMILLAH
                 </h1>
@@ -145,14 +175,25 @@ export const Sidebar: React.FC<SidebarProps> = ({
             )}
           </div>
 
-          {/* Close button (Active on all screen sizes) */}
-          <button
-            onClick={closeMenu}
-            className="p-1.5 text-slate-500 hover:text-slate-900 rounded-lg hover:bg-slate-200 transition-colors cursor-pointer"
-            title="Close Menu"
-          >
-            <X size={18} />
-          </button>
+          {/* Desktop Collapse / Expand Toggle Icon & Mobile Close Button */}
+          {!collapsed ? (
+            <div className="flex items-center gap-1">
+              <button
+                onClick={toggleExpand}
+                className="hidden md:flex p-1.5 text-slate-400 hover:text-slate-800 rounded-lg hover:bg-slate-100 transition-colors cursor-pointer"
+                title="Collapse sidebar to icon-only"
+              >
+                <ChevronLeft size={16} />
+              </button>
+              <button
+                onClick={closeMenu}
+                className="md:hidden p-1.5 text-slate-500 hover:text-slate-900 rounded-lg hover:bg-slate-200 transition-colors cursor-pointer"
+                title="Close Drawer"
+              >
+                <X size={18} />
+              </button>
+            </div>
+          ) : null}
         </div>
 
         {/* Scrollable Navigation Menu */}

@@ -3,12 +3,15 @@ import {
   X,
   Printer,
   Download,
-  FileText
+  FileText,
+  MessageSquare
 } from 'lucide-react';
 import { SalesInvoice, CompanySettings } from '../../types';
 import { PrintableInvoice } from '../documents/PrintableInvoice';
 import { downloadElementAsPdf } from '../../utils/pdfExport';
 import { printElement } from '../../utils/printHelper';
+import { WhatsAppSendModal } from '../common/WhatsAppSendModal';
+import { generateInvoiceWhatsAppText } from '../../utils/whatsapp';
 
 interface Props {
   invoice: SalesInvoice | null;
@@ -24,6 +27,7 @@ export const InvoicePrintModal: React.FC<Props> = ({
   onClose
 }) => {
   const [isDownloadingPdf, setIsDownloadingPdf] = useState(false);
+  const [showWhatsAppModal, setShowWhatsAppModal] = useState(false);
 
   if (!isOpen || !invoice) return null;
 
@@ -90,6 +94,17 @@ export const InvoicePrintModal: React.FC<Props> = ({
               <span>{isDownloadingPdf ? 'Exporting...' : 'Save PDF'}</span>
             </button>
 
+            {/* Send to WhatsApp with PDF */}
+            <button
+              type="button"
+              onClick={() => setShowWhatsAppModal(true)}
+              className="flex items-center gap-1.5 px-3.5 py-2 rounded-lg bg-emerald-600 hover:bg-emerald-500 text-white text-xs font-bold shadow-md transition-colors cursor-pointer"
+              title="Send Invoice PDF directly to WhatsApp"
+            >
+              <MessageSquare size={14} />
+              <span>Send WhatsApp</span>
+            </button>
+
             {/* Close Button */}
             <button
               type="button"
@@ -111,6 +126,18 @@ export const InvoicePrintModal: React.FC<Props> = ({
           </div>
         </div>
       </div>
+
+      {/* WhatsApp Send Modal with Direct PDF Attachment */}
+      <WhatsAppSendModal
+        isOpen={showWhatsAppModal}
+        onClose={() => setShowWhatsAppModal(false)}
+        title={`Send Invoice #${invoice.invoiceNumber} to WhatsApp`}
+        defaultPhone={invoice.customerPhone || ''}
+        initialMessage={generateInvoiceWhatsAppText(invoice, settings?.companyName || 'Bismillah Multitrade Corporation')}
+        pdfElementId={`modal-printable-invoice-${invoice.id}`}
+        pdfFilename={`Invoice-${invoice.invoiceNumber}`}
+        documentType="Invoice"
+      />
     </div>
   );
 };

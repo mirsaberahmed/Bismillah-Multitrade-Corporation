@@ -1,0 +1,69 @@
+{
+  "userId": "usr-1792060938449-16bfbe00",
+  "companyOwner": "Sultana Enterprise",
+  "settings": {
+    "companyName": "Sultana Enterprise Business Enterprise",
+    "companyAddress": "Dhaka, Bangladesh",
+    "companyPhone": "+880 1700-000000",
+    "companyEmail": "sultana_business@testcorp.com",
+    "companyWebsite": "",
+    "taxId": "",
+    "currency": "BDT",
+    "currencySymbol": "৳",
+    "fiscalYearStart": "January",
+    "invoicePrefix": "INV-",
+    "expensePrefix": "EXP-",
+    "deliveryPrefix": "DC-",
+    "quotationPrefix": "QT-",
+    "vatRate": 0,
+    "termsAndConditions": "1. Goods once sold will be taken back within 7 days in original condition.\n2. Payment is due within agreed terms.\n3. All disputes subject to jurisdiction."
+  },
+  "categories": [
+    {
+      "id": "cat-1",
+      "name": "General Goods",
+      "description": "General merchandise & products"
+    },
+    {
+      "id": "cat-2",
+      "name": "Raw Materials",
+      "description": "Production & manufacturing items"
+    },
+    {
+      "id": "cat-3",
+      "name": "Electronics & Components",
+      "description": "Hardware & electrical equipment"
+    }
+  ],
+  "products": [],
+  "customers": [],
+  "suppliers": [],
+  "invoices": [],
+  "deliverySlips": [],
+  "deliveryReturns": [],
+  "purchaseInvoices": [],
+  "quotations": [],
+  "salesOrders": [],
+  "purchaseOrders": [],
+  "deliveryChallans": [],
+  "proformaInvoices": [],
+  "commercialInvoices": [],
+  "importRecords": [],
+  "exportRecords": [],
+  "lcRecords": [],
+  "shipments": [],
+  "payments": [],
+  "expenses": [],
+  "stockMovements": [],
+  "activityLogs": [
+    {
+      "id": "log-1792060938449",
+      "action": "Account Created",
+      "details": "Workspace initialized for Sultana Enterprise (sultana_business@testcorp.com)",
+      "user": "Sultana Enterprise",
+      "timestamp": "2026-10-15T10:42:18.449Z"
+    }
+  ],
+  "createdAt": "2026-10-15T10:42:18.449Z",
+  "updatedAtServer": "2026-10-15T10:42:18.450Z"
+}

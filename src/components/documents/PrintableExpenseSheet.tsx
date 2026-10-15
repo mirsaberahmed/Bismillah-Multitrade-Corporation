@@ -97,13 +97,13 @@ export const PrintableExpenseSheet: React.FC<Props> = ({ expense, settings }) =>
         </div>
       </div>
 
-      {/* 2. Two Column: Paid To & Voucher Information (Same 1px black border boxes as PrintableInvoice) */}
+      {/* 2. Two Column: Paid To & Voucher Information */}
       <div className="grid grid-cols-2 gap-6 mb-6">
-        {/* Paid To / Beneficiary */}
+        {/* Paid To */}
         <div className="border border-black bg-white p-4 flex flex-col justify-between">
           <div>
             <div className="text-xs font-bold tracking-wider text-black uppercase mb-1.5">
-              PAID TO / BENEFICIARY
+              PAID TO
             </div>
             <p className="font-bold text-black text-sm">{expense.paidTo || 'Cash Expense / Self'}</p>
             <p className="text-xs font-semibold text-black mt-0.5">
@@ -114,12 +114,14 @@ export const PrintableExpenseSheet: React.FC<Props> = ({ expense, settings }) =>
                 <span className="font-medium">Supplier / Vendor:</span> {expense.supplierName}
               </p>
             )}
-            <p className="text-xs text-black mt-1 whitespace-pre-line leading-relaxed">
-              {expense.notes ? `Purpose: ${expense.notes}` : 'Official Operating Expense Voucher'}
-            </p>
+            {expense.notes && (
+              <p className="text-xs text-black mt-1 whitespace-pre-line leading-relaxed">
+                Purpose: {expense.notes}
+              </p>
+            )}
           </div>
           <div className="mt-3 pt-2 border-t border-black text-xs space-y-0.5 text-black">
-            <p><span className="font-medium">Settlement:</span> Cash / Official Treasury</p>
+            <p><span className="font-medium">Settlement:</span> Cash</p>
           </div>
         </div>
 
@@ -131,7 +133,7 @@ export const PrintableExpenseSheet: React.FC<Props> = ({ expense, settings }) =>
             </div>
             <div className="grid grid-cols-2 gap-y-1.5 text-xs text-black">
               <span className="font-medium">Payment Status:</span>
-              <span className="font-bold uppercase text-black">PAID &amp; SETTLED</span>
+              <span className="font-bold uppercase text-black">PAID</span>
 
               <span className="font-medium">Payment Method:</span>
               <span className="font-bold">{expense.paymentMethod}</span>
@@ -159,13 +161,13 @@ export const PrintableExpenseSheet: React.FC<Props> = ({ expense, settings }) =>
         </div>
       </div>
 
-      {/* 3. Expense Items Table - Exact Line Items Table Layout */}
+      {/* 3. Expense Items Table */}
       <div className="mb-6">
         <table className="w-full border-collapse text-left text-xs border border-black">
           <thead>
             <tr className="bg-white text-black font-bold border-b border-black">
               <th className="p-2.5 w-12 text-center border-r border-black">SL</th>
-              <th className="p-2.5 border-r border-black">Particulars / Expense Details</th>
+              <th className="p-2.5 border-r border-black">Expense Details</th>
               <th className="p-2.5 w-36 border-r border-black">Category</th>
               <th className="p-2.5 w-24 text-right border-r border-black">Qty</th>
               <th className="p-2.5 w-20 text-center border-r border-black">Unit</th>
@@ -207,7 +209,7 @@ export const PrintableExpenseSheet: React.FC<Props> = ({ expense, settings }) =>
         </table>
       </div>
 
-      {/* 4. Summary Area (Exact 12-column grid matching PrintableInvoice) */}
+      {/* 4. Summary Area */}
       <div className="grid grid-cols-12 gap-6 mb-6">
         {/* Left 7 Columns: Amount in Words & Payment / Approval Details */}
         <div className="col-span-7 space-y-4">
@@ -226,7 +228,7 @@ export const PrintableExpenseSheet: React.FC<Props> = ({ expense, settings }) =>
             </span>
             <div className="grid grid-cols-2 gap-x-3 gap-y-1.5 text-black">
               <p><span className="font-medium">Payment Mode:</span> <strong>{expense.paymentMethod}</strong></p>
-              <p><span className="font-medium">Status:</span> <strong>PAID &amp; SETTLED</strong></p>
+              <p><span className="font-medium">Status:</span> <strong>PAID</strong></p>
               {expense.referenceNumber && (
                 <p><span className="font-medium">Ref / Voucher:</span> <strong className="font-mono">{expense.referenceNumber}</strong></p>
               )}
@@ -265,41 +267,28 @@ export const PrintableExpenseSheet: React.FC<Props> = ({ expense, settings }) =>
         </div>
       </div>
 
-      {/* 5. Official Signatures & Seal Section */}
-      <div className="grid grid-cols-4 gap-4 pt-10 text-center text-xs">
-        <div>
-          <div className="border-t border-black pt-1.5 font-bold text-black">
-            {expense.preparedBy || 'Prepared By'}
+      {/* 5. Official Signatures & Seal Section: Single signature on the right side only with seal above the line */}
+      <div className="border-t border-black pt-4 mt-8">
+        <div className="flex justify-end items-end pt-2 px-4 text-center text-xs text-black">
+          <div className="flex flex-col items-center">
+            {/* Seal positioned safely above the signature line */}
+            <div className="h-[28mm] flex flex-col items-center justify-end pb-1.5">
+              {BISMILLAH_SIGNATURE_DATA_URI && (
+                <img
+                  src={BISMILLAH_SIGNATURE_DATA_URI}
+                  alt="Bismillah Multitrade Official Seal & Signature"
+                  className="w-[28mm] h-[28mm] object-contain select-none pointer-events-none"
+                />
+              )}
+              <div className="w-64 border-b border-black mt-1"></div>
+            </div>
+            <div className="pt-1.5 font-bold text-black uppercase tracking-wide text-xs">
+              BISMILLAH MULTITRADE CORPORATION
+            </div>
+            <div className="text-[10px] text-gray-700 font-medium">
+              {expense.approvedBy || 'Managing Director / CEO'}
+            </div>
           </div>
-          <div className="text-[10px] text-gray-700">Accounts Officer</div>
-        </div>
-
-        <div>
-          <div className="border-t border-black pt-1.5 font-bold text-black">
-            {expense.checkedBy || 'Checked By'}
-          </div>
-          <div className="text-[10px] text-gray-700">Internal Audit</div>
-        </div>
-
-        <div>
-          <div className="border-t border-black pt-1.5 font-bold text-black">
-            Payee Signature
-          </div>
-          <div className="text-[10px] text-gray-700">Received By / Beneficiary</div>
-        </div>
-
-        <div className="relative">
-          <div className="border-t border-black pt-1.5 font-bold text-black">
-            {expense.approvedBy || 'Authorized Signature'}
-          </div>
-          <div className="text-[10px] text-gray-700">Managing Director / CEO</div>
-          {BISMILLAH_SIGNATURE_DATA_URI && (
-            <img
-              src={BISMILLAH_SIGNATURE_DATA_URI}
-              alt="Seal"
-              className="absolute -top-12 left-1/2 -translate-x-1/2 w-20 h-auto opacity-80 pointer-events-none"
-            />
-          )}
         </div>
       </div>
     </div>

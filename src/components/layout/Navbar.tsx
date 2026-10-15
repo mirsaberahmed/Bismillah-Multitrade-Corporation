@@ -146,11 +146,10 @@ export const Navbar: React.FC<NavbarProps> = ({
         <div className="flex items-center gap-2 min-w-0">
           <button
             onClick={toggleMobileMenu}
-            className="flex items-center gap-1.5 px-2.5 py-1.5 text-slate-700 hover:text-slate-900 rounded-lg border border-slate-200 bg-slate-50 hover:bg-slate-100 transition-colors cursor-pointer shadow-xs"
+            className="p-2 text-slate-700 hover:text-orange-600 transition-colors cursor-pointer"
             title="Toggle Menu"
           >
-            <Menu size={18} className="text-orange-500 shrink-0" />
-            <span className="text-xs font-bold text-slate-800 hidden sm:inline">Menu</span>
+            <Menu size={22} className="text-orange-500 hover:text-orange-600 shrink-0" />
           </button>
 
           {/* Date & Period (Positioned on the Left Beside Sidebar) */}

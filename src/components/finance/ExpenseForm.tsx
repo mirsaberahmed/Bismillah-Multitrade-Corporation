@@ -65,7 +65,7 @@ export const ExpenseForm: React.FC<Props> = ({ expenseId, onCancel, onSuccess })
   );
   const [referenceNumber, setReferenceNumber] = useState(existingExpense?.referenceNumber || '');
   const [preparedBy, setPreparedBy] = useState(existingExpense?.preparedBy || 'Accounts Officer');
-  const [approvedBy, setApprovedBy] = useState(existingExpense?.approvedBy || 'Managing Director');
+  const [approvedBy, setApprovedBy] = useState(existingExpense?.approvedBy || 'MIR SABER AHMED AKIL');
   const [notes, setNotes] = useState(existingExpense?.notes || existingExpense?.description || '');
   const [currency, setCurrency] = useState(existingExpense?.currency || 'BDT');
 
@@ -265,7 +265,7 @@ export const ExpenseForm: React.FC<Props> = ({ expenseId, onCancel, onSuccess })
         </div>
 
         <div>
-          <label className="block text-zinc-400 font-medium mb-1">Expense Category / Head *</label>
+          <label className="block text-zinc-400 font-medium mb-1">Expense Category *</label>
           <input
             type="text"
             list="expense-categories-list"
@@ -301,7 +301,7 @@ export const ExpenseForm: React.FC<Props> = ({ expenseId, onCancel, onSuccess })
       <div className="grid grid-cols-1 md:grid-cols-2 gap-4 bg-zinc-900 border border-zinc-800 p-4 rounded-xl text-xs">
         <div>
           <label className="block text-zinc-400 font-medium mb-1">
-            Paid To / Beneficiary *
+            Paid To *
           </label>
           <input
             type="text"
@@ -335,36 +335,37 @@ export const ExpenseForm: React.FC<Props> = ({ expenseId, onCancel, onSuccess })
           </div>
 
           <div>
-            <label className="block text-zinc-400 font-medium mb-1">Approved By</label>
-            <input
-              type="text"
+            <label className="block text-zinc-400 font-medium mb-1">Approved by</label>
+            <select
               value={approvedBy}
               onChange={(e) => setApprovedBy(e.target.value)}
               className="w-full bg-zinc-950 border border-zinc-700 rounded-lg px-3 py-2 text-zinc-200 focus:outline-none focus:border-red-500"
-            />
+            >
+              <option value="MIR SABER AHMED AKIL">MIR SABER AHMED AKIL</option>
+              <option value="ZUHEB HASAN">ZUHEB HASAN</option>
+            </select>
           </div>
         </div>
       </div>
 
-      {/* Interactive Itemized Table (Matching InvoiceForm line items) */}
+      {/* Interactive Itemized Table */}
       <div className="bg-zinc-900 border border-zinc-800 rounded-xl overflow-hidden">
         <div className="p-4 bg-zinc-950 border-b border-zinc-800 flex items-center justify-between">
           <div>
             <h3 className="text-sm font-bold text-zinc-200 flex items-center gap-2">
               <FileText size={16} className="text-red-400" />
-              <span>Expense Particulars &amp; Itemized Breakdown</span>
+              <span>Expanse Breakdown</span>
             </h3>
             <p className="text-[11px] text-zinc-400">
-              Add individual line items, quantities, and rates just like an invoice.
+              Expanse Breakdown
             </p>
           </div>
           <button
             type="button"
             onClick={addItemRow}
-            className="flex items-center gap-1.5 px-3 py-1.5 bg-red-600 hover:bg-red-500 text-white rounded-lg text-xs font-bold shadow-xs transition-colors cursor-pointer"
+            className="px-3.5 py-1.5 bg-red-600 hover:bg-red-500 text-white rounded-lg text-xs font-bold shadow-xs transition-colors cursor-pointer"
           >
-            <Plus size={14} />
-            <span>+ Add Row</span>
+            ADD ROW
           </button>
         </div>
 
@@ -373,7 +374,7 @@ export const ExpenseForm: React.FC<Props> = ({ expenseId, onCancel, onSuccess })
             <thead>
               <tr className="bg-zinc-950 text-zinc-400 font-semibold border-b border-zinc-800">
                 <th className="p-3 w-12 text-center">#</th>
-                <th className="p-3">Particulars / Expense Details *</th>
+                <th className="p-3">Expense Details *</th>
                 <th className="p-3 w-40">Category</th>
                 <th className="p-3 w-28 text-right">Quantity</th>
                 <th className="p-3 w-24">Unit</th>

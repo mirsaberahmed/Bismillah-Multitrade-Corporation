@@ -122,10 +122,9 @@ export const ExpenseList: React.FC<Props> = ({
           <button
             type="button"
             onClick={onNewExpense}
-            className="flex items-center gap-1.5 px-4 py-2 bg-red-600 hover:bg-red-500 text-white font-bold rounded-lg text-xs shadow-md shadow-red-600/20 active:scale-[0.98] transition-all cursor-pointer"
+            className="px-4 py-2 bg-red-600 hover:bg-red-500 text-white font-bold rounded-lg text-xs shadow-md shadow-red-600/20 active:scale-[0.98] transition-all cursor-pointer"
           >
-            <Plus size={16} />
-            <span>+ Create Expense Sheet</span>
+            <span>Create Expense Sheet</span>
           </button>
         </div>
       </div>

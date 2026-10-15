@@ -1,6 +1,7 @@
 import React, { useState } from 'react';
-import { MessageSquare, X, Send, Copy, Check, Phone } from 'lucide-react';
+import { MessageSquare, X, Send, Copy, Check, Phone, FileText, Download, Loader2, CheckCircle2, Share2 } from 'lucide-react';
 import { getWhatsAppUrl } from '../../utils/whatsapp';
+import { generateElementAsPdfBlob, downloadElementAsPdf } from '../../utils/pdfExport';
 
 interface WhatsAppSendModalProps {
   isOpen: boolean;
@@ -9,6 +10,10 @@ interface WhatsAppSendModalProps {
   defaultPhone: string;
   initialMessage: string;
   recipientLabel?: string;
+  pdfElementId?: string;
+  pdfElement?: HTMLElement | null;
+  pdfFilename?: string;
+  documentType?: 'Invoice' | 'Delivery Slip' | 'Expense Sheet' | string;
 }
 
 export const WhatsAppSendModal: React.FC<WhatsAppSendModalProps> = ({
@@ -17,11 +22,17 @@ export const WhatsAppSendModal: React.FC<WhatsAppSendModalProps> = ({
   title,
   defaultPhone,
   initialMessage,
-  recipientLabel = 'WhatsApp Number'
+  recipientLabel = 'WhatsApp Number',
+  pdfElementId,
+  pdfElement,
+  pdfFilename = 'Document',
+  documentType = 'Document'
 }) => {
   const [phone, setPhone] = useState(defaultPhone || '');
   const [message, setMessage] = useState(initialMessage || '');
   const [copied, setCopied] = useState(false);
+  const [isExportingPdf, setIsExportingPdf] = useState(false);
+  const [statusNotice, setStatusNotice] = useState<string | null>(null);
 
   // Sync when opened
   React.useEffect(() => {
@@ -29,6 +40,8 @@ export const WhatsAppSendModal: React.FC<WhatsAppSendModalProps> = ({
       setPhone(defaultPhone || '');
       setMessage(initialMessage || '');
       setCopied(false);
+      setIsExportingPdf(false);
+      setStatusNotice(null);
     }
   }, [isOpen, defaultPhone, initialMessage]);
 
@@ -36,15 +49,123 @@ export const WhatsAppSendModal: React.FC<WhatsAppSendModalProps> = ({
 
   const whatsappUrl = getWhatsAppUrl(phone, message);
 
+  const getTargetElement = (): HTMLElement | null => {
+    if (pdfElement) return pdfElement;
+    if (pdfElementId) {
+      return document.getElementById(pdfElementId);
+    }
+    return null;
+  };
+
   const handleCopy = () => {
     navigator.clipboard.writeText(message);
     setCopied(true);
     setTimeout(() => setCopied(false), 2000);
   };
 
+  // Download PDF directly
+  const handleDownloadOnly = async () => {
+    const el = getTargetElement();
+    if (!el) {
+      setStatusNotice('Document preview element not found. Please print or open preview first.');
+      return;
+    }
+    setIsExportingPdf(true);
+    setStatusNotice(null);
+    try {
+      await downloadElementAsPdf(el, pdfFilename, setIsExportingPdf);
+      setStatusNotice(`✅ ${documentType} PDF downloaded successfully!`);
+    } catch (err) {
+      console.error('PDF download error:', err);
+      setStatusNotice('Failed to download PDF. Please try again.');
+    } finally {
+      setIsExportingPdf(false);
+    }
+  };
+
+  // Send PDF via WhatsApp
+  const handleSendPdfToWhatsApp = async () => {
+    const el = getTargetElement();
+    setIsExportingPdf(true);
+    setStatusNotice(null);
+
+    try {
+      let pdfFile: File | null = null;
+      let pdfBlob: Blob | null = null;
+
+      if (el) {
+        const result = await generateElementAsPdfBlob(el, pdfFilename);
+        if (result) {
+          pdfFile = result.file;
+          pdfBlob = result.blob;
+        }
+      }
+
+      // Check if Web Share API level 2 with file sharing is available
+      if (pdfFile && navigator.canShare && navigator.canShare({ files: [pdfFile] })) {
+        try {
+          await navigator.share({
+            title: pdfFilename,
+            text: message,
+            files: [pdfFile]
+          });
+          setStatusNotice(`✅ Shared ${documentType} PDF to WhatsApp!`);
+          setTimeout(onClose, 1000);
+          return;
+        } catch (shareErr: any) {
+          if (shareErr.name === 'AbortError') {
+            setIsExportingPdf(false);
+            return;
+          }
+          console.warn('Native share error, falling back to download & WhatsApp Web:', shareErr);
+        }
+      }
+
+      // Fallback for Desktop WhatsApp Web or browsers without file share:
+      // 1. Download the generated PDF to the user's downloads
+      if (pdfBlob) {
+        const url = URL.createObjectURL(pdfBlob);
+        const a = document.createElement('a');
+        a.href = url;
+        const cleanName = pdfFilename.endsWith('.pdf') ? pdfFilename : `${pdfFilename}.pdf`;
+        a.download = cleanName;
+        document.body.appendChild(a);
+        a.click();
+        document.body.removeChild(a);
+        setTimeout(() => URL.revokeObjectURL(url), 1000);
+      } else if (el) {
+        await downloadElementAsPdf(el, pdfFilename);
+      }
+
+      // 2. Copy summary message
+      try {
+        await navigator.clipboard.writeText(message);
+      } catch (err) {
+        console.warn('Clipboard write failed:', err);
+      }
+
+      // 3. Open WhatsApp Web or wa.me chat
+      window.open(whatsappUrl, '_blank');
+
+      setStatusNotice(
+        `📄 ${documentType} PDF downloaded to your device! Simply attach it into your WhatsApp chat.`
+      );
+    } catch (err) {
+      console.error('Send PDF error:', err);
+      window.open(whatsappUrl, '_blank');
+      setStatusNotice('Opened WhatsApp chat. Please attach the document.');
+    } finally {
+      setIsExportingPdf(false);
+    }
+  };
+
+  const hasPdfSupport = !!(pdfElement || pdfElementId);
+
   return (
-    <div className="fixed inset-0 z-50 flex items-center justify-center p-3 sm:p-4 bg-black/80 backdrop-blur-xs">
+    <div className="fixed inset-0 z-50 flex items-center justify-center p-3 sm:p-4 bg-black/80 backdrop-blur-xs animate-in fade-in">
       <div className="bg-zinc-900 border border-emerald-500/40 rounded-2xl w-full max-w-lg p-5 sm:p-6 space-y-4 text-xs shadow-2xl">
+        
+        {/* Header */}
         <div className="flex items-center justify-between border-b border-zinc-800 pb-3">
           <div className="flex items-center gap-2.5">
             <div className="w-8 h-8 rounded-lg bg-emerald-500/20 text-emerald-400 flex items-center justify-center border border-emerald-500/30">
@@ -52,7 +173,9 @@ export const WhatsAppSendModal: React.FC<WhatsAppSendModalProps> = ({
             </div>
             <div>
               <h3 className="text-sm font-bold text-zinc-100">{title}</h3>
-              <p className="text-[11px] text-zinc-400">Directly send to any WhatsApp number</p>
+              <p className="text-[11px] text-zinc-400">
+                {hasPdfSupport ? 'Send PDF document or message directly to WhatsApp' : 'Directly send to any WhatsApp number'}
+              </p>
             </div>
           </div>
           <button
@@ -62,6 +185,47 @@ export const WhatsAppSendModal: React.FC<WhatsAppSendModalProps> = ({
             <X size={18} />
           </button>
         </div>
+
+        {/* PDF Document Attachment Badge */}
+        {hasPdfSupport && (
+          <div className="flex items-center justify-between p-2.5 rounded-xl bg-zinc-950 border border-emerald-500/30 text-zinc-300">
+            <div className="flex items-center gap-2">
+              <div className="p-1.5 rounded-lg bg-red-500/10 text-red-400 border border-red-500/20">
+                <FileText size={16} />
+              </div>
+              <div>
+                <p className="font-semibold text-zinc-100 text-[11px] flex items-center gap-1.5">
+                  <span>{pdfFilename}.pdf</span>
+                  <span className="px-1.5 py-0.2 rounded-full bg-emerald-500/20 text-emerald-400 text-[9px] font-bold uppercase tracking-wider">
+                    PDF Attached
+                  </span>
+                </p>
+                <p className="text-[10px] text-zinc-400">
+                  Exact print-layout {documentType} document will be delivered to WhatsApp
+                </p>
+              </div>
+            </div>
+
+            <button
+              type="button"
+              onClick={handleDownloadOnly}
+              disabled={isExportingPdf}
+              className="flex items-center gap-1 px-2.5 py-1.5 bg-zinc-800 hover:bg-zinc-700 text-zinc-300 rounded-lg text-[11px] font-medium transition-colors cursor-pointer shrink-0 disabled:opacity-50"
+              title="Download PDF copy"
+            >
+              <Download size={12} />
+              <span>Save PDF</span>
+            </button>
+          </div>
+        )}
+
+        {/* Status Notice Banner */}
+        {statusNotice && (
+          <div className="p-3 rounded-xl bg-emerald-950/70 border border-emerald-500/40 text-emerald-200 text-xs flex items-start gap-2">
+            <CheckCircle2 size={16} className="text-emerald-400 shrink-0 mt-0.5" />
+            <span className="leading-snug">{statusNotice}</span>
+          </div>
+        )}
 
         {/* WhatsApp Phone Number Input */}
         <div className="space-y-1.5">
@@ -78,7 +242,7 @@ export const WhatsAppSendModal: React.FC<WhatsAppSendModalProps> = ({
             autoFocus
           />
           <p className="text-[10px] text-zinc-500">
-            You can type any mobile or WhatsApp number. Format: 017... or +880...
+            Type any mobile or WhatsApp number. Format: 017... or +880...
           </p>
         </div>
 
@@ -96,7 +260,7 @@ export const WhatsAppSendModal: React.FC<WhatsAppSendModalProps> = ({
             </button>
           </div>
           <textarea
-            rows={8}
+            rows={hasPdfSupport ? 5 : 7}
             value={message}
             onChange={(e) => setMessage(e.target.value)}
             className="w-full bg-zinc-950 border border-zinc-800 rounded-lg p-3 text-zinc-300 font-mono text-[11px] leading-relaxed focus:outline-none focus:border-zinc-700 resize-none"
@@ -104,28 +268,55 @@ export const WhatsAppSendModal: React.FC<WhatsAppSendModalProps> = ({
         </div>
 
         {/* Action Buttons */}
-        <div className="flex items-center justify-between pt-2 border-t border-zinc-800">
+        <div className="flex flex-col sm:flex-row items-center justify-between pt-2 border-t border-zinc-800 gap-2.5">
           <button
             type="button"
             onClick={onClose}
-            className="px-4 py-2 bg-zinc-800 hover:bg-zinc-700 text-zinc-300 rounded-lg transition-colors cursor-pointer"
+            className="w-full sm:w-auto px-4 py-2 bg-zinc-800 hover:bg-zinc-700 text-zinc-300 rounded-lg transition-colors cursor-pointer text-center"
           >
             Close
           </button>
 
-          <div className="flex items-center gap-2">
+          <div className="flex items-center gap-2 w-full sm:w-auto justify-end">
+            {/* Primary Action 1: Send PDF via WhatsApp */}
+            {hasPdfSupport && (
+              <button
+                type="button"
+                onClick={handleSendPdfToWhatsApp}
+                disabled={isExportingPdf}
+                className="flex-1 sm:flex-initial inline-flex items-center justify-center gap-2 px-4 py-2 bg-emerald-600 hover:bg-emerald-500 text-white font-bold rounded-lg shadow-md hover:shadow-emerald-900/30 transition-all cursor-pointer text-xs disabled:opacity-50"
+              >
+                {isExportingPdf ? (
+                  <>
+                    <Loader2 size={14} className="animate-spin" />
+                    <span>Preparing PDF...</span>
+                  </>
+                ) : (
+                  <>
+                    <Share2 size={14} />
+                    <span>Send PDF to WhatsApp</span>
+                  </>
+                )}
+              </button>
+            )}
+
+            {/* Primary Action 2: Send Text Only Link */}
             <a
               href={whatsappUrl}
               target="_blank"
               rel="noopener noreferrer"
               onClick={() => {
-                // Keep modal open or close after brief delay
                 setTimeout(onClose, 500);
               }}
-              className="inline-flex items-center gap-2 px-5 py-2 bg-emerald-600 hover:bg-emerald-500 text-white font-bold rounded-lg shadow-md hover:shadow-emerald-900/30 transition-all cursor-pointer text-xs"
+              className={`flex-1 sm:flex-initial inline-flex items-center justify-center gap-1.5 px-3 py-2 ${
+                hasPdfSupport
+                  ? 'bg-zinc-800 hover:bg-zinc-700 text-zinc-300'
+                  : 'bg-emerald-600 hover:bg-emerald-500 text-white'
+              } font-bold rounded-lg transition-all cursor-pointer text-xs text-center`}
+              title="Open WhatsApp with text summary"
             >
-              <Send size={14} />
-              <span>Send via WhatsApp</span>
+              <Send size={13} />
+              <span>{hasPdfSupport ? 'Text Only' : 'Send via WhatsApp'}</span>
             </a>
           </div>
         </div>

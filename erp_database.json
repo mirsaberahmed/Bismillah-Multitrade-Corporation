@@ -483,6 +483,69 @@
       "remarks": "",
       "createdAt": "2026-10-12",
       "updatedAt": "2026-10-12"
+    },
+    {
+      "id": "inv-1791724817189",
+      "invoiceNumber": "INV-2026-161425",
+      "invoiceDate": "2026-10-11",
+      "dueDate": "",
+      "customerId": "cust-1791717088439",
+      "customerName": "MIR SABER AHMED AKIL",
+      "companyName": "",
+      "customerPhone": "01700969393",
+      "customerEmail": "",
+      "customerAddress": "House:429, Block:D, Road No:7, Bashundhara Residential Area, Dhaka-1229, Bangladesh",
+      "customerBin": "",
+      "customerTin": "",
+      "poNumber": "",
+      "referenceNumber": "",
+      "paymentTerms": "1 Days Credit",
+      "salesPerson": "Executive ",
+      "currency": "BDT",
+      "exchangeRate": 1,
+      "items": [
+        {
+          "id": "item-1791724756494",
+          "productId": "prod-burmis-pain-relief",
+          "productName": "PAIN RELIEF BALM",
+          "description": "",
+          "hsCode": "",
+          "quantity": 600,
+          "unit": "Pcs",
+          "unitPrice": 0,
+          "discountType": "fixed",
+          "discountValue": 0,
+          "vatRate": 0,
+          "taxRate": 0,
+          "amount": 0
+        }
+      ],
+      "subtotal": 0,
+      "itemDiscount": 0,
+      "overallDiscount": 0,
+      "vatAmount": 0,
+      "taxAmount": 0,
+      "aitAmount": 0,
+      "shippingCharge": 0,
+      "transportCharge": 0,
+      "loadingCharge": 0,
+      "otherCharge": 0,
+      "previousDue": 0,
+      "roundAdjustment": 0,
+      "grandTotal": 0,
+      "paidAmount": 0,
+      "balanceDue": 0,
+      "amountInWords": "Zero Taka Only.",
+      "showPaymentDetails": false,
+      "paymentStatus": "Unpaid",
+      "deliveryStatus": "Delivered",
+      "deliverySlipIds": [
+        "ds-1791724875462"
+      ],
+      "paymentIds": [],
+      "remarks": "",
+      "createdAt": "2026-10-11",
+      "updatedAt": "2026-10-11"
     }
   ],
   "deliverySlips": [
@@ -647,6 +710,60 @@
       "createdBy": "Administrator",
       "createdAt": "2026-10-12",
       "updatedAt": "2026-10-12"
+    },
+    {
+      "id": "ds-1791724875462",
+      "deliverySlipNumber": "DS-2026-4701",
+      "invoiceId": "inv-1791724817189",
+      "invoiceNumber": "INV-2026-161425",
+      "deliveryDate": "2026-10-11",
+      "customerId": "cust-1791717088439",
+      "customerName": "MIR SABER AHMED AKIL",
+      "companyName": "",
+      "contactPerson": "MIR SABER AHMED AKIL",
+      "phone": "01700969393",
+      "deliveryAddress": "House:429, Block:D, Road No:7, Bashundhara Residential Area, Dhaka-1229, Bangladesh",
+      "shippingAddress": "House:429, Block:D, Road No:7, Bashundhara Residential Area, Dhaka-1229, Bangladesh",
+      "vehicleNumber": "",
+      "driverName": "",
+      "driverPhone": "",
+      "deliveryPerson": "Administrator",
+      "deliveryMethod": "Own Pickup van",
+      "warehouse": "Mirpur Central Depot, Dhaka",
+      "poNumber": "",
+      "remarks": "",
+      "deliveryInstructions": "",
+      "totalBoxes": "",
+      "totalWeight": "",
+      "receivedBy": "MR.AKIL",
+      "receiverName": "MR.AKIL",
+      "receiverPhone": "01886969393",
+      "receiverDesignation": "Customer Representative",
+      "receivedDate": "2026-10-11",
+      "items": [
+        {
+          "id": "ds-item-1791724875462-gcf",
+          "invoiceItemId": "item-1791724756494",
+          "productId": "prod-burmis-pain-relief",
+          "productName": "PAIN RELIEF BALM",
+          "description": "",
+          "unit": "Pcs",
+          "orderedQuantity": 600,
+          "previouslyDelivered": 0,
+          "deliveredQuantity": 600,
+          "remainingQuantity": 0,
+          "boxCount": "3",
+          "boxes": "3",
+          "weight": "79gm",
+          "unitPrice": 0,
+          "amount": 0,
+          "remarks": ""
+        }
+      ],
+      "deliveryStatus": "Delivered",
+      "createdBy": "Administrator",
+      "createdAt": "2026-10-11",
+      "updatedAt": "2026-10-11"
     }
   ],
   "deliveryReturns": [],
@@ -663,22 +780,6 @@
   "shipments": [],
   "payments": [],
   "expenses": [
-    {
-      "id": "exp-1791842788306",
-      "expenseNumber": "EXPNS-2026-0004",
-      "voucherNumber": "EXPNS-2026-0004",
-      "date": "2026-10-07",
-      "expenseDate": "2026-10-07",
-      "category": "MASUM",
-      "amount": 10000,
-      "currency": "BDT",
-      "paymentMethod": "Cash",
-      "paidTo": "10000",
-      "referenceNumber": "",
-      "notes": "",
-      "approvedBy": "Managing Director",
-      "createdAt": "2026-10-13"
-    },
     {
       "id": "exp-1791842421078",
       "expenseNumber": "EXPNS-2026-0003",
@@ -874,35 +975,6 @@
   ],
   "users": [
     {
-      "id": "usr-admin",
-      "name": "Super Admin",
-      "fullName": "Super Admin",
-      "username": "admin",
-      "email": "admin@bismillah.com",
-      "phone": "+880 1400967693",
-      "employeeId": "EMP-001",
-      "department": "Management",
-      "designation": "Managing Director",
-      "role": "Super Admin",
-      "status": "Active",
-      "active": true,
-      "permissions": [
-        "All Modules",
-        "Manage Users",
-        "Approve Registrations",
-        "Assign Roles",
-        "Manage Permissions",
-        "View Financial Reports",
-        "Manage Settings",
-        "Access Audit Logs"
-      ],
-      "registeredAt": "2026-01-01",
-      "approvedAt": "2026-01-01",
-      "approvedBy": "System",
-      "lastLoginAt": "2026-10-14 09:30 AM",
-      "createdAt": "2026-01-01"
-    },
-    {
       "id": "usr-1791973416236",
       "name": "AKIL",
       "fullName": "AKIL",
@@ -923,39 +995,76 @@
       "approvedAt": "2026-10-14T10:23:36.236Z",
       "approvedBy": "Zia Ahmed",
       "createdAt": "2026-10-14T10:23:36.236Z"
+    },
+    {
+      "id": "usr-admin",
+      "name": "Super Admin",
+      "fullName": "Super Admin",
+      "username": "admin",
+      "email": "admin@bismillah.com",
+      "phone": "+880 1400967693",
+      "employeeId": "EMP-001",
+      "department": "Management",
+      "designation": "Managing Director",
+      "role": "Super Admin",
+      "status": "Suspended",
+      "active": false,
+      "permissions": [
+        "All Modules",
+        "Manage Users",
+        "Approve Registrations",
+        "Assign Roles",
+        "Manage Permissions",
+        "View Financial Reports",
+        "Manage Settings",
+        "Access Audit Logs"
+      ],
+      "registeredAt": "2026-01-01",
+      "approvedAt": "2026-01-01",
+      "approvedBy": "System",
+      "lastLoginAt": "2026-10-14 09:30 AM",
+      "createdAt": "2026-01-01"
     }
   ],
   "activityLogs": [
     {
-      "id": "act-1791984636713-c08g",
-      "user": "Super Admin",
-      "action": "Supplier Updated",
-      "date": "2026-10-14",
-      "time": "07:30 PM",
-      "details": "Updated supplier: MASUM BHAI"
-    },
-    {
-      "id": "act-1791984587675-vyny",
-      "user": "Super Admin",
-      "action": "Supplier Updated",
-      "date": "2026-10-14",
-      "time": "07:29 PM",
-      "details": "Updated supplier: RAJJAK UNCLE"
-    },
-    {
-      "id": "act-1791983941107-qc12",
+      "id": "act-1791987246607-00z7",
       "user": "AKIL",
       "action": "User Deleted",
       "date": "2026-10-14",
-      "time": "07:19 PM",
+      "time": "08:14 PM",
       "details": "Super Admin deleted user account admin"
     },
     {
-      "id": "act-1791983867791-qouk",
+      "id": "act-1791987243294-xvmg",
+      "user": "AKIL",
+      "action": "Status Changed",
+      "date": "2026-10-14",
+      "time": "08:14 PM",
+      "details": "Changed status for user ID usr-admin to Suspended"
+    },
+    {
+      "id": "act-1791987222126-d92g",
       "user": "Super Admin",
       "action": "Successful Login",
       "date": "2026-10-14",
-      "time": "07:17 PM",
+      "time": "08:13 PM",
+      "details": "User akil (AKIL) logged in"
+    },
+    {
+      "id": "act-1791987138924-kbnm",
+      "user": "Super Admin",
+      "action": "Successful Login",
+      "date": "2026-10-14",
+      "time": "08:12 PM",
+      "details": "User akil (AKIL) logged in"
+    },
+    {
+      "id": "act-1791986992834-qad8",
+      "user": "Super Admin",
+      "action": "Successful Login",
+      "date": "2026-10-14",
+      "time": "08:09 PM",
       "details": "User akil (AKIL) logged in"
     },
     {
@@ -1004,7 +1113,7 @@
       "action": "Invoice Created",
       "date": "2026-09-25",
       "time": "05:45 PM",
-      "details": "Created invoice INV-2026-0025 for MIR SABER AHMED AKIL (Grand Total: ৳283,340)"
+      "details": "Created invoice INV-2026-0025 for MIR SABER AHMED AKIL (Grand Total: \u09f3283,340)"
     },
     {
       "id": "act-1790371162213-2132",
@@ -1052,7 +1161,7 @@
       "action": "Invoice Created",
       "date": "2026-09-26",
       "time": "03:16 AM",
-      "details": "Created invoice INV-2026-0001 for MD HASAN (Grand Total: ৳170,004)"
+      "details": "Created invoice INV-2026-0001 for MD HASAN (Grand Total: \u09f3170,004)"
     },
     {
       "id": "act-1790370490478-9ao6",
@@ -1100,7 +1209,7 @@
       "action": "Invoice Created",
       "date": "2026-09-26",
       "time": "02:54 AM",
-      "details": "Created invoice INV-2026-0000 for MIR AKIL (Grand Total: ৳170,004)"
+      "details": "Created invoice INV-2026-0000 for MIR AKIL (Grand Total: \u09f3170,004)"
     },
     {
       "id": "act-1790369502844-qcps",
@@ -1140,7 +1249,7 @@
       "action": "Invoice Created",
       "date": "2026-09-26",
       "time": "02:48 AM",
-      "details": "Created invoice INV-2026-0000 for NANA (Grand Total: ৳170,004)"
+      "details": "Created invoice INV-2026-0000 for NANA (Grand Total: \u09f3170,004)"
     },
     {
       "id": "act-1790369056894-5ftn",
@@ -1188,7 +1297,7 @@
       "action": "Invoice Created",
       "date": "2026-09-26",
       "time": "02:22 AM",
-      "details": "Created invoice INV-2026-0000 for Mir Saber Ahmed Akil (Grand Total: ৳170,004)"
+      "details": "Created invoice INV-2026-0000 for Mir Saber Ahmed Akil (Grand Total: \u09f3170,004)"
     },
     {
       "id": "act-1791977206285-0x5n",
@@ -1236,7 +1345,7 @@
       "action": "Invoice Created",
       "date": "2026-10-11",
       "time": "07:20 PM",
-      "details": "Created invoice INV-2026-161425 for MIR SABER AHMED AKIL (Grand Total: ৳0)"
+      "details": "Created invoice INV-2026-161425 for MIR SABER AHMED AKIL (Grand Total: \u09f30)"
     },
     {
       "id": "act-1791717496839-mgoq",
@@ -1348,7 +1457,7 @@
       "action": "Invoice Created",
       "date": "2026-10-11",
       "time": "05:00 PM",
-      "details": "Created invoice INV-2026-161423 for MUAJ AHMED (Grand Total: ৳14,000.4)"
+      "details": "Created invoice INV-2026-161423 for MUAJ AHMED (Grand Total: \u09f314,000.4)"
     },
     {
       "id": "act-1791716302976-nuv0",
@@ -1380,7 +1489,7 @@
       "action": "Invoice Created",
       "date": "2026-10-11",
       "time": "04:56 PM",
-      "details": "Created invoice INV-2026-161422 for MD HASAN (Grand Total: ৳195,600)"
+      "details": "Created invoice INV-2026-161422 for MD HASAN (Grand Total: \u09f3195,600)"
     },
     {
       "id": "act-1791716006323-dowi",
@@ -1501,14 +1610,6 @@
       "date": "2026-10-13",
       "time": "04:08 AM",
       "details": "Updated invoice INV-2026-161422"
-    },
-    {
-      "id": "act-1791842788306-xiza",
-      "user": "Administrator",
-      "action": "Expense Recorded",
-      "date": "2026-10-13",
-      "time": "04:06 AM",
-      "details": "Recorded MASUM expense of BDT 10,000 (EXPNS-2026-0004)"
     },
     {
       "id": "act-1791842626472-ebge",
@@ -1692,7 +1793,7 @@
       "action": "Invoice Created",
       "date": "2026-10-12",
       "time": "07:09 PM",
-      "details": "Created invoice INV-2026-161424 for MUAJ AHMED (Grand Total: ৳42,800)"
+      "details": "Created invoice INV-2026-161424 for MUAJ AHMED (Grand Total: \u09f342,800)"
     },
     {
       "id": "act-1791748917186-ehf3",
@@ -1797,7 +1898,135 @@
       "date": "2026-10-14",
       "time": "03:54 PM",
       "details": "Deleted invoice INV-2026-161425"
+    },
+    {
+      "id": "act-1791984636713-c08g",
+      "user": "Super Admin",
+      "action": "Supplier Updated",
+      "date": "2026-10-14",
+      "time": "07:30 PM",
+      "details": "Updated supplier: MASUM BHAI"
+    },
+    {
+      "id": "act-1791984587675-vyny",
+      "user": "Super Admin",
+      "action": "Supplier Updated",
+      "date": "2026-10-14",
+      "time": "07:29 PM",
+      "details": "Updated supplier: RAJJAK UNCLE"
+    },
+    {
+      "id": "act-1791983941107-qc12",
+      "user": "AKIL",
+      "action": "User Deleted",
+      "date": "2026-10-14",
+      "time": "07:19 PM",
+      "details": "Super Admin deleted user account admin"
+    },
+    {
+      "id": "act-1791983867791-qouk",
+      "user": "Super Admin",
+      "action": "Successful Login",
+      "date": "2026-10-14",
+      "time": "07:17 PM",
+      "details": "User akil (AKIL) logged in"
+    },
+    {
+      "id": "act-1791988452325-26a7",
+      "user": "Super Admin",
+      "action": "Successful Login",
+      "date": "2026-10-14",
+      "time": "08:34 PM",
+      "details": "User akil (AKIL) logged in"
+    },
+    {
+      "id": "act-1791988441508-13bb",
+      "user": "Super Admin",
+      "action": "Status Changed",
+      "date": "2026-10-14",
+      "time": "08:34 PM",
+      "details": "Changed status for user ID usr-admin to Suspended"
+    },
+    {
+      "id": "act-1791988408642-arx1",
+      "user": "AKIL",
+      "action": "Successful Login",
+      "date": "2026-10-14",
+      "time": "08:33 PM",
+      "details": "User admin (Super Admin) logged in"
+    },
+    {
+      "id": "act-1791988353665-29hj",
+      "user": "Super Admin",
+      "action": "Successful Login",
+      "date": "2026-10-14",
+      "time": "08:32 PM",
+      "details": "User admin (Super Admin) logged in"
+    },
+    {
+      "id": "act-1791988283115-nn0q",
+      "user": "Super Admin",
+      "action": "Successful Login",
+      "date": "2026-10-14",
+      "time": "08:31 PM",
+      "details": "User akil (AKIL) logged in"
+    },
+    {
+      "id": "act-1791988223607-vjwj",
+      "user": "AKIL",
+      "action": "Failed Login",
+      "date": "2026-10-14",
+      "time": "08:30 PM",
+      "details": "Failed login attempt for identifier: hasan"
+    },
+    {
+      "id": "act-1791988210725-pflw",
+      "user": "AKIL",
+      "action": "Successful Login",
+      "date": "2026-10-14",
+      "time": "08:30 PM",
+      "details": "User akil (AKIL) logged in"
+    },
+    {
+      "id": "act-1791988197809-6u3s",
+      "user": "AKIL",
+      "action": "Successful Login",
+      "date": "2026-10-14",
+      "time": "08:29 PM",
+      "details": "User akil (AKIL) logged in"
+    },
+    {
+      "id": "act-1791988188725-16ls",
+      "user": "AKIL",
+      "action": "Successful Login",
+      "date": "2026-10-14",
+      "time": "08:29 PM",
+      "details": "User akil (AKIL) logged in"
+    },
+    {
+      "id": "act-1791988177441-r8vy",
+      "user": "AKIL",
+      "action": "Password Reset",
+      "date": "2026-10-14",
+      "time": "08:29 PM",
+      "details": "Password reset executed for mirsaberahmed75@gmail.com"
+    },
+    {
+      "id": "act-1791987713858-rq20",
+      "user": "Super Admin",
+      "action": "Successful Login",
+      "date": "2026-10-14",
+      "time": "08:21 PM",
+      "details": "User akil (AKIL) logged in"
+    },
+    {
+      "id": "act-1791987666775-0upy",
+      "user": "Super Admin",
+      "action": "Successful Login",
+      "date": "2026-10-14",
+      "time": "08:21 PM",
+      "details": "User admin (Super Admin) logged in"
     }
   ],
-  "updatedAtServer": "2026-10-14T13:43:27.580Z"
+  "updatedAtServer": "2026-10-15T10:29:00.157Z"
 }

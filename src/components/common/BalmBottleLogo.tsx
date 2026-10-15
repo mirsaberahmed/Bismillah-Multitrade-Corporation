@@ -1,11 +1,12 @@
 import React from 'react';
 
 interface BalmBottleLogoProps {
-  size?: number;
+  size?: number | string;
   className?: string;
+  style?: React.CSSProperties;
 }
 
-export const BalmBottleLogo: React.FC<BalmBottleLogoProps> = ({ size = 32, className = '' }) => {
+export const BalmBottleLogo: React.FC<BalmBottleLogoProps> = ({ size = 32, className = '', style }) => {
   return (
     <svg
       width={size}
@@ -14,6 +15,7 @@ export const BalmBottleLogo: React.FC<BalmBottleLogoProps> = ({ size = 32, class
       fill="none"
       xmlns="http://www.w3.org/2000/svg"
       className={className}
+      style={style}
     >
       <defs>
         {/* Amber Glass Body Gradient */}

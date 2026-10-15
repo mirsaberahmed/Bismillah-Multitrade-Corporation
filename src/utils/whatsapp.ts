@@ -1,4 +1,4 @@
-import { SalesInvoice, DeliverySlip, Quotation, DeliverySlipItem, InvoiceItem } from '../types';
+import { SalesInvoice, DeliverySlip, Quotation, DeliverySlipItem, InvoiceItem, ExpenseRecord } from '../types';
 
 /**
  * Standardize phone number for WhatsApp wa.me links
@@ -174,6 +174,43 @@ export function generateQuotationWhatsAppText(qt: Quotation, companyName = 'Busi
 
   lines.push(`────────────────────`);
   lines.push(`For inquiries or to confirm this quotation, please reply to this message.`);
+
+  return lines.join('\n');
+}
+
+/**
+ * Generate formatted text message for an Expense Sheet / Operating Voucher
+ */
+export function generateExpenseWhatsAppText(expense: ExpenseRecord, companyName = 'Bismillah Multitrade Corporation'): string {
+  const currency = expense.currency || 'BDT';
+  const lines: string[] = [];
+  const voucherNo = expense.expenseNumber || expense.voucherNumber || expense.id;
+
+  lines.push(`*EXPENSE VOUCHER: ${voucherNo}*`);
+  lines.push(`*${companyName}*`);
+  lines.push(`────────────────────`);
+  if (expense.paidTo) lines.push(`Paid To: *${expense.paidTo}*`);
+  lines.push(`Date: ${expense.expenseDate || expense.date || ''}`);
+  lines.push(`Category: ${expense.category}`);
+  lines.push(`Payment Method: ${expense.paymentMethod}`);
+  if (expense.approvedBy) lines.push(`Approved By: ${expense.approvedBy}`);
+  lines.push(`────────────────────`);
+
+  if (expense.items && expense.items.length > 0) {
+    lines.push(`*EXPENSE BREAKDOWN & PARTICULARS:*`);
+    expense.items.forEach((item, index) => {
+      lines.push(
+        `${index + 1}. ${item.particulars} × ${item.quantity} ${item.unit || 'units'} @ ${currency} ${Number(item.unitPrice).toLocaleString()} = ${currency} ${Number(item.amount).toLocaleString()}`
+      );
+    });
+    lines.push(`────────────────────`);
+  } else if (expense.description) {
+    lines.push(`Particulars: ${expense.description}`);
+    lines.push(`────────────────────`);
+  }
+
+  lines.push(`*TOTAL SETTLED AMOUNT: ${currency} ${Number(expense.amount || 0).toLocaleString()}*`);
+  lines.push(`Status: PAID & SETTLED`);
 
   return lines.join('\n');
 }

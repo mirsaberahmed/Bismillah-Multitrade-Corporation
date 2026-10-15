@@ -1,0 +1,51 @@
+[
+  {
+    "id": "usr-1791973416236",
+    "fullName": "AKIL",
+    "username": "akil",
+    "email": "mirsaberahmed75@gmail.com",
+    "phone": "01700969393",
+    "employeeId": "EMP-0001",
+    "department": "Administration",
+    "designation": "Executive",
+    "role": "Super Admin",
+    "passwordHash": "01fb86ee7d97254e266c294721794b1872a33f387d7f5d8a2786cc42a81437b75546aeb210c6de1297d4a79e49c21dbac42d6f80b330c2d48f3537574cb87253",
+    "passwordSalt": "1e49f93f2d9cc31a44ea60be2aea5266",
+    "biometricEnrolled": true,
+    "createdAt": "2026-10-14T10:23:36.236Z",
+    "biometricCredentialId": "bio-cred-akil"
+  },
+  {
+    "id": "usr-admin",
+    "fullName": "Super Admin",
+    "username": "admin",
+    "email": "admin@bismillah.com",
+    "phone": "+880 1400967693",
+    "employeeId": "EMP-001",
+    "department": "Management",
+    "designation": "Managing Director",
+    "role": "Super Admin",
+    "passwordHash": "79d728f2223f4000f66d021855e0167a0439731214fb4d0771ade6745bc569540f1d2a61795f28116359cdb320a8a5c0652a62d98519ff09304cde1f48eb5aaf",
+    "passwordSalt": "2ea2ec7180f7e1e1a82dccd6b48caa1e",
+    "biometricEnrolled": true,
+    "createdAt": "2026-01-01",
+    "biometricCredentialId": "bio-cred-admin"
+  },
+  {
+    "id": "usr-1792060938449-16bfbe00",
+    "fullName": "Sultana Enterprise",
+    "username": "sultana",
+    "email": "sultana_business@testcorp.com",
+    "phone": "",
+    "employeeId": "EMP-3",
+    "department": "General",
+    "designation": "Operations Officer",
+    "role": "Business Manager",
+    "passwordHash": "9855de5d1d96432ee4ff5591c6bd637fa35d88b5cbc243bee38e2bec0d4320234007a1c1807808ddf2c14f346c60d5ad4b4bf995b2c12a796e64c4f17e24e27a",
+    "passwordSalt": "8441ec250d124d7e11c6354eda10f809",
+    "biometricEnrolled": true,
+    "createdAt": "2026-10-15T10:42:18.449Z",
+    "lastLoginAt": "2026-10-15T10:42:18.449Z",
+    "biometricCredentialId": "bio-cred-sultana"
+  }
+]

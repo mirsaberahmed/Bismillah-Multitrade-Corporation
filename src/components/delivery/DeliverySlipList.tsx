@@ -329,16 +329,36 @@ export const DeliverySlipList: React.FC<Props> = ({ onSelectInvoice }) => {
         onClose={() => setSlipToDelete(null)}
       />
 
-      {/* WhatsApp Direct Send Modal */}
+      {/* WhatsApp Direct Send Modal with PDF attachment support */}
       {whatsAppSlip && (
-        <WhatsAppSendModal
-          isOpen={true}
-          onClose={() => setWhatsAppSlip(null)}
-          title={`Send Delivery Challan #${whatsAppSlip.deliverySlipNumber} via WhatsApp`}
-          defaultPhone={whatsAppSlip.receiverPhone || whatsAppSlip.phone || ''}
-          initialMessage={generateDeliverySlipWhatsAppText(whatsAppSlip, settings?.companyName || 'Bismillah Multitrade Corporation')}
-          recipientLabel="Receiver / Customer WhatsApp Phone"
-        />
+        <>
+          <div
+            id={`list-printable-slip-${whatsAppSlip.id}`}
+            style={{
+              position: 'fixed',
+              left: '-9999px',
+              top: '0',
+              width: '800px',
+              backgroundColor: '#ffffff',
+              zIndex: -100,
+              pointerEvents: 'none'
+            }}
+          >
+            <PrintableDeliverySlip deliverySlip={whatsAppSlip} settings={settings} />
+          </div>
+
+          <WhatsAppSendModal
+            isOpen={true}
+            onClose={() => setWhatsAppSlip(null)}
+            title={`Send Delivery Challan #${whatsAppSlip.deliverySlipNumber} via WhatsApp`}
+            defaultPhone={whatsAppSlip.receiverPhone || whatsAppSlip.phone || ''}
+            initialMessage={generateDeliverySlipWhatsAppText(whatsAppSlip, settings?.companyName || 'Bismillah Multitrade Corporation')}
+            recipientLabel="Receiver / Customer WhatsApp Phone"
+            pdfElementId={`list-printable-slip-${whatsAppSlip.id}`}
+            pdfFilename={`Delivery-Slip-${whatsAppSlip.deliverySlipNumber}`}
+            documentType="Delivery Slip"
+          />
+        </>
       )}
     </div>
   );

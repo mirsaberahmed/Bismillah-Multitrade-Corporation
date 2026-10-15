@@ -623,6 +623,9 @@ export const DeliverySlipModal: React.FC<Props> = ({
           title={`Send Delivery Challan #${slip.deliverySlipNumber} to WhatsApp`}
           defaultPhone={slip.receiverPhone || slip.phone || ''}
           initialMessage={generateDeliverySlipWhatsAppText(slip, settings?.companyName || 'Bismillah Multitrade Corporation')}
+          pdfElementId={`modal-printable-slip-${slip.id}`}
+          pdfFilename={`Delivery-Slip-${slip.deliverySlipNumber}`}
+          documentType="Delivery Slip"
         />
       )}
     </div>
