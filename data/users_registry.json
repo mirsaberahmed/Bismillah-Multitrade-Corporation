@@ -13,7 +13,8 @@
     "passwordSalt": "1e49f93f2d9cc31a44ea60be2aea5266",
     "biometricEnrolled": true,
     "createdAt": "2026-10-14T10:23:36.236Z",
-    "biometricCredentialId": "bio-cred-akil"
+    "biometricCredentialId": "bio-cred-akil",
+    "lastLoginAt": "2026-10-16T17:45:35.761Z"
   },
   {
     "id": "usr-admin",
@@ -29,7 +30,8 @@
     "passwordSalt": "2ea2ec7180f7e1e1a82dccd6b48caa1e",
     "biometricEnrolled": true,
     "createdAt": "2026-01-01",
-    "biometricCredentialId": "bio-cred-admin"
+    "biometricCredentialId": "bio-cred-admin",
+    "lastLoginAt": "2026-10-16T17:45:23.342Z"
   },
   {
     "id": "usr-1792060938449-16bfbe00",

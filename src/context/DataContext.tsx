@@ -143,6 +143,8 @@ interface DataContextType {
   
   // Finance
   recordPayment: (payment: PaymentRecord) => void;
+  updatePayment: (payment: PaymentRecord) => void;
+  deletePayment: (id: string) => boolean;
   saveExpense: (expense: ExpenseRecord) => void;
   deleteExpense: (id: string) => boolean;
   
@@ -440,27 +442,16 @@ export const DataProvider: React.FC<{ children: React.ReactNode }> = ({ children
   const lastSyncedJsonRef = useRef<Record<string, string>>({});
 
   const mergeById = <T extends { id: string }>(
-    cloudArr: T[] | undefined,
-    serverArr: T[] | undefined,
-    localArr: T[]
+    ...arrays: (T[] | undefined)[]
   ): T[] => {
     const map = new Map<string, T>();
-    // Put local items first, then server items, then cloud (Firestore) items so cloud is authoritative
-    if (Array.isArray(localArr)) {
-      localArr.forEach(item => {
-        if (item && item.id) map.set(item.id, item);
-      });
-    }
-    if (Array.isArray(serverArr)) {
-      serverArr.forEach(item => {
-        if (item && item.id) map.set(item.id, item);
-      });
-    }
-    if (Array.isArray(cloudArr)) {
-      cloudArr.forEach(item => {
-        if (item && item.id) map.set(item.id, item);
-      });
-    }
+    arrays.forEach(arr => {
+      if (Array.isArray(arr)) {
+        arr.forEach(item => {
+          if (item && item.id) map.set(item.id, item);
+        });
+      }
+    });
     return Array.from(map.values());
   };
 
@@ -479,8 +470,24 @@ export const DataProvider: React.FC<{ children: React.ReactNode }> = ({ children
         console.warn('Firestore initial load warning:', e);
       }
 
+      let dbUsers: UserAccount[] = [];
       try {
-        const res = await fetch('/api/state');
+        const uRes = await fetch('/api/users');
+        const uJson = await uRes.json();
+        if (uJson && uJson.ok && Array.isArray(uJson.users)) {
+          dbUsers = uJson.users;
+        }
+      } catch (e) {
+        console.warn('DB Users initial load warning:', e);
+      }
+
+      try {
+        const token = sessionStorage.getItem('bismillah_erp_session_token') || localStorage.getItem('bismillah_erp_session_token');
+        const headers: Record<string, string> = {};
+        if (token) {
+          headers['Authorization'] = `Bearer ${token}`;
+        }
+        const res = await fetch('/api/state', { headers });
         const json = await res.json();
         if (json && json.ok && json.data) {
           serverData = json.data;
@@ -558,7 +565,7 @@ export const DataProvider: React.FC<{ children: React.ReactNode }> = ({ children
       const resolvedPayments = mergeById<PaymentRecord>(firestoreSections.payments, serverData.payments, payments);
       const resolvedExpenses = mergeById<ExpenseRecord>(firestoreSections.expenses, serverData.expenses, expenses);
       const resolvedStockMovements = mergeById<StockMovement>(firestoreSections.stockMovements, serverData.stockMovements, stockMovements);
-      const resolvedUsers = mergeById<UserAccount>(firestoreSections.users, serverData.users, users);
+      const resolvedUsers = mergeById<UserAccount>(dbUsers, firestoreSections.users, serverData.users, users);
       const resolvedActivityLogs = mergeById<ActivityLog>(firestoreSections.activityLogs, serverData.activityLogs, activityLogs).slice(0, 200);
 
       const allResolved: Record<string, any> = {
@@ -1979,8 +1986,20 @@ export const DataProvider: React.FC<{ children: React.ReactNode }> = ({ children
   // Payments & Money Receipts
   const recordPayment = (payment: PaymentRecord) => {
     const isNew = !payments.some(p => p.id === payment.id);
+
+    // Dynamic calculations for Partial vs Full Paid status
+    const inv = payment.invoiceId ? invoices.find(i => i.id === payment.invoiceId) : null;
+    const totalAmt = payment.totalAmount || (inv ? inv.grandTotal : payment.amount);
+    const newPaid = inv ? (inv.paidAmount || 0) + payment.amount : payment.amount;
+    const newDue = inv ? Math.max(0, inv.grandTotal - newPaid) : 0;
+    const cleanStatus: 'Unpaid' | 'Partial' | 'Paid' = newDue <= 0 ? 'Paid' : (newPaid > 0 ? 'Partial' : 'Unpaid');
+
     const fullPayment: PaymentRecord = {
       ...payment,
+      totalAmount: totalAmt,
+      paidAmount: newPaid,
+      dueAmount: newDue,
+      paymentStatus: cleanStatus,
       amountInWords: numberToWordsBDT(payment.amount)
     };
 
@@ -1989,25 +2008,23 @@ export const DataProvider: React.FC<{ children: React.ReactNode }> = ({ children
 
       // If against an invoice, allocate and update invoice status
       if (fullPayment.invoiceId) {
-        setInvoices(prev => prev.map(inv => {
-          if (inv.id === fullPayment.invoiceId) {
-            const newPaid = (inv.paidAmount || 0) + fullPayment.amount;
-            const newDue = Math.max(0, inv.grandTotal - newPaid);
+        setInvoices(prev => prev.map(invItem => {
+          if (invItem.id === fullPayment.invoiceId) {
             let status: PaymentStatus = 'Partially Paid';
-            if (newPaid >= inv.grandTotal) {
+            if (newPaid >= invItem.grandTotal) {
               status = 'Paid';
             } else if (newPaid === 0) {
               status = 'Unpaid';
             }
             return {
-              ...inv,
+              ...invItem,
               paidAmount: newPaid,
               balanceDue: newDue,
               paymentStatus: status,
-              paymentIds: Array.from(new Set([...(inv.paymentIds || []), fullPayment.id]))
+              paymentIds: Array.from(new Set([...(invItem.paymentIds || []), fullPayment.id]))
             };
           }
-          return inv;
+          return invItem;
         }));
       }
 
@@ -2024,10 +2041,106 @@ export const DataProvider: React.FC<{ children: React.ReactNode }> = ({ children
         } : s));
       }
 
-      logActivity('Payment Recorded', `Recorded ${fullPayment.type} of ৳ ${fullPayment.amount.toLocaleString()} (Receipt: ${fullPayment.receiptNumber})`);
+      logActivity('Payment Recorded', `Recorded ${fullPayment.type} of ৳ ${fullPayment.amount.toLocaleString()} (Receipt: ${fullPayment.receiptNumber}, Due: ৳ ${newDue.toLocaleString()})`);
     } else {
       setPayments(prev => prev.map(p => p.id === fullPayment.id ? fullPayment : p));
     }
+  };
+
+  const updatePayment = (updated: PaymentRecord) => {
+    const existing = payments.find(p => p.id === updated.id);
+    if (!existing) return;
+
+    const diff = updated.amount - existing.amount;
+    const inv = updated.invoiceId ? invoices.find(i => i.id === updated.invoiceId) : null;
+    const totalAmt = updated.totalAmount || (inv ? inv.grandTotal : updated.amount);
+    const newPaidForInv = inv ? Math.max(0, (inv.paidAmount || 0) + diff) : updated.amount;
+    const newDueForInv = inv ? Math.max(0, (inv ? inv.grandTotal : totalAmt) - newPaidForInv) : 0;
+    const statusForInv: PaymentStatus = newDueForInv <= 0 ? 'Paid' : (newPaidForInv > 0 ? 'Partially Paid' : 'Unpaid');
+    const paymentStatusClean: 'Unpaid' | 'Partial' | 'Paid' = newDueForInv <= 0 ? 'Paid' : (newPaidForInv > 0 ? 'Partial' : 'Unpaid');
+
+    const formattedPayment: PaymentRecord = {
+      ...updated,
+      totalAmount: totalAmt,
+      paidAmount: newPaidForInv,
+      dueAmount: newDueForInv,
+      paymentStatus: paymentStatusClean,
+      amountInWords: numberToWordsBDT(updated.amount),
+      updatedAt: new Date().toISOString()
+    };
+
+    setPayments(prev => prev.map(p => p.id === updated.id ? formattedPayment : p));
+
+    // Update Invoice if linked
+    if (updated.invoiceId) {
+      setInvoices(prev => prev.map(i => {
+        if (i.id === updated.invoiceId) {
+          return {
+            ...i,
+            paidAmount: newPaidForInv,
+            balanceDue: newDueForInv,
+            paymentStatus: statusForInv
+          };
+        }
+        return i;
+      }));
+    }
+
+    // Update Customer / Supplier balance
+    if (updated.type === 'Customer Collection') {
+      setCustomers(prev => prev.map(c => c.id === updated.entityId ? {
+        ...c,
+        currentBalance: Math.max(0, (c.currentBalance || 0) - diff)
+      } : c));
+    } else {
+      setSuppliers(prev => prev.map(s => s.id === updated.entityId ? {
+        ...s,
+        currentPayable: Math.max(0, (s.currentPayable || 0) - diff)
+      } : s));
+    }
+
+    logActivity('Payment Updated', `Updated Money Receipt ${updated.receiptNumber} amount to ৳ ${updated.amount.toLocaleString()} (Remaining Due: ৳ ${newDueForInv.toLocaleString()})`);
+  };
+
+  const deletePayment = (id: string): boolean => {
+    const existing = payments.find(p => p.id === id);
+    if (!existing) return false;
+
+    // Revert invoice allocations
+    if (existing.invoiceId) {
+      setInvoices(prev => prev.map(inv => {
+        if (inv.id === existing.invoiceId) {
+          const revertedPaid = Math.max(0, (inv.paidAmount || 0) - existing.amount);
+          const revertedDue = Math.max(0, inv.grandTotal - revertedPaid);
+          const revertedStatus: PaymentStatus = revertedDue <= 0 ? 'Paid' : (revertedPaid > 0 ? 'Partially Paid' : 'Unpaid');
+          return {
+            ...inv,
+            paidAmount: revertedPaid,
+            balanceDue: revertedDue,
+            paymentStatus: revertedStatus,
+            paymentIds: (inv.paymentIds || []).filter(pid => pid !== id)
+          };
+        }
+        return inv;
+      }));
+    }
+
+    // Revert Customer or Supplier balances
+    if (existing.type === 'Customer Collection') {
+      setCustomers(prev => prev.map(c => c.id === existing.entityId ? {
+        ...c,
+        currentBalance: (c.currentBalance || 0) + existing.amount
+      } : c));
+    } else {
+      setSuppliers(prev => prev.map(s => s.id === existing.entityId ? {
+        ...s,
+        currentPayable: (s.currentPayable || 0) + existing.amount
+      } : s));
+    }
+
+    setPayments(prev => prev.filter(p => p.id !== id));
+    logActivity('Payment Deleted', `Deleted Money Receipt ${existing.receiptNumber} of ৳ ${existing.amount.toLocaleString()} and reverted ledger balance`);
+    return true;
   };
 
   // Expenses
@@ -2325,6 +2438,8 @@ export const DataProvider: React.FC<{ children: React.ReactNode }> = ({ children
         saveLcRecord,
         saveShipment,
         recordPayment,
+        updatePayment,
+        deletePayment,
         saveExpense,
         deleteExpense,
         saveUser,

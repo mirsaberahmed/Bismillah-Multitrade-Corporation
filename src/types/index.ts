@@ -733,11 +733,16 @@ export interface PaymentRecord {
   transactionReference?: string; // Alias
   invoiceId?: string;
   invoiceNumber?: string;
+  totalAmount?: number; // Total invoice or bill grand total
+  paidAmount?: number; // Cumulative paid amount including this receipt
+  dueAmount?: number; // Remaining balance due after this receipt
+  paymentStatus?: 'Unpaid' | 'Partial' | 'Paid'; // Clean payment status enum
   receivedBy: string;
   collectedBy?: string; // Alias
   authorizedSignature?: string;
   notes?: string;
   createdAt: string;
+  updatedAt?: string;
 }
 
 export type ExpenseCategory =

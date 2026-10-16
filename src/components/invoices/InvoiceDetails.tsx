@@ -41,7 +41,7 @@ import { InvoicePrintModal } from './InvoicePrintModal';
 import { ConfirmModal } from '../common/ConfirmModal';
 import { printElement } from '../../utils/printHelper';
 import { WhatsAppSendModal } from '../common/WhatsAppSendModal';
-import { generateInvoiceWhatsAppText, generateDeliverySlipWhatsAppText } from '../../utils/whatsapp';
+import { generateInvoiceWhatsAppText, generateDeliverySlipWhatsAppText, generateMoneyReceiptWhatsAppText } from '../../utils/whatsapp';
 
 interface Props {
   invoiceId: string;
@@ -124,6 +124,7 @@ export const InvoiceDetails: React.FC<Props> = ({ invoiceId, onBack, onEdit }) =
   const [returnReason, setReturnReason] = useState('');
 
   // WhatsApp Modal State
+  const [selectedPaymentForWhatsApp, setSelectedPaymentForWhatsApp] = useState<PaymentRecord | null>(null);
   const [whatsAppModalProps, setWhatsAppModalProps] = useState<{
     isOpen: boolean;
     title: string;
@@ -131,7 +132,8 @@ export const InvoiceDetails: React.FC<Props> = ({ invoiceId, onBack, onEdit }) =
     message: string;
     pdfElementId?: string;
     pdfFilename?: string;
-    documentType?: string;
+    documentType?: 'Invoice' | 'Delivery Slip' | 'Money Receipt';
+    documentNumber?: string;
   }>({
     isOpen: false,
     title: '',
@@ -139,7 +141,8 @@ export const InvoiceDetails: React.FC<Props> = ({ invoiceId, onBack, onEdit }) =
     message: '',
     pdfElementId: undefined,
     pdfFilename: undefined,
-    documentType: undefined
+    documentType: undefined,
+    documentNumber: undefined
   });
 
   if (!invoice) {
@@ -297,6 +300,11 @@ export const InvoiceDetails: React.FC<Props> = ({ invoiceId, onBack, onEdit }) =
       return;
     }
 
+    const prevPaid = invoice.paidAmount || 0;
+    const newTotalPaid = prevPaid + paymentAmount;
+    const remDue = Math.max(0, invoice.grandTotal - newTotalPaid);
+    const pStatus: 'Paid' | 'Partial' = remDue <= 0 ? 'Paid' : 'Partial';
+
     const newPayment: PaymentRecord = {
       id: 'pay-' + Date.now(),
       receiptNumber: getNextNumber('payment'),
@@ -307,7 +315,11 @@ export const InvoiceDetails: React.FC<Props> = ({ invoiceId, onBack, onEdit }) =
       entityName: invoice.customerName,
       invoiceId: invoice.id,
       invoiceNumber: invoice.invoiceNumber,
+      totalAmount: invoice.grandTotal,
       amount: paymentAmount,
+      paidAmount: newTotalPaid,
+      dueAmount: remDue,
+      paymentStatus: pStatus,
       amountInWords: '',
       currency: invoice.currency,
       paymentMethod: paymentMethod as any,
@@ -321,7 +333,20 @@ export const InvoiceDetails: React.FC<Props> = ({ invoiceId, onBack, onEdit }) =
 
     recordPayment(newPayment);
     setShowPaymentModal(false);
-    alert(`Payment of BDT ${paymentAmount.toLocaleString()} recorded successfully! Money Receipt: ${newPayment.receiptNumber}`);
+
+    // Directly prompt to send Money Receipt to WhatsApp
+    setSelectedPaymentForWhatsApp(newPayment);
+    const receiptText = generateMoneyReceiptWhatsAppText(newPayment, settings?.companyName || 'Bismillah Multitrade Corporation');
+    setWhatsAppModalProps({
+      isOpen: true,
+      title: `Payment Recorded! Send Money Receipt #${newPayment.receiptNumber} to WhatsApp`,
+      phone: invoice.customerPhone || '',
+      message: receiptText,
+      pdfElementId: `invoice-detail-receipt-pdf-${newPayment.id}`,
+      pdfFilename: `Money-Receipt-${newPayment.receiptNumber}`,
+      documentType: 'Money Receipt',
+      documentNumber: newPayment.receiptNumber
+    });
   };
 
   // Submit Delivery Return
@@ -495,6 +520,11 @@ export const InvoiceDetails: React.FC<Props> = ({ invoiceId, onBack, onEdit }) =
         {selectedSlipForPdf && (
           <div id={`pdf-render-slip-${selectedSlipForPdf.id}`}>
             <PrintableDeliverySlip deliverySlip={selectedSlipForPdf} settings={settings} />
+          </div>
+        )}
+        {selectedPaymentForWhatsApp && (
+          <div id={`invoice-detail-receipt-pdf-${selectedPaymentForWhatsApp.id}`}>
+            <PrintableMoneyReceipt payment={selectedPaymentForWhatsApp} settings={settings} />
           </div>
         )}
       </div>
@@ -1263,13 +1293,42 @@ export const InvoiceDetails: React.FC<Props> = ({ invoiceId, onBack, onEdit }) =
                           {formatCurrency(p.amount)}
                         </td>
                         <td className="py-2.5 text-right">
-                          <button
-                            onClick={() => triggerPrint('receipt', undefined, p)}
-                            className="flex items-center gap-1 px-2.5 py-1 bg-zinc-800 hover:bg-zinc-700 text-zinc-200 rounded text-xs font-semibold ml-auto"
-                          >
-                            <Printer size={13} />
-                            <span>Money Receipt</span>
-                          </button>
+                          <div className="flex items-center justify-end gap-1.5 ml-auto">
+                            {/* Send Money Receipt to WhatsApp */}
+                            <button
+                              type="button"
+                              onClick={() => {
+                                setSelectedPaymentForWhatsApp(p);
+                                const receiptText = generateMoneyReceiptWhatsAppText(p, settings?.companyName || 'Bismillah Multitrade Corporation');
+                                setWhatsAppModalProps({
+                                  isOpen: true,
+                                  title: `Send Money Receipt #${p.receiptNumber} to WhatsApp`,
+                                  phone: invoice.customerPhone || '',
+                                  message: receiptText,
+                                  pdfElementId: `invoice-detail-receipt-pdf-${p.id}`,
+                                  pdfFilename: `Money-Receipt-${p.receiptNumber}`,
+                                  documentType: 'Money Receipt',
+                                  documentNumber: p.receiptNumber
+                                });
+                              }}
+                              className="flex items-center gap-1 px-2.5 py-1 bg-zinc-800 hover:bg-emerald-900/40 text-emerald-400 hover:text-emerald-300 rounded text-xs font-semibold cursor-pointer transition-colors"
+                              title="Send Money Receipt PDF directly to WhatsApp"
+                            >
+                              <MessageSquare size={13} />
+                              <span>WhatsApp</span>
+                            </button>
+
+                            {/* Print Receipt */}
+                            <button
+                              type="button"
+                              onClick={() => triggerPrint('receipt', undefined, p)}
+                              className="flex items-center gap-1 px-2.5 py-1 bg-zinc-800 hover:bg-zinc-700 text-zinc-200 rounded text-xs font-semibold cursor-pointer"
+                              title="Print Money Receipt"
+                            >
+                              <Printer size={13} />
+                              <span>Print</span>
+                            </button>
+                          </div>
                         </td>
                       </tr>
                     ))
@@ -1918,16 +1977,22 @@ export const InvoiceDetails: React.FC<Props> = ({ invoiceId, onBack, onEdit }) =
       />
 
       {/* WhatsApp Direct Send Modal with PDF Support */}
-      <WhatsAppSendModal
-        isOpen={whatsAppModalProps.isOpen}
-        onClose={() => setWhatsAppModalProps(prev => ({ ...prev, isOpen: false }))}
-        title={whatsAppModalProps.title}
-        defaultPhone={whatsAppModalProps.phone}
-        initialMessage={whatsAppModalProps.message}
-        pdfElementId={whatsAppModalProps.pdfElementId}
-        pdfFilename={whatsAppModalProps.pdfFilename}
-        documentType={whatsAppModalProps.documentType}
-      />
+      {whatsAppModalProps.isOpen && (
+        <WhatsAppSendModal
+          isOpen={whatsAppModalProps.isOpen}
+          onClose={() => {
+            setWhatsAppModalProps(prev => ({ ...prev, isOpen: false }));
+            setSelectedPaymentForWhatsApp(null);
+          }}
+          title={whatsAppModalProps.title}
+          defaultPhone={whatsAppModalProps.phone}
+          initialMessage={whatsAppModalProps.message}
+          pdfElementId={whatsAppModalProps.pdfElementId}
+          pdfFilename={whatsAppModalProps.pdfFilename}
+          documentType={whatsAppModalProps.documentType || 'Invoice'}
+          documentNumber={whatsAppModalProps.documentNumber}
+        />
+      )}
 
       {/* Offscreen Printable Containers for High-Fidelity PDF Generation */}
       <div

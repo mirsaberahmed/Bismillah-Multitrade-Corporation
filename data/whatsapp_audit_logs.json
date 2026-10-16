@@ -1,0 +1,20 @@
+[
+  {
+    "id": "wa-audit-1792177369121-1w1z4",
+    "timestamp": "2026-10-16T19:02:49.121Z",
+    "userId": "usr-admin",
+    "userName": "Authorized System User",
+    "documentType": "Money Receipt",
+    "documentNumber": "MR-2026-0099",
+    "recipientPhone": "8801711223344",
+    "recipientName": "",
+    "filename": "Money-Receipt-MR-2026-0099.pdf",
+    "fileSizeBytes": 127,
+    "deliveryMode": "direct_chat",
+    "deliveryStatus": "ready_for_dispatch",
+    "messageId": null,
+    "publicPdfUrl": "http://localhost:3000/api/pdf/Money-Receipt-MR-2026-0099.pdf",
+    "companionTextLength": 27,
+    "apiResponse": null
+  }
+]

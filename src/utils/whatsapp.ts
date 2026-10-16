@@ -1,8 +1,23 @@
-import { SalesInvoice, DeliverySlip, Quotation, DeliverySlipItem, InvoiceItem, ExpenseRecord } from '../types';
+import { SalesInvoice, DeliverySlip, PaymentRecord, DeliverySlipItem, InvoiceItem } from '../types';
 
 /**
- * Standardize phone number for WhatsApp wa.me links
- * Handles Bangladeshi (+880, 01...) and international numbers
+ * STRICT BUSINESS LOGIC:
+ * WhatsApp integration is strictly restricted to ONLY three target documents:
+ * 1. Invoice
+ * 2. Delivery Slip
+ * 3. Money Receipt
+ * No other documents are permitted.
+ */
+export const ALLOWED_WHATSAPP_DOCS = ['Invoice', 'Delivery Slip', 'Money Receipt'] as const;
+export type AllowedWhatsAppDocumentType = typeof ALLOWED_WHATSAPP_DOCS[number];
+
+export function isAllowedWhatsAppDocument(type?: string): type is AllowedWhatsAppDocumentType {
+  return ALLOWED_WHATSAPP_DOCS.includes(type as AllowedWhatsAppDocumentType);
+}
+
+/**
+ * Standardize phone number for WhatsApp wa.me links and API delivery
+ * Handles Bangladeshi (+880, 01...) and international E.164 formats
  */
 export function formatWhatsAppPhone(phone: string): string {
   if (!phone) return '';
@@ -22,7 +37,16 @@ export function formatWhatsAppPhone(phone: string): string {
 }
 
 /**
- * Build WhatsApp wa.me link
+ * Validate phone number format
+ */
+export function isValidWhatsAppPhone(phone: string): boolean {
+  const formatted = formatWhatsAppPhone(phone);
+  // Must be between 10 and 15 digits
+  return formatted.length >= 10 && formatted.length <= 15;
+}
+
+/**
+ * Build WhatsApp wa.me direct chat link
  */
 export function getWhatsAppUrl(phone: string, message: string): string {
   const cleanPhone = formatWhatsAppPhone(phone);
@@ -34,9 +58,9 @@ export function getWhatsAppUrl(phone: string, message: string): string {
 }
 
 /**
- * Generate formatted text message for a Sales Invoice
+ * Generate formatted companion text message for a Sales Invoice (Target Document #1)
  */
-export function generateInvoiceWhatsAppText(invoice: SalesInvoice, companyName = 'Business'): string {
+export function generateInvoiceWhatsAppText(invoice: SalesInvoice, companyName = 'Bismillah Multitrade Corporation'): string {
   const currency = invoice.currency || 'BDT';
   const lines: string[] = [];
 
@@ -82,9 +106,9 @@ export function generateInvoiceWhatsAppText(invoice: SalesInvoice, companyName =
 }
 
 /**
- * Generate formatted text message for a Delivery Slip / Challan
+ * Generate formatted companion text message for a Delivery Slip / Challan (Target Document #2)
  */
-export function generateDeliverySlipWhatsAppText(slip: DeliverySlip, companyName = 'Business'): string {
+export function generateDeliverySlipWhatsAppText(slip: DeliverySlip, companyName = 'Bismillah Multitrade Corporation'): string {
   const lines: string[] = [];
 
   lines.push(`*DELIVERY CHALLAN / SLIP: ${slip.deliverySlipNumber}*`);
@@ -134,83 +158,43 @@ export function generateDeliverySlipWhatsAppText(slip: DeliverySlip, companyName
 }
 
 /**
- * Generate formatted text message for a Price Quotation
+ * Generate formatted companion text message for a Money Receipt (Target Document #3)
  */
-export function generateQuotationWhatsAppText(qt: Quotation, companyName = 'Business'): string {
-  const currency = qt.currency || 'BDT';
+export function generateMoneyReceiptWhatsAppText(payment: PaymentRecord, companyName = 'Bismillah Multitrade Corporation'): string {
+  const currency = 'BDT';
   const lines: string[] = [];
 
-  lines.push(`*PRICE QUOTATION: ${qt.quotationNumber}*`);
+  lines.push(`*OFFICIAL MONEY RECEIPT: ${payment.receiptNumber}*`);
   lines.push(`*${companyName}*`);
   lines.push(`────────────────────`);
-  lines.push(`Customer: *${qt.customerName}*`);
-  if (qt.customerCompany) lines.push(`Company: ${qt.customerCompany}`);
-  lines.push(`Date: ${qt.quotationDate}`);
-  lines.push(`Validity Until: ${qt.validityDate}`);
-  lines.push(`Status: *${qt.status}*`);
+  lines.push(`Customer / Party: *${payment.entityName}*`);
+  if (payment.invoiceNumber) lines.push(`Invoice Ref: #${payment.invoiceNumber}`);
+  lines.push(`Receipt Date: ${payment.paymentDate}`);
+  lines.push(`Payment Method: *${payment.paymentMethod}*`);
+  if (payment.transactionReference) lines.push(`Txn / Cheque Ref: ${payment.transactionReference}`);
+  if (payment.bank) lines.push(`Bank: ${payment.bank}`);
   lines.push(`────────────────────`);
-  lines.push(`*QUOTED PRODUCTS / ITEMS:*`);
+  lines.push(`*RECEIVED AMOUNT: ${currency} ${Number(payment.amount || 0).toLocaleString()}*`);
 
-  (qt.items || []).forEach((item: InvoiceItem, index: number) => {
-    lines.push(
-      `${index + 1}. ${item.productName} × ${item.quantity} ${item.unit || 'units'} @ ${currency} ${item.unitPrice.toLocaleString()} = ${currency} ${item.amount.toLocaleString()}`
-    );
-  });
-
-  lines.push(`────────────────────`);
-  lines.push(`Subtotal: ${currency} ${qt.subtotal.toLocaleString()}`);
-  if (qt.discount && qt.discount > 0) {
-    lines.push(`Discount: -${currency} ${qt.discount.toLocaleString()}`);
+  if (payment.totalAmount !== undefined && payment.totalAmount > 0) {
+    lines.push(`Total Bill Amount: ${currency} ${Number(payment.totalAmount).toLocaleString()}`);
   }
-  if (qt.vat && qt.vat > 0) {
-    lines.push(`VAT: ${currency} ${qt.vat.toLocaleString()}`);
+  if (payment.dueAmount !== undefined) {
+    lines.push(`*Remaining Balance Due: ${currency} ${Number(payment.dueAmount).toLocaleString()}*`);
   }
-  lines.push(`*GRAND TOTAL: ${currency} ${qt.grandTotal.toLocaleString()}*`);
-
-  if (qt.terms) {
-    lines.push(`────────────────────`);
-    lines.push(`Terms: ${qt.terms}`);
+  if (payment.paymentStatus) {
+    lines.push(`Payment Status: *${payment.paymentStatus.toUpperCase()}*`);
+  }
+  if (payment.collectedBy || payment.receivedBy) {
+    lines.push(`Collected By: ${payment.collectedBy || payment.receivedBy}`);
+  }
+  if (payment.notes) {
+    lines.push(`Note: ${payment.notes}`);
   }
 
   lines.push(`────────────────────`);
-  lines.push(`For inquiries or to confirm this quotation, please reply to this message.`);
-
-  return lines.join('\n');
-}
-
-/**
- * Generate formatted text message for an Expense Sheet / Operating Voucher
- */
-export function generateExpenseWhatsAppText(expense: ExpenseRecord, companyName = 'Bismillah Multitrade Corporation'): string {
-  const currency = expense.currency || 'BDT';
-  const lines: string[] = [];
-  const voucherNo = expense.expenseNumber || expense.voucherNumber || expense.id;
-
-  lines.push(`*EXPENSE VOUCHER: ${voucherNo}*`);
-  lines.push(`*${companyName}*`);
-  lines.push(`────────────────────`);
-  if (expense.paidTo) lines.push(`Paid To: *${expense.paidTo}*`);
-  lines.push(`Date: ${expense.expenseDate || expense.date || ''}`);
-  lines.push(`Category: ${expense.category}`);
-  lines.push(`Payment Method: ${expense.paymentMethod}`);
-  if (expense.approvedBy) lines.push(`Approved By: ${expense.approvedBy}`);
-  lines.push(`────────────────────`);
-
-  if (expense.items && expense.items.length > 0) {
-    lines.push(`*EXPENSE BREAKDOWN & PARTICULARS:*`);
-    expense.items.forEach((item, index) => {
-      lines.push(
-        `${index + 1}. ${item.particulars} × ${item.quantity} ${item.unit || 'units'} @ ${currency} ${Number(item.unitPrice).toLocaleString()} = ${currency} ${Number(item.amount).toLocaleString()}`
-      );
-    });
-    lines.push(`────────────────────`);
-  } else if (expense.description) {
-    lines.push(`Particulars: ${expense.description}`);
-    lines.push(`────────────────────`);
-  }
-
-  lines.push(`*TOTAL SETTLED AMOUNT: ${currency} ${Number(expense.amount || 0).toLocaleString()}*`);
-  lines.push(`Status: PAID & SETTLED`);
+  lines.push(`Payment acknowledged and credited to your ledger.`);
+  lines.push(`Thank you for your business!`);
 
   return lines.join('\n');
 }

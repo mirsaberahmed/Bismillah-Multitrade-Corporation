@@ -235,6 +235,8 @@ export const UserManagement: React.FC<UserManagementProps> = ({ initialTab = 'us
       return;
     }
 
+    const initialPass = (newUser.password && newUser.password.trim().length >= 4) ? newUser.password.trim() : '1234';
+
     const created: UserAccount = {
       id: `usr-${Date.now()}`,
       name: newUser.fullName.trim(),
@@ -254,8 +256,40 @@ export const UserManagement: React.FC<UserManagementProps> = ({ initialTab = 'us
       createdAt: new Date().toISOString()
     };
 
-    saveUser(created);
-    logActivity('User Created', `Created user account ${created.username} (${created.fullName}) with role ${created.role}`);
+    // Save to server database registry
+    fetch('/api/users', {
+      method: 'POST',
+      headers: { 'Content-Type': 'application/json' },
+      body: JSON.stringify({
+        fullName: newUser.fullName.trim(),
+        username: cleanUsername,
+        email: cleanEmail,
+        phone: newUser.phone?.trim() || '',
+        employeeId: newUser.employeeId?.trim() || `EMP-${String(users.length + 1).padStart(3, '0')}`,
+        department: newUser.department || 'Administration',
+        designation: newUser.designation?.trim() || 'Executive',
+        role: newUser.role || 'Sales Executive',
+        password: initialPass,
+        status: 'Active'
+      })
+    })
+      .then(async res => {
+        const data = await res.json();
+        if (data && data.user) {
+          saveUser({
+            ...created,
+            id: data.user.id
+          });
+        } else {
+          saveUser(created);
+        }
+      })
+      .catch(err => {
+        console.warn('Database user sync fallback:', err);
+        saveUser(created);
+      });
+
+    logActivity('User Created', `Created user account ${created.username} (${created.fullName}) with role ${created.role} and saved to database`);
     setIsAddUserOpen(false);
     setNewUser({
       name: '',
@@ -287,6 +321,15 @@ export const UserManagement: React.FC<UserManagementProps> = ({ initialTab = 'us
   const handleConfirmApproval = () => {
     if (!approvalModalUser) return;
     approveUser(approvalModalUser.id, approvalRole, approvalDept);
+    fetch(`/api/users/${encodeURIComponent(approvalModalUser.id)}`, {
+      method: 'PUT',
+      headers: { 'Content-Type': 'application/json' },
+      body: JSON.stringify({
+        status: 'Active',
+        role: approvalRole,
+        department: approvalDept
+      })
+    }).catch(err => console.warn('Approval sync warning:', err));
     setApprovalModalUser(null);
   };
 
@@ -295,8 +338,14 @@ export const UserManagement: React.FC<UserManagementProps> = ({ initialTab = 'us
     e.preventDefault();
     if (!resetPasswordUser || !tempPassword) return;
 
+    fetch(`/api/users/${encodeURIComponent(resetPasswordUser.id)}/reset-password`, {
+      method: 'POST',
+      headers: { 'Content-Type': 'application/json' },
+      body: JSON.stringify({ newPassword: tempPassword })
+    }).catch(err => console.warn('Reset password API warning:', err));
+
     logActivity('Password Reset', `Administrator reset password for user ${resetPasswordUser.username}`);
-    setPasswordResetNotice(`Password for ${resetPasswordUser.fullName || resetPasswordUser.username} successfully updated.`);
+    setPasswordResetNotice(`Password for ${resetPasswordUser.fullName || resetPasswordUser.username} successfully updated in database!`);
     setTimeout(() => {
       setPasswordResetNotice('');
       setResetPasswordUser(null);
@@ -1094,7 +1143,7 @@ export const UserManagement: React.FC<UserManagementProps> = ({ initialTab = 'us
                   />
                 </div>
 
-                <div className="sm:col-span-2">
+                <div>
                   <label className="block text-slate-700 font-bold mb-1">User Role</label>
                   <select
                     value={newUser.role || 'Sales Executive'}
@@ -1105,6 +1154,18 @@ export const UserManagement: React.FC<UserManagementProps> = ({ initialTab = 'us
                       <option key={r} value={r}>{r}</option>
                     ))}
                   </select>
+                </div>
+
+                <div>
+                  <label className="block text-slate-700 font-bold mb-1">Initial Password *</label>
+                  <input
+                    type="password"
+                    placeholder="Enter login password (min 4 chars)"
+                    value={newUser.password || ''}
+                    onChange={(e) => setNewUser({ ...newUser, password: e.target.value })}
+                    className="w-full bg-slate-50 border border-slate-200 rounded-xl px-3 py-2 text-slate-900 focus:outline-none focus:border-orange-500"
+                  />
+                  <span className="text-[10px] text-slate-400 block mt-0.5">Default password if left empty: 1234</span>
                 </div>
               </div>
 

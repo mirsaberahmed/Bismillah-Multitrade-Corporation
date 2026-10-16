@@ -967,11 +967,28 @@ export const LoginPage: React.FC<LoginPageProps> = ({ onLoginSuccess }) => {
                 ) : (
                   <form onSubmit={handleResetPasswordSubmit} className="space-y-3">
                     {otpHint && (
-                      <div className="p-3 bg-amber-50 border border-amber-200 rounded-xl text-amber-800 text-xs">
-                        <strong>Verification Code:</strong>{' '}
-                        <span className="font-mono font-bold tracking-widest text-sm bg-amber-100 px-2 py-0.5 rounded">
-                          {otpHint}
-                        </span>
+                      <div className="p-3.5 bg-orange-50 border border-orange-200 rounded-xl text-orange-950 text-xs space-y-2">
+                        <div className="flex items-center justify-between">
+                          <span className="font-bold uppercase tracking-wider text-[10px] text-orange-800">Your Password Recovery Code</span>
+                          <span className="text-[10px] text-orange-600 font-semibold">Valid 15 Mins</span>
+                        </div>
+                        <div className="flex items-center justify-between bg-white border border-orange-200 rounded-lg p-2.5">
+                          <span className="font-mono text-xl font-black tracking-widest text-orange-600">
+                            {otpHint}
+                          </span>
+                          <button
+                            type="button"
+                            onClick={() => {
+                              setResetOtp(otpHint);
+                            }}
+                            className="text-[11px] font-bold bg-orange-500 hover:bg-orange-600 text-white px-2.5 py-1 rounded-md transition-colors cursor-pointer"
+                          >
+                            Auto-fill Code
+                          </button>
+                        </div>
+                        <p className="text-[10px] text-orange-700">
+                          Enter this 6-digit code below to set your new password.
+                        </p>
                       </div>
                     )}
 

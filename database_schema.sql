@@ -276,18 +276,48 @@ CREATE TABLE `payments` (
   `user_id` VARCHAR(64) NOT NULL,
   `receipt_number` VARCHAR(50) NOT NULL,
   `invoice_id` VARCHAR(64) NULL,
+  `invoice_number` VARCHAR(50) NULL,
   `type` ENUM('Customer Collection', 'Supplier Payment', 'General Receipt') NOT NULL DEFAULT 'Customer Collection',
   `party_name` VARCHAR(150) NOT NULL,
-  `amount` DECIMAL(15,2) NOT NULL DEFAULT 0.00,
+  `total_amount` DECIMAL(15,2) NOT NULL DEFAULT 0.00 COMMENT 'Invoice Grand Total or Bill Total',
+  `amount` DECIMAL(15,2) NOT NULL DEFAULT 0.00 COMMENT 'Amount received in this payment transaction',
+  `paid_amount` DECIMAL(15,2) NOT NULL DEFAULT 0.00 COMMENT 'Cumulative amount paid to date including this receipt',
+  `due_amount` DECIMAL(15,2) NOT NULL DEFAULT 0.00 COMMENT 'Remaining balance due after this transaction',
+  `payment_status` ENUM('Unpaid', 'Partial', 'Paid') NOT NULL DEFAULT 'Partial' COMMENT 'Dynamic Status: Unpaid if 0, Partial if due > 0, Paid if settled',
   `payment_method` VARCHAR(50) NOT NULL DEFAULT 'Cash',
+  `bank_name` VARCHAR(100) NULL,
+  `account_number` VARCHAR(100) NULL,
   `reference_no` VARCHAR(100) NULL,
   `payment_date` DATE NOT NULL,
+  `received_by` VARCHAR(100) NULL DEFAULT 'Accounts Officer',
   `notes` TEXT NULL,
   `created_at` DATETIME NOT NULL DEFAULT CURRENT_TIMESTAMP,
+  `updated_at` DATETIME NOT NULL DEFAULT CURRENT_TIMESTAMP ON UPDATE CURRENT_TIMESTAMP,
   FOREIGN KEY (`user_id`) REFERENCES `users` (`id`) ON DELETE CASCADE,
+  FOREIGN KEY (`invoice_id`) REFERENCES `invoices` (`id`) ON DELETE SET NULL,
   INDEX `idx_payments_user` (`user_id`),
-  INDEX `idx_payments_date` (`payment_date`)
+  INDEX `idx_payments_invoice` (`invoice_id`),
+  INDEX `idx_payments_date` (`payment_date`),
+  INDEX `idx_payments_status` (`payment_status`)
 ) ENGINE=InnoDB DEFAULT CHARSET=utf8mb4 COLLATE=utf8mb4_unicode_ci;
+
+-- ---------------------------------------------------------------------
+-- MIGRATION SCRIPT (For existing MySQL / PostgreSQL production databases)
+-- ---------------------------------------------------------------------
+-- ALTER TABLE `invoices` 
+--   MODIFY COLUMN `payment_status` ENUM('Unpaid', 'Partial', 'Paid', 'Overdue') NOT NULL DEFAULT 'Unpaid';
+--
+-- ALTER TABLE `payments` 
+--   ADD COLUMN `invoice_number` VARCHAR(50) NULL AFTER `invoice_id`,
+--   ADD COLUMN `total_amount` DECIMAL(15,2) NOT NULL DEFAULT 0.00 AFTER `party_name`,
+--   ADD COLUMN `paid_amount` DECIMAL(15,2) NOT NULL DEFAULT 0.00 AFTER `amount`,
+--   ADD COLUMN `due_amount` DECIMAL(15,2) NOT NULL DEFAULT 0.00 AFTER `paid_amount`,
+--   ADD COLUMN `payment_status` ENUM('Unpaid', 'Partial', 'Paid') NOT NULL DEFAULT 'Partial' AFTER `due_amount`,
+--   ADD COLUMN `bank_name` VARCHAR(100) NULL AFTER `payment_method`,
+--   ADD COLUMN `account_number` VARCHAR(100) NULL AFTER `bank_name`,
+--   ADD COLUMN `received_by` VARCHAR(100) NULL DEFAULT 'Accounts Officer' AFTER `payment_date`,
+--   ADD COLUMN `updated_at` DATETIME NOT NULL DEFAULT CURRENT_TIMESTAMP ON UPDATE CURRENT_TIMESTAMP AFTER `created_at`;
+
 
 -- ---------------------------------------------------------------------
 -- 14. DELIVERY CHALLANS / SLIPS (Isolated by Tenant user_id)

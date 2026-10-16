@@ -19,8 +19,7 @@ import {
 import { useData } from '../../context/DataContext';
 import { Quotation, InvoiceItem } from '../../types';
 import { formatCurrency, formatDate, getTodayDateString } from '../../utils/formatters';
-import { WhatsAppSendModal } from '../common/WhatsAppSendModal';
-import { generateQuotationWhatsAppText } from '../../utils/whatsapp';
+
 
 interface Props {
   onNavigateToInvoice?: (invoiceId: string) => void;
@@ -45,11 +44,7 @@ export const QuotationManager: React.FC<Props> = ({ onNavigateToInvoice }) => {
   const [showCreateModal, setShowCreateModal] = useState(false);
   const [previewQuotation, setPreviewQuotation] = useState<Quotation | null>(null);
 
-  // WhatsApp Modal
-  const [whatsAppModalOpen, setWhatsAppModalOpen] = useState(false);
-  const [whatsAppPhone, setWhatsAppPhone] = useState('');
-  const [whatsAppMessage, setWhatsAppMessage] = useState('');
-  const [whatsAppTitle, setWhatsAppTitle] = useState('');
+
 
   // Form State for New Quotation
   const [qtNumber, setQtNumber] = useState('');
@@ -305,10 +300,6 @@ export const QuotationManager: React.FC<Props> = ({ onNavigateToInvoice }) => {
 
     saveQuotation(newQuotation);
     setShowCreateModal(false);
-
-    if (sendWhatsAppDirect) {
-      handleOpenWhatsApp(newQuotation);
-    }
   };
 
   // Convert Quotation to Sales Invoice
@@ -322,16 +313,6 @@ export const QuotationManager: React.FC<Props> = ({ onNavigateToInvoice }) => {
     } catch (e: any) {
       alert('Conversion failed: ' + e.message);
     }
-  };
-
-  // WhatsApp Dialog
-  const handleOpenWhatsApp = (qt: Quotation) => {
-    const cust = customers.find(c => c.id === qt.customerId);
-    const text = generateQuotationWhatsAppText(qt, settings?.companyName || 'Bismillah Multitrade Corporation');
-    setWhatsAppTitle(`Send Quotation #${qt.quotationNumber} to WhatsApp`);
-    setWhatsAppPhone(cust?.phone || customerPhone || '');
-    setWhatsAppMessage(text);
-    setWhatsAppModalOpen(true);
   };
 
   // Filtered
@@ -494,15 +475,7 @@ export const QuotationManager: React.FC<Props> = ({ onNavigateToInvoice }) => {
                         <span>Convert to Invoice</span>
                       </button>
 
-                      {/* WhatsApp Direct Send */}
-                      <button
-                        onClick={() => handleOpenWhatsApp(qt)}
-                        title="Send quotation directly to WhatsApp"
-                        className="flex items-center gap-1 px-2.5 py-1 bg-green-500 hover:bg-green-600 text-white rounded-lg text-xs font-semibold cursor-pointer shadow-xs"
-                      >
-                        <MessageSquare size={13} />
-                        <span>WhatsApp</span>
-                      </button>
+
 
                       {/* Preview / View */}
                       <button
@@ -761,14 +734,6 @@ export const QuotationManager: React.FC<Props> = ({ onNavigateToInvoice }) => {
                 >
                   Save Quotation
                 </button>
-                <button
-                  type="button"
-                  onClick={() => handleSaveQuotation(true)}
-                  className="flex items-center gap-1.5 px-5 py-2 bg-green-600 hover:bg-green-700 text-white rounded-xl font-bold shadow-md shadow-green-600/25 cursor-pointer"
-                >
-                  <MessageSquare size={14} />
-                  <span>Save &amp; Send WhatsApp</span>
-                </button>
               </div>
             </div>
           </div>
@@ -848,26 +813,10 @@ export const QuotationManager: React.FC<Props> = ({ onNavigateToInvoice }) => {
                 <FileCheck size={14} />
                 <span>Convert to Sales Invoice</span>
               </button>
-              <button
-                onClick={() => handleOpenWhatsApp(previewQuotation)}
-                className="flex items-center gap-1.5 px-4 py-2 bg-green-600 hover:bg-green-700 text-white rounded-xl font-bold text-xs"
-              >
-                <MessageSquare size={14} />
-                <span>Send to WhatsApp</span>
-              </button>
             </div>
           </div>
         </div>
       )}
-
-      {/* WhatsApp Send Modal */}
-      <WhatsAppSendModal
-        isOpen={whatsAppModalOpen}
-        onClose={() => setWhatsAppModalOpen(false)}
-        title={whatsAppTitle}
-        defaultPhone={whatsAppPhone}
-        initialMessage={whatsAppMessage}
-      />
     </div>
   );
 };

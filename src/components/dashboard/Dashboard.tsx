@@ -126,7 +126,7 @@ export const Dashboard: React.FC<DashboardProps> = ({
   const [whatsAppMessage, setWhatsAppMessage] = useState('');
   const [whatsAppPdfElementId, setWhatsAppPdfElementId] = useState<string | undefined>(undefined);
   const [whatsAppPdfFilename, setWhatsAppPdfFilename] = useState<string | undefined>(undefined);
-  const [whatsAppDocType, setWhatsAppDocType] = useState<string | undefined>(undefined);
+  const [whatsAppDocType, setWhatsAppDocType] = useState<'Invoice' | 'Delivery Slip' | 'Money Receipt'>('Invoice');
   const [activeWhatsAppInvoice, setActiveWhatsAppInvoice] = useState<SalesInvoice | null>(null);
   const [activeWhatsAppSlip, setActiveWhatsAppSlip] = useState<DeliverySlip | null>(null);
 

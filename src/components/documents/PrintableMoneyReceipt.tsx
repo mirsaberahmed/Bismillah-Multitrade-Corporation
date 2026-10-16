@@ -72,16 +72,48 @@ export const PrintableMoneyReceipt: React.FC<Props> = ({ payment, settings }) =>
         )}
       </div>
 
-      {/* Amount Box */}
-      <div className="flex justify-between items-center border-2 border-black p-4 mb-12 bg-white">
-        <div className="text-xs font-bold text-black uppercase">
-          Payment received and credited to account.
-        </div>
-        <div className="text-right">
-          <span className="text-xs font-black block uppercase text-black">Amount Received</span>
-          <div className="text-2xl font-black font-mono text-black">
-            {formatCurrency(payment.amount)}
+      {/* Financial Breakdown & Amount Box */}
+      <div className="border-2 border-black p-4 mb-8 bg-white">
+        <div className="grid grid-cols-1 sm:grid-cols-4 gap-4 items-center">
+          <div>
+            <span className="text-[10px] font-bold block uppercase text-black tracking-wider">Total Bill / Invoice</span>
+            <div className="text-base font-bold font-mono text-black">
+              {payment.totalAmount ? formatCurrency(payment.totalAmount) : 'N/A'}
+            </div>
           </div>
+
+          <div>
+            <span className="text-[10px] font-black block uppercase text-black tracking-wider">Received This Receipt</span>
+            <div className="text-xl font-black font-mono text-black">
+              {formatCurrency(payment.amount)}
+            </div>
+          </div>
+
+          <div>
+            <span className="text-[10px] font-bold block uppercase text-black tracking-wider">Remaining Due Balance</span>
+            <div className={`text-base font-mono font-bold ${(payment.dueAmount ?? 0) > 0 ? 'text-black underline' : 'text-black'}`}>
+              {payment.dueAmount !== undefined ? formatCurrency(payment.dueAmount) : '৳ 0.00'}
+            </div>
+          </div>
+
+          <div className="text-right">
+            <span className="text-[10px] font-bold block uppercase text-black tracking-wider mb-1">Payment Status</span>
+            <span className={`inline-block border-2 border-black px-2.5 py-1 text-xs font-black tracking-wider uppercase ${
+              (payment.paymentStatus === 'Paid' || (payment.dueAmount !== undefined && payment.dueAmount <= 0))
+                ? 'bg-black text-white'
+                : 'bg-white text-black'
+            }`}>
+              {(payment.paymentStatus === 'Paid' || (payment.dueAmount !== undefined && payment.dueAmount <= 0))
+                ? 'FULL PAID'
+                : 'PARTIAL PAYMENT'}
+            </span>
+          </div>
+        </div>
+        <div className="text-[11px] text-black font-medium mt-3 pt-2 border-t border-black/40 flex justify-between">
+          <span>Official acknowledging receipt of fund credited to customer ledger.</span>
+          {(payment.dueAmount ?? 0) > 0 && (
+            <span className="font-bold">Next Follow-up Due: {formatCurrency(payment.dueAmount ?? 0)}</span>
+          )}
         </div>
       </div>
 
