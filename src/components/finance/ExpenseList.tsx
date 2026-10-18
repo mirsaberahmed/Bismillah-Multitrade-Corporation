@@ -11,13 +11,17 @@ import {
   Eye,
   Trash2,
   FileText,
-  MessageSquare
+  MessageSquare,
+  Send
 } from 'lucide-react';
 import { useData } from '../../context/DataContext';
 import { ExpenseRecord } from '../../types';
 import { formatCurrency, formatDate, getTodayDateString } from '../../utils/formatters';
 import { exportToExcel } from '../../utils/exportImport';
 import { ConfirmModal } from '../common/ConfirmModal';
+import { PrintableExpenseSheet } from '../documents/PrintableExpenseSheet';
+import { WhatsAppSendModal } from '../common/WhatsAppSendModal';
+import { generateExpenseWhatsAppText } from '../../utils/whatsapp';
 
 
 interface Props {
@@ -54,6 +58,8 @@ export const ExpenseList: React.FC<Props> = ({
   const [searchQuery, setSearchQuery] = useState('');
   const [categoryFilter, setCategoryFilter] = useState('All');
   const [expenseToDelete, setExpenseToDelete] = useState<ExpenseRecord | null>(null);
+  const [whatsAppExpense, setWhatsAppExpense] = useState<ExpenseRecord | null>(null);
+  const [whatsAppMode, setWhatsAppMode] = useState<'whatsapp' | 'text'>('whatsapp');
 
   // Financial calculations
   const totalExpenses = expenses.reduce((s, e) => s + (Number(e.amount) || 0), 0);
@@ -276,7 +282,33 @@ export const ExpenseList: React.FC<Props> = ({
                       </td>
                       <td className="p-3 text-right">
                         <div className="flex items-center justify-end gap-1.5">
+                          {/* Send WhatsApp (PDF Attachment) */}
+                          <button
+                            type="button"
+                            onClick={() => {
+                              setWhatsAppExpense(e);
+                              setWhatsAppMode('whatsapp');
+                            }}
+                            className="flex items-center gap-1 px-2 py-1 bg-emerald-600/20 hover:bg-emerald-600/35 text-emerald-300 rounded text-xs font-semibold border border-emerald-500/30 transition-colors cursor-pointer"
+                            title="Send Expense Sheet PDF directly through WhatsApp"
+                          >
+                            <MessageSquare size={13} />
+                            <span>Send WhatsApp</span>
+                          </button>
 
+                          {/* Send Text (Prepared Text Only) */}
+                          <button
+                            type="button"
+                            onClick={() => {
+                              setWhatsAppExpense(e);
+                              setWhatsAppMode('text');
+                            }}
+                            className="flex items-center gap-1 px-2 py-1 bg-zinc-800 hover:bg-zinc-700 text-zinc-300 hover:text-white rounded text-xs font-semibold border border-zinc-700 transition-colors cursor-pointer"
+                            title="Send only the prepared text message through WhatsApp"
+                          >
+                            <Send size={13} className="text-emerald-400" />
+                            <span>Send Text</span>
+                          </button>
 
                           {/* View Details */}
                           <button
@@ -334,7 +366,40 @@ export const ExpenseList: React.FC<Props> = ({
         />
       )}
 
+      {/* Offscreen Container for Expense Sheet PDF generation */}
+      {whatsAppExpense && (
+        <div
+          id={`expense-list-printable-${whatsAppExpense.id}`}
+          style={{
+            position: 'fixed',
+            left: '0',
+            top: '0',
+            width: '800px',
+            backgroundColor: '#ffffff',
+            zIndex: -9999,
+            pointerEvents: 'none'
+          }}
+        >
+          <PrintableExpenseSheet expense={whatsAppExpense} settings={settings} />
+        </div>
+      )}
 
+      {/* WhatsApp Modal for Expense Sheet */}
+      {whatsAppExpense && (
+        <WhatsAppSendModal
+          isOpen={Boolean(whatsAppExpense)}
+          onClose={() => setWhatsAppExpense(null)}
+          title={`Send Expense Sheet #${whatsAppExpense.voucherNumber || whatsAppExpense.expenseNumber} to WhatsApp`}
+          defaultPhone=""
+          initialMessage={generateExpenseWhatsAppText(whatsAppExpense, settings?.companyName || 'Bismillah Multitrade Corporation')}
+          recipientLabel="Recipient / Payee WhatsApp Phone"
+          pdfElementId={`expense-list-printable-${whatsAppExpense.id}`}
+          pdfFilename={`Expense-Sheet-${whatsAppExpense.voucherNumber || whatsAppExpense.expenseNumber || whatsAppExpense.id}`}
+          documentType="Expense Sheet"
+          documentNumber={whatsAppExpense.voucherNumber || whatsAppExpense.expenseNumber}
+          defaultMode={whatsAppMode}
+        />
+      )}
     </div>
   );
 };

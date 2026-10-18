@@ -163,6 +163,11 @@ interface DataContextType {
   
   // Sequential Number Generators
   getNextNumber: (type: 'invoice' | 'delivery_slip' | 'quotation' | 'pi' | 'ci' | 'payment' | 'po' | 'so' | 'challan' | 'import' | 'export' | 'expense' | 'purchase_invoice') => string;
+
+  // Real-Time Live Cloud & Database Sync
+  syncStatus: 'synced' | 'syncing' | 'error';
+  lastSyncedAt: string;
+  syncNow: () => Promise<void>;
 }
 
 const DataContext = createContext<DataContextType | undefined>(undefined);
@@ -437,29 +442,156 @@ export const DataProvider: React.FC<{ children: React.ReactNode }> = ({ children
     localStorage.setItem(STORAGE_PREFIX + 'activity_logs', JSON.stringify(activityLogs));
   }, [activityLogs]);
 
-  // Cross-PC / Multi-Device Firebase Firestore & Server Synchronization
+  // Real-Time Live Cloud & Database Synchronization Engine
   const [serverReady, setServerReady] = useState(false);
+  const [syncStatus, setSyncStatus] = useState<'synced' | 'syncing' | 'error'>('synced');
+  const [lastSyncedAt, setLastSyncedAt] = useState<string>(() => new Date().toLocaleTimeString([], { hour: '2-digit', minute: '2-digit' }));
   const lastSyncedJsonRef = useRef<Record<string, string>>({});
+  const broadcastChannelRef = useRef<BroadcastChannel | null>(null);
 
-  const mergeById = <T extends { id: string }>(
-    ...arrays: (T[] | undefined)[]
-  ): T[] => {
-    const map = new Map<string, T>();
-    arrays.forEach(arr => {
-      if (Array.isArray(arr)) {
-        arr.forEach(item => {
-          if (item && item.id) map.set(item.id, item);
+  // Centralized apply updater for incoming changes from Firestore, SSE, or other tabs
+  const applySectionUpdate = (sectionId: string, parsedData: any) => {
+    if (parsedData === undefined || parsedData === null) return;
+    const incomingJson = JSON.stringify(parsedData);
+    if (lastSyncedJsonRef.current[sectionId] === incomingJson) return;
+    lastSyncedJsonRef.current[sectionId] = incomingJson;
+
+    try {
+      localStorage.setItem(STORAGE_PREFIX + sectionId, incomingJson);
+    } catch {}
+
+    switch (sectionId) {
+      case 'settings': setSettings(parsedData); break;
+      case 'categories': setCategories(parsedData); break;
+      case 'products': setProducts(parsedData); break;
+      case 'customers': setCustomers(parsedData); break;
+      case 'suppliers': setSuppliers(parsedData); break;
+      case 'invoices': setInvoices(parsedData); break;
+      case 'deliverySlips': setDeliverySlips(parsedData); break;
+      case 'deliveryReturns': setDeliveryReturns(parsedData); break;
+      case 'purchaseInvoices': setPurchaseInvoices(parsedData); break;
+      case 'quotations': setQuotations(parsedData); break;
+      case 'salesOrders': setSalesOrders(parsedData); break;
+      case 'purchaseOrders': setPurchaseOrders(parsedData); break;
+      case 'deliveryChallans': setDeliveryChallans(parsedData); break;
+      case 'proformaInvoices': setProformaInvoices(parsedData); break;
+      case 'commercialInvoices': setCommercialInvoices(parsedData); break;
+      case 'importRecords': setImportRecords(parsedData); break;
+      case 'exportRecords': setExportRecords(parsedData); break;
+      case 'lcRecords': setLcRecords(parsedData); break;
+      case 'shipments': setShipments(parsedData); break;
+      case 'payments': setPayments(parsedData); break;
+      case 'expenses': setExpenses(parsedData); break;
+      case 'stockMovements': setStockMovements(parsedData); break;
+      case 'users': setUsers(parsedData); break;
+      case 'activityLogs': setActivityLogs(parsedData); break;
+    }
+    setSyncStatus('synced');
+    setLastSyncedAt(new Date().toLocaleTimeString([], { hour: '2-digit', minute: '2-digit', second: '2-digit' }));
+  };
+
+  // Immediate live sync: pushes addition/deletion/edit immediately to Cloud Firestore, Server DB, and other tabs
+  const syncSectionLive = (sectionKey: string, data: any) => {
+    const jsonStr = JSON.stringify(data);
+    lastSyncedJsonRef.current[sectionKey] = jsonStr;
+    try {
+      localStorage.setItem(STORAGE_PREFIX + sectionKey, jsonStr);
+    } catch {}
+
+    setSyncStatus('syncing');
+
+    // 1. Broadcast to other open tabs in the same browser immediately
+    try {
+      broadcastChannelRef.current?.postMessage({
+        type: 'ERP_SECTION_UPDATE',
+        sectionKey,
+        data
+      });
+    } catch {}
+
+    // 2. Direct write to Firebase Firestore (always active and accessible from published app)
+    const safeUser = currentUser?.name || currentUser?.fullName || 'admin';
+    saveErpSectionToFirestore(sectionKey, data, safeUser)
+      .then(() => {
+        setSyncStatus('synced');
+        setLastSyncedAt(new Date().toLocaleTimeString([], { hour: '2-digit', minute: '2-digit', second: '2-digit' }));
+      })
+      .catch(err => {
+        console.warn(`Firestore live save notice for ${sectionKey}:`, err);
+        setSyncStatus('error');
+      });
+
+    // 3. Direct write to backend server
+    try {
+      const token = sessionStorage.getItem('bismillah_erp_session_token') || localStorage.getItem('bismillah_erp_session_token');
+      const headers: Record<string, string> = { 'Content-Type': 'application/json' };
+      if (token) headers['Authorization'] = `Bearer ${token}`;
+
+      fetch('/api/state', {
+        method: 'POST',
+        headers,
+        body: JSON.stringify({ sectionId: sectionKey, updatedData: data })
+      }).catch(() => {});
+    } catch {}
+  };
+
+  // Manual refresh / sync now button handler
+  const syncNow = async () => {
+    setSyncStatus('syncing');
+    try {
+      const fsRes = await loadAllErpSectionsFromFirestore();
+      if (fsRes.sections) {
+        Object.entries(fsRes.sections).forEach(([secKey, val]) => {
+          applySectionUpdate(secKey, val);
         });
       }
-    });
-    return Array.from(map.values());
+      setSyncStatus('synced');
+      setLastSyncedAt(new Date().toLocaleTimeString([], { hour: '2-digit', minute: '2-digit', second: '2-digit' }));
+    } catch (e) {
+      console.warn('SyncNow warning:', e);
+      setSyncStatus('error');
+    }
   };
 
   useEffect(() => {
     let cancelled = false;
     let unsubscribeFirestore: (() => void) | null = null;
+    let eventSource: EventSource | null = null;
 
+    // A. BroadcastChannel for same-device multi-tab instant sync
+    if (typeof BroadcastChannel !== 'undefined') {
+      try {
+        const channel = new BroadcastChannel('bismillah_erp_live_sync');
+        broadcastChannelRef.current = channel;
+        channel.onmessage = (event) => {
+          if (event.data && event.data.type === 'ERP_SECTION_UPDATE') {
+            const { sectionKey, data } = event.data;
+            applySectionUpdate(sectionKey, data);
+          }
+        };
+      } catch {}
+    }
+
+    // B. Server-Sent Events stream from Express backend
+    try {
+      if (typeof EventSource !== 'undefined') {
+        eventSource = new EventSource('/api/state/stream');
+        eventSource.onmessage = (event) => {
+          try {
+            const payload = JSON.parse(event.data);
+            if (payload.type === 'DATABASE_UPDATED' && payload.change) {
+              Object.entries(payload.change).forEach(([secKey, val]) => {
+                applySectionUpdate(secKey, val);
+              });
+            }
+          } catch {}
+        };
+      }
+    } catch {}
+
+    // C. Hydrate from Cloud and start live Firestore subscription
     async function hydrateFromCloud() {
+      setSyncStatus('syncing');
       let firestoreSections: Record<string, any> = {};
       let serverData: Record<string, any> = {};
 
@@ -477,96 +609,55 @@ export const DataProvider: React.FC<{ children: React.ReactNode }> = ({ children
         if (uJson && uJson.ok && Array.isArray(uJson.users)) {
           dbUsers = uJson.users;
         }
-      } catch (e) {
-        console.warn('DB Users initial load warning:', e);
-      }
+      } catch {}
 
       try {
         const token = sessionStorage.getItem('bismillah_erp_session_token') || localStorage.getItem('bismillah_erp_session_token');
         const headers: Record<string, string> = {};
-        if (token) {
-          headers['Authorization'] = `Bearer ${token}`;
-        }
+        if (token) headers['Authorization'] = `Bearer ${token}`;
         const res = await fetch('/api/state', { headers });
         const json = await res.json();
         if (json && json.ok && json.data) {
           serverData = json.data;
         }
-      } catch {
-        // ignore local server fallback error
-      }
+      } catch {}
 
       if (cancelled) return;
 
-      const resolvedSettings = firestoreSections.settings || serverData.settings || settings;
-      const resolvedCategories = mergeById<ProductCategory>(firestoreSections.categories, serverData.categories, categories);
-      const resolvedProducts = mergeById<Product>(firestoreSections.products, serverData.products, products);
-      const resolvedInvoices = mergeById<SalesInvoice>(firestoreSections.invoices, serverData.invoices, invoices);
-      const rawCustomers = mergeById<Customer>(firestoreSections.customers, serverData.customers, customers);
-
-      // Ensure every customer from any invoice is present in Customer Directory
-      const custMap = new Map<string, Customer>();
-      rawCustomers.forEach(c => {
-        if (c && c.id) custMap.set(c.id, c);
-      });
-      resolvedInvoices.forEach(inv => {
-        if (!inv || !inv.customerName || !inv.customerName.trim()) return;
-        const found = Array.from(custMap.values()).find(
-          c =>
-            (inv.customerId && c.id === inv.customerId) ||
-            c.customerName.trim().toLowerCase() === inv.customerName.trim().toLowerCase() ||
-            (inv.customerPhone && c.phone && c.phone.trim() === inv.customerPhone.trim())
-        );
-        if (!found) {
-          const newCustId = inv.customerId || `cust-${inv.id}`;
-          const recoveredCustomer: Customer = {
-            id: newCustId,
-            customerId: 'CUST-' + newCustId.slice(-4).toUpperCase(),
-            customerName: inv.customerName.trim(),
-            companyName: (inv.companyName || inv.customerName).trim(),
-            customerType: 'Corporate',
-            contactPerson: inv.customerName.trim(),
-            phone: inv.customerPhone || '',
-            email: inv.customerEmail || '',
-            billingAddress: inv.customerAddress || '',
-            shippingAddress: inv.customerAddress || '',
-            city: 'Dhaka',
-            district: 'Dhaka',
-            country: 'Bangladesh',
-            postalCode: '1216',
-            binNumber: inv.customerBin || '',
-            tinNumber: inv.customerTin || '',
-            openingBalance: inv.previousDue || 0,
-            currentBalance: inv.balanceDue || 0,
-            creditLimit: 500000,
-            paymentTerms: inv.paymentTerms || '15 Days Credit',
-            createdAt: inv.createdAt || getTodayDateString(),
-            updatedAt: inv.updatedAt || getTodayDateString()
-          };
-          custMap.set(recoveredCustomer.id, recoveredCustomer);
+      function getAuthoritativeSection<T>(secKey: string, fallback: T): T {
+        if (firestoreSections[secKey] !== undefined && firestoreSections[secKey] !== null) {
+          return firestoreSections[secKey] as T;
         }
-      });
-      const resolvedCustomers = Array.from(custMap.values());
+        if (serverData && serverData[secKey] !== undefined && serverData[secKey] !== null) {
+          return serverData[secKey] as T;
+        }
+        return fallback;
+      }
 
-      const resolvedSuppliers = mergeById<Supplier>(firestoreSections.suppliers, serverData.suppliers, suppliers);
-      const resolvedDeliverySlips = mergeById<DeliverySlip>(firestoreSections.deliverySlips, serverData.deliverySlips, deliverySlips);
-      const resolvedDeliveryReturns = mergeById<DeliveryReturn>(firestoreSections.deliveryReturns, serverData.deliveryReturns, deliveryReturns);
-      const resolvedPurchaseInvoices = mergeById<PurchaseInvoice>(firestoreSections.purchaseInvoices, serverData.purchaseInvoices, purchaseInvoices);
-      const resolvedQuotations = mergeById<Quotation>(firestoreSections.quotations, serverData.quotations, quotations);
-      const resolvedSalesOrders = mergeById<SalesOrder>(firestoreSections.salesOrders, serverData.salesOrders, salesOrders);
-      const resolvedPurchaseOrders = mergeById<PurchaseOrder>(firestoreSections.purchaseOrders, serverData.purchaseOrders, purchaseOrders);
-      const resolvedDeliveryChallans = mergeById<DeliveryChallan>(firestoreSections.deliveryChallans, serverData.deliveryChallans, deliveryChallans);
-      const resolvedProformaInvoices = mergeById<ProformaInvoice>(firestoreSections.proformaInvoices, serverData.proformaInvoices, proformaInvoices);
-      const resolvedCommercialInvoices = mergeById<CommercialInvoice>(firestoreSections.commercialInvoices, serverData.commercialInvoices, commercialInvoices);
-      const resolvedImportRecords = mergeById<ImportRecord>(firestoreSections.importRecords, serverData.importRecords, importRecords);
-      const resolvedExportRecords = mergeById<ExportRecord>(firestoreSections.exportRecords, serverData.exportRecords, exportRecords);
-      const resolvedLcRecords = mergeById<LcRecord>(firestoreSections.lcRecords, serverData.lcRecords, lcRecords);
-      const resolvedShipments = mergeById<ShipmentRecord>(firestoreSections.shipments, serverData.shipments, shipments);
-      const resolvedPayments = mergeById<PaymentRecord>(firestoreSections.payments, serverData.payments, payments);
-      const resolvedExpenses = mergeById<ExpenseRecord>(firestoreSections.expenses, serverData.expenses, expenses);
-      const resolvedStockMovements = mergeById<StockMovement>(firestoreSections.stockMovements, serverData.stockMovements, stockMovements);
-      const resolvedUsers = mergeById<UserAccount>(dbUsers, firestoreSections.users, serverData.users, users);
-      const resolvedActivityLogs = mergeById<ActivityLog>(firestoreSections.activityLogs, serverData.activityLogs, activityLogs).slice(0, 200);
+      const resolvedSettings = getAuthoritativeSection('settings', settings);
+      const resolvedCategories = getAuthoritativeSection<ProductCategory[]>('categories', categories);
+      const resolvedProducts = getAuthoritativeSection<Product[]>('products', products);
+      const resolvedInvoices = getAuthoritativeSection<SalesInvoice[]>('invoices', invoices);
+      const resolvedCustomers = getAuthoritativeSection<Customer[]>('customers', customers);
+      const resolvedSuppliers = getAuthoritativeSection<Supplier[]>('suppliers', suppliers);
+      const resolvedDeliverySlips = getAuthoritativeSection<DeliverySlip[]>('deliverySlips', deliverySlips);
+      const resolvedDeliveryReturns = getAuthoritativeSection<DeliveryReturn[]>('deliveryReturns', deliveryReturns);
+      const resolvedPurchaseInvoices = getAuthoritativeSection<PurchaseInvoice[]>('purchaseInvoices', purchaseInvoices);
+      const resolvedQuotations = getAuthoritativeSection<Quotation[]>('quotations', quotations);
+      const resolvedSalesOrders = getAuthoritativeSection<SalesOrder[]>('salesOrders', salesOrders);
+      const resolvedPurchaseOrders = getAuthoritativeSection<PurchaseOrder[]>('purchaseOrders', purchaseOrders);
+      const resolvedDeliveryChallans = getAuthoritativeSection<DeliveryChallan[]>('deliveryChallans', deliveryChallans);
+      const resolvedProformaInvoices = getAuthoritativeSection<ProformaInvoice[]>('proformaInvoices', proformaInvoices);
+      const resolvedCommercialInvoices = getAuthoritativeSection<CommercialInvoice[]>('commercialInvoices', commercialInvoices);
+      const resolvedImportRecords = getAuthoritativeSection<ImportRecord[]>('importRecords', importRecords);
+      const resolvedExportRecords = getAuthoritativeSection<ExportRecord[]>('exportRecords', exportRecords);
+      const resolvedLcRecords = getAuthoritativeSection<LcRecord[]>('lcRecords', lcRecords);
+      const resolvedShipments = getAuthoritativeSection<ShipmentRecord[]>('shipments', shipments);
+      const resolvedPayments = getAuthoritativeSection<PaymentRecord[]>('payments', payments);
+      const resolvedExpenses = getAuthoritativeSection<ExpenseRecord[]>('expenses', expenses);
+      const resolvedStockMovements = getAuthoritativeSection<StockMovement[]>('stockMovements', stockMovements);
+      const resolvedUsers = getAuthoritativeSection<UserAccount[]>('users', dbUsers.length > 0 ? dbUsers : users);
+      const resolvedActivityLogs = getAuthoritativeSection<ActivityLog[]>('activityLogs', activityLogs);
 
       const allResolved: Record<string, any> = {
         settings: resolvedSettings,
@@ -595,13 +686,14 @@ export const DataProvider: React.FC<{ children: React.ReactNode }> = ({ children
         activityLogs: resolvedActivityLogs,
       };
 
-      // Record baseline JSON strings and seed Firestore for any sections not yet stored or updated
       Object.entries(allResolved).forEach(([secKey, val]) => {
         const jsonStr = JSON.stringify(val);
         lastSyncedJsonRef.current[secKey] = jsonStr;
-        const existingFsJson = firestoreSections[secKey] !== undefined ? JSON.stringify(firestoreSections[secKey]) : '';
-        if (existingFsJson !== jsonStr) {
-          saveErpSectionToFirestore(secKey, val, currentUser.name).catch(() => {});
+        try {
+          localStorage.setItem(STORAGE_PREFIX + secKey, jsonStr);
+        } catch {}
+        if (firestoreSections[secKey] === undefined) {
+          saveErpSectionToFirestore(secKey, val, currentUser?.name || 'admin').catch(() => {});
         }
       });
 
@@ -631,41 +723,14 @@ export const DataProvider: React.FC<{ children: React.ReactNode }> = ({ children
       setActivityLogs(resolvedActivityLogs);
 
       setServerReady(true);
+      setSyncStatus('synced');
+      setLastSyncedAt(new Date().toLocaleTimeString([], { hour: '2-digit', minute: '2-digit', second: '2-digit' }));
 
-      // Attach real-time Firestore listener so changes from other devices appear live
+      // Attach real-time Firestore listener so changes from other devices appear live immediately
       try {
         unsubscribeFirestore = subscribeToErpSections((sectionId, parsedData) => {
           if (cancelled || parsedData === undefined || parsedData === null) return;
-          const incomingJson = JSON.stringify(parsedData);
-          if (lastSyncedJsonRef.current[sectionId] === incomingJson) return;
-          lastSyncedJsonRef.current[sectionId] = incomingJson;
-
-          switch (sectionId) {
-            case 'settings': setSettings(parsedData); break;
-            case 'categories': setCategories(parsedData); break;
-            case 'products': setProducts(parsedData); break;
-            case 'customers': setCustomers(parsedData); break;
-            case 'suppliers': setSuppliers(parsedData); break;
-            case 'invoices': setInvoices(parsedData); break;
-            case 'deliverySlips': setDeliverySlips(parsedData); break;
-            case 'deliveryReturns': setDeliveryReturns(parsedData); break;
-            case 'purchaseInvoices': setPurchaseInvoices(parsedData); break;
-            case 'quotations': setQuotations(parsedData); break;
-            case 'salesOrders': setSalesOrders(parsedData); break;
-            case 'purchaseOrders': setPurchaseOrders(parsedData); break;
-            case 'deliveryChallans': setDeliveryChallans(parsedData); break;
-            case 'proformaInvoices': setProformaInvoices(parsedData); break;
-            case 'commercialInvoices': setCommercialInvoices(parsedData); break;
-            case 'importRecords': setImportRecords(parsedData); break;
-            case 'exportRecords': setExportRecords(parsedData); break;
-            case 'lcRecords': setLcRecords(parsedData); break;
-            case 'shipments': setShipments(parsedData); break;
-            case 'payments': setPayments(parsedData); break;
-            case 'expenses': setExpenses(parsedData); break;
-            case 'stockMovements': setStockMovements(parsedData); break;
-            case 'users': setUsers(parsedData); break;
-            case 'activityLogs': setActivityLogs(parsedData); break;
-          }
+          applySectionUpdate(sectionId, parsedData);
         });
       } catch (err) {
         console.warn('Firestore subscription warning:', err);
@@ -677,9 +742,12 @@ export const DataProvider: React.FC<{ children: React.ReactNode }> = ({ children
     return () => {
       cancelled = true;
       if (unsubscribeFirestore) unsubscribeFirestore();
+      if (eventSource) eventSource.close();
+      if (broadcastChannelRef.current) broadcastChannelRef.current.close();
     };
   }, []);
 
+  // Background watcher for any batch state changes
   useEffect(() => {
     if (!serverReady) return;
     const currentSections: Record<string, any> = {
@@ -709,23 +777,12 @@ export const DataProvider: React.FC<{ children: React.ReactNode }> = ({ children
       activityLogs: activityLogs.slice(0, 200)
     };
 
-    // Sync changed sections immediately to Firebase Firestore
     Object.entries(currentSections).forEach(([secKey, val]) => {
       const jsonStr = JSON.stringify(val);
       if (lastSyncedJsonRef.current[secKey] !== jsonStr) {
-        lastSyncedJsonRef.current[secKey] = jsonStr;
-        saveErpSectionToFirestore(secKey, val, currentUser.name).catch(() => {});
+        syncSectionLive(secKey, val);
       }
     });
-
-    const timer = setTimeout(() => {
-      fetch('/api/state', {
-        method: 'POST',
-        headers: { 'Content-Type': 'application/json' },
-        body: JSON.stringify(currentSections)
-      }).catch(() => {});
-    }, 80);
-    return () => clearTimeout(timer);
   }, [
     serverReady,
     settings,
@@ -864,27 +921,15 @@ export const DataProvider: React.FC<{ children: React.ReactNode }> = ({ children
   // Customer Management
   const saveCustomer = (customer: Customer) => {
     const isNew = !customers.some(c => c.id === customer.id);
+    const nextCustomers = isNew ? [customer, ...customers] : customers.map(c => c.id === customer.id ? customer : c);
+    setCustomers(nextCustomers);
+    syncSectionLive('customers', nextCustomers);
+
     if (isNew) {
-      setCustomers(prev => {
-        const next = [customer, ...prev];
-        localStorage.setItem(STORAGE_PREFIX + 'customers', JSON.stringify(next));
-        return next;
-      });
       logActivity('Customer Created', `Added customer: ${customer.customerName} (${customer.companyName})`);
     } else {
-      setCustomers(prev => {
-        const next = prev.map(c => c.id === customer.id ? customer : c);
-        localStorage.setItem(STORAGE_PREFIX + 'customers', JSON.stringify(next));
-        return next;
-      });
       logActivity('Customer Updated', `Updated customer: ${customer.customerName}`);
     }
-    // Immediately persist customer to cloud server
-    fetch('/api/customers', {
-      method: 'POST',
-      headers: { 'Content-Type': 'application/json' },
-      body: JSON.stringify(customer)
-    }).catch(() => {});
   };
 
   const deleteCustomer = (id: string): boolean => {
@@ -896,14 +941,9 @@ export const DataProvider: React.FC<{ children: React.ReactNode }> = ({ children
       alert(`Cannot delete customer "${customer.customerName}" because they have existing sales invoices. Archive or cancel invoices first.`);
       return false;
     }
-    setCustomers(prev => {
-      const next = prev.filter(c => c.id !== id);
-      localStorage.setItem(STORAGE_PREFIX + 'customers', JSON.stringify(next));
-      return next;
-    });
-    fetch(`/api/customers/${encodeURIComponent(id)}`, {
-      method: 'DELETE'
-    }).catch(() => {});
+    const nextCustomers = customers.filter(c => c.id !== id);
+    setCustomers(nextCustomers);
+    syncSectionLive('customers', nextCustomers);
     logActivity('Customer Deleted', `Deleted customer: ${customer.customerName}`);
     return true;
   };
@@ -911,11 +951,13 @@ export const DataProvider: React.FC<{ children: React.ReactNode }> = ({ children
   // Supplier Management
   const saveSupplier = (supplier: Supplier) => {
     const isNew = !suppliers.some(s => s.id === supplier.id);
+    const nextSuppliers = isNew ? [supplier, ...suppliers] : suppliers.map(s => s.id === supplier.id ? supplier : s);
+    setSuppliers(nextSuppliers);
+    syncSectionLive('suppliers', nextSuppliers);
+
     if (isNew) {
-      setSuppliers(prev => [supplier, ...prev]);
       logActivity('Supplier Created', `Added supplier: ${supplier.supplierName} (${supplier.companyName})`);
     } else {
-      setSuppliers(prev => prev.map(s => s.id === supplier.id ? supplier : s));
       logActivity('Supplier Updated', `Updated supplier: ${supplier.supplierName}`);
     }
   };
@@ -928,7 +970,9 @@ export const DataProvider: React.FC<{ children: React.ReactNode }> = ({ children
       alert(`Cannot delete supplier "${supplier.supplierName}" because there are associated purchase invoices.`);
       return false;
     }
-    setSuppliers(prev => prev.filter(s => s.id !== id));
+    const nextSuppliers = suppliers.filter(s => s.id !== id);
+    setSuppliers(nextSuppliers);
+    syncSectionLive('suppliers', nextSuppliers);
     logActivity('Supplier Deleted', `Deleted supplier: ${supplier.supplierName}`);
     return true;
   };
@@ -937,15 +981,19 @@ export const DataProvider: React.FC<{ children: React.ReactNode }> = ({ children
   const saveCategory = (cat: ProductCategory) => {
     setCategories(prev => {
       const exists = prev.some(c => c.id === cat.id);
-      return exists ? prev.map(c => c.id === cat.id ? cat : c) : [...prev, cat];
+      const nextCategories = exists ? prev.map(c => c.id === cat.id ? cat : c) : [...prev, cat];
+      syncSectionLive('categories', nextCategories);
+      return nextCategories;
     });
   };
 
   const saveProduct = (product: Product) => {
     const isNew = !products.some(p => p.id === product.id);
+    const nextProducts = isNew ? [product, ...products] : products.map(p => p.id === product.id ? product : p);
+    setProducts(nextProducts);
+    syncSectionLive('products', nextProducts);
+
     if (isNew) {
-      setProducts(prev => [product, ...prev]);
-      // Record opening stock movement if opening stock > 0
       if (product.stockQuantity > 0) {
         const movement: StockMovement = {
           id: 'mov-' + Date.now(),
@@ -961,11 +1009,14 @@ export const DataProvider: React.FC<{ children: React.ReactNode }> = ({ children
           notes: 'Product creation opening stock',
           createdBy: currentUser.name
         };
-        setStockMovements(m => [movement, ...m]);
+        setStockMovements(m => {
+          const nextMovements = [movement, ...m];
+          syncSectionLive('stockMovements', nextMovements);
+          return nextMovements;
+        });
       }
       logActivity('Product Created', `Added product: ${product.productName} (SKU: ${product.sku})`);
     } else {
-      setProducts(prev => prev.map(p => p.id === product.id ? product : p));
       logActivity('Product Updated', `Updated product: ${product.productName}`);
     }
   };
@@ -979,7 +1030,9 @@ export const DataProvider: React.FC<{ children: React.ReactNode }> = ({ children
       alert(`Cannot delete product "${product.productName}" because it is referenced in sales invoices.`);
       return false;
     }
-    setProducts(prev => prev.filter(p => p.id !== id));
+    const nextProducts = products.filter(p => p.id !== id);
+    setProducts(nextProducts);
+    syncSectionLive('products', nextProducts);
     logActivity('Product Deleted', `Deleted product: ${product.productName}`);
     return true;
   };
@@ -1141,7 +1194,9 @@ export const DataProvider: React.FC<{ children: React.ReactNode }> = ({ children
     };
 
     if (isNew) {
-      setInvoices(prev => [fullInvoice, ...prev]);
+      const nextInvoices = [fullInvoice, ...invoices];
+      setInvoices(nextInvoices);
+      syncSectionLive('invoices', nextInvoices);
 
       // If settings reduce stock at 'invoice_confirmation', update stock immediately
       if (settings.reduceStockAt === 'invoice_confirmation') {
@@ -1150,16 +1205,20 @@ export const DataProvider: React.FC<{ children: React.ReactNode }> = ({ children
         });
       } else {
         // Reserve stock
-        setProducts(prev => prev.map(p => {
-          const matchedItem = fullInvoice.items.find(i => i.productId === p.id);
-          if (matchedItem) {
-            return {
-              ...p,
-              reservedStock: (p.reservedStock || 0) + matchedItem.quantity
-            };
-          }
-          return p;
-        }));
+        setProducts(prev => {
+          const nextProducts = prev.map(p => {
+            const matchedItem = fullInvoice.items.find(i => i.productId === p.id);
+            if (matchedItem) {
+              return {
+                ...p,
+                reservedStock: (p.reservedStock || 0) + matchedItem.quantity
+              };
+            }
+            return p;
+          });
+          syncSectionLive('products', nextProducts);
+          return nextProducts;
+        });
       }
 
       // Update existing customer balance & latest contact details
@@ -1178,19 +1237,16 @@ export const DataProvider: React.FC<{ children: React.ReactNode }> = ({ children
         };
         setCustomers(prev => {
           const next = prev.map(c => c.id === existingCust.id ? updatedCust : c);
-          localStorage.setItem(STORAGE_PREFIX + 'customers', JSON.stringify(next));
+          syncSectionLive('customers', next);
           return next;
         });
-        fetch('/api/customers', {
-          method: 'POST',
-          headers: { 'Content-Type': 'application/json' },
-          body: JSON.stringify(updatedCust)
-        }).catch(() => {});
       }
 
       logActivity('Invoice Created', `Created invoice ${fullInvoice.invoiceNumber} for ${fullInvoice.customerName} (Grand Total: ৳ ${fullInvoice.grandTotal.toLocaleString()})`);
     } else {
-      setInvoices(prev => prev.map(i => i.id === fullInvoice.id ? fullInvoice : i));
+      const nextInvoices = invoices.map(i => i.id === fullInvoice.id ? fullInvoice : i);
+      setInvoices(nextInvoices);
+      syncSectionLive('invoices', nextInvoices);
       logActivity('Invoice Updated', `Updated invoice ${fullInvoice.invoiceNumber}`);
     }
 
@@ -1206,53 +1262,75 @@ export const DataProvider: React.FC<{ children: React.ReactNode }> = ({ children
 
     // Release reserved stock or restore stock deducted on creation
     if (settings.reduceStockAt === 'delivery_confirmation') {
-      setProducts(prev => prev.map(p => {
-        const item = invoice.items?.find(i => i.productId === p.id);
-        if (!item) return p;
+      setProducts(prev => {
+        const nextProducts = prev.map(p => {
+          const item = invoice.items?.find(i => i.productId === p.id);
+          if (!item) return p;
 
-        // Sum up what was dispatched in related delivery slips
-        const deliveredQty = relatedSlips.reduce((sum, s) => {
-          const slipItem = s.items?.find(si => si.productId === p.id);
-          return sum + (slipItem ? (slipItem.deliveredQuantity || 0) : 0);
-        }, 0);
-        const unDeliveredQty = Math.max(0, item.quantity - deliveredQty);
+          // Sum up what was dispatched in related delivery slips
+          const deliveredQty = relatedSlips.reduce((sum, s) => {
+            const slipItem = s.items?.find(si => si.productId === p.id);
+            return sum + (slipItem ? (slipItem.deliveredQuantity || 0) : 0);
+          }, 0);
+          const unDeliveredQty = Math.max(0, item.quantity - deliveredQty);
 
-        return {
-          ...p,
-          stockQuantity: (p.stockQuantity || 0) + deliveredQty,
-          reservedStock: Math.max(0, (p.reservedStock || 0) - unDeliveredQty)
-        };
-      }));
+          return {
+            ...p,
+            stockQuantity: (p.stockQuantity || 0) + deliveredQty,
+            reservedStock: Math.max(0, (p.reservedStock || 0) - unDeliveredQty)
+          };
+        });
+        syncSectionLive('products', nextProducts);
+        return nextProducts;
+      });
     } else {
-      setProducts(prev => prev.map(p => {
-        const item = invoice.items?.find(i => i.productId === p.id);
-        if (!item) return p;
-        return {
-          ...p,
-          stockQuantity: (p.stockQuantity || 0) + item.quantity
-        };
-      }));
+      setProducts(prev => {
+        const nextProducts = prev.map(p => {
+          const item = invoice.items?.find(i => i.productId === p.id);
+          if (!item) return p;
+          return {
+            ...p,
+            stockQuantity: (p.stockQuantity || 0) + item.quantity
+          };
+        });
+        syncSectionLive('products', nextProducts);
+        return nextProducts;
+      });
     }
 
     // Clean up customer balance
     if (invoice.customerId && invoice.balanceDue > 0) {
-      setCustomers(prev => prev.map(c => {
-        if (c.id === invoice.customerId) {
-          return {
-            ...c,
-            currentBalance: Math.max(0, (c.currentBalance || 0) - invoice.balanceDue)
-          };
-        }
-        return c;
-      }));
+      setCustomers(prev => {
+        const nextCustomers = prev.map(c => {
+          if (c.id === invoice.customerId) {
+            return {
+              ...c,
+              currentBalance: Math.max(0, (c.currentBalance || 0) - invoice.balanceDue)
+            };
+          }
+          return c;
+        });
+        syncSectionLive('customers', nextCustomers);
+        return nextCustomers;
+      });
     }
 
     // Clean up related delivery slips, delivery returns, and invoice-specific payments
-    setDeliverySlips(prev => prev.filter(ds => ds.invoiceId !== id));
-    setDeliveryReturns(prev => prev.filter(dr => dr.invoiceId !== id));
-    setPayments(prev => prev.filter(pm => pm.invoiceId !== id));
+    const nextSlips = deliverySlips.filter(ds => ds.invoiceId !== id);
+    const nextReturns = deliveryReturns.filter(dr => dr.invoiceId !== id);
+    const nextPayments = payments.filter(pm => pm.invoiceId !== id);
+    const nextInvoices = invoices.filter(i => i.id !== id);
 
-    setInvoices(prev => prev.filter(i => i.id !== id));
+    setDeliverySlips(nextSlips);
+    setDeliveryReturns(nextReturns);
+    setPayments(nextPayments);
+    setInvoices(nextInvoices);
+
+    syncSectionLive('invoices', nextInvoices);
+    syncSectionLive('deliverySlips', nextSlips);
+    syncSectionLive('deliveryReturns', nextReturns);
+    syncSectionLive('payments', nextPayments);
+
     logActivity('Invoice Deleted', `Deleted invoice ${invoice.invoiceNumber}`);
     return true;
   };
@@ -1502,7 +1580,9 @@ export const DataProvider: React.FC<{ children: React.ReactNode }> = ({ children
     const target = deliverySlips.find(s => s.id === slipId);
     if (!target) return false;
 
-    setDeliverySlips(prev => prev.filter(s => s.id !== slipId));
+    const nextSlips = deliverySlips.filter(s => s.id !== slipId);
+    setDeliverySlips(nextSlips);
+    syncSectionLive('deliverySlips', nextSlips);
 
     // Update invoice delivery status
     if (target.invoiceId) {
@@ -2138,24 +2218,29 @@ export const DataProvider: React.FC<{ children: React.ReactNode }> = ({ children
       } : s));
     }
 
-    setPayments(prev => prev.filter(p => p.id !== id));
+    const nextPayments = payments.filter(p => p.id !== id);
+    setPayments(nextPayments);
+    syncSectionLive('payments', nextPayments);
+
     logActivity('Payment Deleted', `Deleted Money Receipt ${existing.receiptNumber} of ৳ ${existing.amount.toLocaleString()} and reverted ledger balance`);
     return true;
   };
 
   // Expenses
   const saveExpense = (expense: ExpenseRecord) => {
-    setExpenses(prev => {
-      const exists = prev.some(e => e.id === expense.id);
-      return exists ? prev.map(e => e.id === expense.id ? expense : e) : [expense, ...prev];
-    });
+    const isNew = !expenses.some(e => e.id === expense.id);
+    const nextExpenses = isNew ? [expense, ...expenses] : expenses.map(e => e.id === expense.id ? expense : e);
+    setExpenses(nextExpenses);
+    syncSectionLive('expenses', nextExpenses);
     logActivity('Expense Recorded', `Recorded ${expense.category} expense of ৳ ${expense.amount.toLocaleString()} (${expense.expenseNumber})`);
   };
 
   const deleteExpense = (id: string): boolean => {
     const expense = expenses.find(e => e.id === id);
     if (!expense) return false;
-    setExpenses(prev => prev.filter(e => e.id !== id));
+    const nextExpenses = expenses.filter(e => e.id !== id);
+    setExpenses(nextExpenses);
+    syncSectionLive('expenses', nextExpenses);
     logActivity('Expense Deleted', `Deleted expense ${expense.expenseNumber}`);
     return true;
   };
@@ -2451,7 +2536,10 @@ export const DataProvider: React.FC<{ children: React.ReactNode }> = ({ children
         exportDatabaseBackup,
         restoreDatabaseBackup,
         resetToDefaultData,
-        getNextNumber
+        getNextNumber,
+        syncStatus,
+        lastSyncedAt,
+        syncNow
       }}
     >
       {children}

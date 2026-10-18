@@ -13,7 +13,8 @@ import {
   Download,
   Edit,
   Trash2,
-  MessageSquare
+  MessageSquare,
+  Send
 } from 'lucide-react';
 import { useData } from '../../context/DataContext';
 import { DeliverySlip, DeliveryStatus } from '../../types';
@@ -42,6 +43,7 @@ export const DeliverySlipList: React.FC<Props> = ({ onSelectInvoice }) => {
   const [pdfSlip, setPdfSlip] = useState<DeliverySlip | null>(null);
   const [isDownloadingPdf, setIsDownloadingPdf] = useState(false);
   const [whatsAppSlip, setWhatsAppSlip] = useState<DeliverySlip | null>(null);
+  const [whatsAppMode, setWhatsAppMode] = useState<'whatsapp' | 'text'>('whatsapp');
 
   const filteredSlips = deliverySlips.filter(s => {
     const q = searchQuery.toLowerCase();
@@ -258,13 +260,32 @@ export const DeliverySlipList: React.FC<Props> = ({ onSelectInvoice }) => {
                         >
                           <Printer size={15} />
                         </button>
-                        {/* Send via WhatsApp directly */}
+                        {/* Send WhatsApp (PDF Attachment) */}
                         <button
-                          onClick={() => setWhatsAppSlip(slip)}
-                          className="p-1.5 bg-emerald-950/40 hover:bg-emerald-900/60 rounded text-emerald-400 border border-emerald-900/40 transition-colors cursor-pointer"
-                          title="Send Delivery Slip to WhatsApp"
+                          type="button"
+                          onClick={() => {
+                            setWhatsAppSlip(slip);
+                            setWhatsAppMode('whatsapp');
+                          }}
+                          className="flex items-center gap-1 px-2 py-1 bg-emerald-600/20 hover:bg-emerald-600/35 text-emerald-300 rounded text-xs font-semibold border border-emerald-500/30 transition-colors cursor-pointer"
+                          title="Send Delivery Slip PDF directly through WhatsApp"
                         >
-                          <MessageSquare size={15} />
+                          <MessageSquare size={13} />
+                          <span>Send WhatsApp</span>
+                        </button>
+
+                        {/* Send Text (Prepared Text Only) */}
+                        <button
+                          type="button"
+                          onClick={() => {
+                            setWhatsAppSlip(slip);
+                            setWhatsAppMode('text');
+                          }}
+                          className="flex items-center gap-1 px-2 py-1 bg-zinc-800 hover:bg-zinc-700 text-zinc-300 hover:text-white rounded text-xs font-semibold border border-zinc-700 transition-colors cursor-pointer"
+                          title="Send only the prepared text message through WhatsApp"
+                        >
+                          <Send size={13} className="text-emerald-400" />
+                          <span>Send Text</span>
                         </button>
                         {/* Download PDF */}
                         <button
@@ -357,6 +378,8 @@ export const DeliverySlipList: React.FC<Props> = ({ onSelectInvoice }) => {
             pdfElementId={`list-printable-slip-${whatsAppSlip.id}`}
             pdfFilename={`Delivery-Slip-${whatsAppSlip.deliverySlipNumber}`}
             documentType="Delivery Slip"
+            documentNumber={whatsAppSlip.deliverySlipNumber}
+            defaultMode={whatsAppMode}
           />
         </>
       )}

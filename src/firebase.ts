@@ -115,6 +115,10 @@ export async function saveErpSectionToFirestore(
 ): Promise<void> {
   const cleanSectionId = sectionId.replace(/[^a-zA-Z0-9_-]/g, '_').slice(0, 64);
   const path = `erp_sections/${cleanSectionId}`;
+  const safeUpdatedBy = (typeof updatedBy === 'string' && updatedBy.trim().length > 0)
+    ? updatedBy.trim().slice(0, 128)
+    : 'admin';
+
   try {
     const serialized = JSON.stringify(data ?? null);
     if (serialized.length > 940000) {
@@ -125,12 +129,40 @@ export async function saveErpSectionToFirestore(
       sectionId: cleanSectionId,
       payloadJson: serialized.slice(0, 950000),
       updatedAtIso: new Date().toISOString().slice(0, 64),
-      updatedBy: (updatedBy || 'admin').slice(0, 128),
+      updatedBy: safeUpdatedBy,
     };
     await setDoc(doc(db, 'erp_sections', cleanSectionId), payload);
   } catch (error) {
     handleFirestoreError(error, OperationType.WRITE, path);
   }
+}
+
+export async function syncSectionToCloudAndServer(
+  sectionId: string,
+  data: unknown,
+  updatedBy = 'admin'
+): Promise<void> {
+  const safeUser = (typeof updatedBy === 'string' && updatedBy.trim().length > 0)
+    ? updatedBy.trim().slice(0, 128)
+    : 'admin';
+  try {
+    await saveErpSectionToFirestore(sectionId, data, safeUser);
+  } catch (e) {
+    console.warn(`Cloud save notice for ${sectionId}:`, e);
+  }
+
+  try {
+    const token = typeof sessionStorage !== 'undefined'
+      ? (sessionStorage.getItem('bismillah_erp_session_token') || localStorage.getItem('bismillah_erp_session_token'))
+      : null;
+    const headers: Record<string, string> = { 'Content-Type': 'application/json' };
+    if (token) headers['Authorization'] = `Bearer ${token}`;
+    await fetch('/api/state', {
+      method: 'POST',
+      headers,
+      body: JSON.stringify({ sectionId, updatedData: data })
+    });
+  } catch {}
 }
 
 export async function loadAllErpSectionsFromFirestore(): Promise<{
@@ -163,7 +195,6 @@ export async function loadAllErpSectionsFromFirestore(): Promise<{
 export function subscribeToErpSections(
   onUpdate: (sectionId: string, parsedData: any, updatedAtIso: string) => void
 ): () => void {
-  const path = 'erp_sections';
   const q = query(collection(db, 'erp_sections'), where('orgKey', '==', ORG_KEY));
   return onSnapshot(
     q,
@@ -179,11 +210,16 @@ export function subscribeToErpSections(
               // ignore parse error
             }
           }
+        } else if (change.type === 'removed') {
+          const d = change.doc.data();
+          if (d && d.sectionId) {
+            onUpdate(d.sectionId, [], new Date().toISOString());
+          }
         }
       });
     },
     (error) => {
-      handleFirestoreError(error, OperationType.LIST, path);
+      console.warn('Firestore live subscription notice:', error);
     }
   );
 }

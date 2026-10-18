@@ -1,14 +1,14 @@
-import { SalesInvoice, DeliverySlip, PaymentRecord, DeliverySlipItem, InvoiceItem } from '../types';
+import { SalesInvoice, DeliverySlip, PaymentRecord, DeliverySlipItem, InvoiceItem, ExpenseRecord } from '../types';
 
 /**
  * STRICT BUSINESS LOGIC:
- * WhatsApp integration is strictly restricted to ONLY three target documents:
+ * WhatsApp integration is strictly restricted to target documents:
  * 1. Invoice
  * 2. Delivery Slip
- * 3. Money Receipt
- * No other documents are permitted.
+ * 3. Expense Sheet
+ * 4. Money Receipt
  */
-export const ALLOWED_WHATSAPP_DOCS = ['Invoice', 'Delivery Slip', 'Money Receipt'] as const;
+export const ALLOWED_WHATSAPP_DOCS = ['Invoice', 'Delivery Slip', 'Expense Sheet', 'Money Receipt'] as const;
 export type AllowedWhatsAppDocumentType = typeof ALLOWED_WHATSAPP_DOCS[number];
 
 export function isAllowedWhatsAppDocument(type?: string): type is AllowedWhatsAppDocumentType {
@@ -198,3 +198,47 @@ export function generateMoneyReceiptWhatsAppText(payment: PaymentRecord, company
 
   return lines.join('\n');
 }
+
+/**
+ * Generate formatted companion text message for an Expense Sheet (Target Document #3)
+ */
+export function generateExpenseWhatsAppText(expense: ExpenseRecord, companyName = 'Bismillah Multitrade Corporation'): string {
+  const currency = expense.currency || 'BDT';
+  const lines: string[] = [];
+
+  const expNumber = expense.voucherNumber || expense.expenseNumber || expense.id;
+  lines.push(`*EXPENSE VOUCHER / SHEET: #${expNumber}*`);
+  lines.push(`*${companyName}*`);
+  lines.push(`────────────────────`);
+  lines.push(`Date: ${expense.expenseDate || expense.date}`);
+  lines.push(`Category: *${expense.category}*`);
+  if (expense.paidTo) lines.push(`Paid To / Beneficiary: *${expense.paidTo}*`);
+  lines.push(`Payment Method: *${expense.paymentMethod}*`);
+  if (expense.referenceNumber || expense.reference) {
+    lines.push(`Ref / Cheque: ${expense.referenceNumber || expense.reference}`);
+  }
+  lines.push(`────────────────────`);
+
+  if (expense.items && expense.items.length > 0) {
+    lines.push(`*EXPENSE PARTICULARS:*`);
+    expense.items.forEach((it, idx) => {
+      lines.push(`${idx + 1}. ${it.particulars} - ${currency} ${Number(it.amount || 0).toLocaleString()}`);
+    });
+    lines.push(`────────────────────`);
+  } else if (expense.description) {
+    lines.push(`Description: ${expense.description}`);
+    lines.push(`────────────────────`);
+  }
+
+  lines.push(`*TOTAL EXPENSE AMOUNT: ${currency} ${Number(expense.amount || 0).toLocaleString()}*`);
+
+  if (expense.preparedBy) lines.push(`Prepared By: ${expense.preparedBy}`);
+  if (expense.approvedBy) lines.push(`Approved By: ${expense.approvedBy}`);
+  if (expense.notes) lines.push(`Notes: ${expense.notes}`);
+
+  lines.push(`────────────────────`);
+  lines.push(`Official record from ${companyName}.`);
+
+  return lines.join('\n');
+}
+

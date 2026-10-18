@@ -11,7 +11,8 @@ import {
   CreditCard,
   User,
   CheckCircle2,
-  MessageSquare
+  MessageSquare,
+  Send
 } from 'lucide-react';
 import { useData } from '../../context/DataContext';
 import { PrintableExpenseSheet } from '../documents/PrintableExpenseSheet';
@@ -19,6 +20,8 @@ import { downloadElementAsPdf } from '../../utils/pdfExport';
 import { printElement } from '../../utils/printHelper';
 import { ConfirmModal } from '../common/ConfirmModal';
 import { formatCurrency, formatDate } from '../../utils/formatters';
+import { WhatsAppSendModal } from '../common/WhatsAppSendModal';
+import { generateExpenseWhatsAppText } from '../../utils/whatsapp';
 
 interface Props {
   expenseId: string;
@@ -30,6 +33,8 @@ export const ExpenseDetails: React.FC<Props> = ({ expenseId, onBack, onEdit }) =
   const { expenses, settings, deleteExpense } = useData();
   const [isDownloadingPdf, setIsDownloadingPdf] = useState(false);
   const [showDeleteModal, setShowDeleteModal] = useState(false);
+  const [showWhatsAppModal, setShowWhatsAppModal] = useState(false);
+  const [whatsAppMode, setWhatsAppMode] = useState<'whatsapp' | 'text'>('whatsapp');
 
   const expense = expenses.find(e => e.id === expenseId);
 
@@ -134,14 +139,40 @@ export const ExpenseDetails: React.FC<Props> = ({ expenseId, onBack, onEdit }) =
             type="button"
             onClick={handleDownloadPdf}
             disabled={isDownloadingPdf}
-            className="flex items-center gap-1.5 px-4 py-2 bg-red-600 hover:bg-red-500 text-white font-bold rounded-lg text-xs shadow-md shadow-red-600/20 transition-colors disabled:opacity-50 cursor-pointer"
+            className="flex items-center gap-1.5 px-4 py-2 bg-zinc-800 hover:bg-zinc-700 text-zinc-200 font-bold rounded-lg text-xs border border-zinc-700 transition-colors disabled:opacity-50 cursor-pointer"
             title="Download PDF"
           >
             <Download size={14} />
             <span>{isDownloadingPdf ? 'Generating PDF...' : 'Download PDF'}</span>
           </button>
 
+          {/* Send WhatsApp (PDF Attachment) */}
+          <button
+            type="button"
+            onClick={() => {
+              setWhatsAppMode('whatsapp');
+              setShowWhatsAppModal(true);
+            }}
+            className="flex items-center gap-1.5 px-4 py-2 bg-emerald-600 hover:bg-emerald-500 text-white font-bold rounded-lg text-xs shadow-md shadow-emerald-600/20 transition-colors cursor-pointer"
+            title="Send Expense Sheet PDF directly through WhatsApp"
+          >
+            <MessageSquare size={14} />
+            <span>Send WhatsApp</span>
+          </button>
 
+          {/* Send Text (Prepared Text Only) */}
+          <button
+            type="button"
+            onClick={() => {
+              setWhatsAppMode('text');
+              setShowWhatsAppModal(true);
+            }}
+            className="flex items-center gap-1.5 px-4 py-2 bg-zinc-800 hover:bg-zinc-700 text-zinc-100 font-semibold rounded-lg text-xs border border-zinc-700 transition-colors cursor-pointer"
+            title="Send only the prepared text message through WhatsApp"
+          >
+            <Send size={14} className="text-emerald-400" />
+            <span>Send Text</span>
+          </button>
 
           {/* Delete Button */}
           <button
@@ -174,7 +205,19 @@ export const ExpenseDetails: React.FC<Props> = ({ expenseId, onBack, onEdit }) =
         onCancel={() => setShowDeleteModal(false)}
       />
 
-
+      {/* Send WhatsApp Modal */}
+      <WhatsAppSendModal
+        isOpen={showWhatsAppModal}
+        onClose={() => setShowWhatsAppModal(false)}
+        title={`Send Expense Sheet #${expense.voucherNumber || expense.expenseNumber || ''} to WhatsApp`}
+        defaultPhone={expense.phone || ''}
+        initialMessage={generateExpenseWhatsAppText(expense, settings?.companyName || 'Bismillah Multitrade Corporation')}
+        pdfElementId={`printable-expense-${expense.id}`}
+        pdfFilename={`Expense-Sheet-${expense.voucherNumber || expense.expenseNumber || expense.id}`}
+        documentType="Expense Sheet"
+        documentNumber={expense.voucherNumber || expense.expenseNumber}
+        defaultMode={whatsAppMode}
+      />
     </div>
   );
 };

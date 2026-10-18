@@ -42,7 +42,15 @@ export const Navbar: React.FC<NavbarProps> = ({
   onOpenProfile
 }) => {
   const toggleMobileMenu = onOpenMobileMenu || onToggleSidebar || (() => {});
-  const { invoices, products, deliverySlips, customers, currentUser, dateFilterPeriod, setDateFilterPeriod } = useData();
+  const {
+    invoices,
+    products,
+    deliverySlips,
+    customers,
+    currentUser,
+    dateFilterPeriod,
+    setDateFilterPeriod
+  } = useData();
 
   // Search & Results
   const [searchQuery, setSearchQuery] = useState('');

@@ -15,7 +15,8 @@ import {
   CheckCircle2,
   Clock,
   AlertCircle,
-  MessageSquare
+  MessageSquare,
+  Send
 } from 'lucide-react';
 import { useData } from '../../context/DataContext';
 import { SalesInvoice, PaymentStatus, DeliveryStatus } from '../../types';
@@ -55,12 +56,14 @@ export const InvoiceList: React.FC<Props> = ({
     phone: string;
     message: string;
     invoice?: SalesInvoice | null;
+    mode?: 'whatsapp' | 'text';
   }>({
     isOpen: false,
     title: '',
     phone: '',
     message: '',
-    invoice: null
+    invoice: null,
+    mode: 'whatsapp'
   });
 
   // Apply date range
@@ -401,21 +404,46 @@ export const InvoiceList: React.FC<Props> = ({
                     </td>
                     <td className="p-3 text-right">
                       <div className="flex items-center justify-end gap-1">
+                        {/* Send WhatsApp (PDF Attachment) */}
                         <button
+                          type="button"
                           onClick={() => {
-                            const text = generateInvoiceWhatsAppText(inv, 'Bismillah Multitrade Corporation');
+                            const text = generateInvoiceWhatsAppText(inv, settings?.companyName || 'Bismillah Multitrade Corporation');
                             setWhatsAppModal({
                               isOpen: true,
                               title: `Send Invoice #${inv.invoiceNumber} to WhatsApp`,
                               phone: inv.customerPhone || '',
                               message: text,
-                              invoice: inv
+                              invoice: inv,
+                              mode: 'whatsapp'
                             });
                           }}
-                          className="p-1.5 hover:bg-emerald-900/40 rounded text-emerald-400 hover:text-emerald-300"
-                          title="Send to WhatsApp"
+                          className="flex items-center gap-1 px-2 py-1 bg-emerald-600/20 hover:bg-emerald-600/35 text-emerald-300 rounded text-xs font-semibold cursor-pointer transition-colors"
+                          title="Send Invoice PDF directly through WhatsApp"
                         >
-                          <MessageSquare size={15} />
+                          <MessageSquare size={13} />
+                          <span>Send WhatsApp</span>
+                        </button>
+
+                        {/* Send Text (Prepared Text Message Only) */}
+                        <button
+                          type="button"
+                          onClick={() => {
+                            const text = generateInvoiceWhatsAppText(inv, settings?.companyName || 'Bismillah Multitrade Corporation');
+                            setWhatsAppModal({
+                              isOpen: true,
+                              title: `Send Invoice #${inv.invoiceNumber} Text`,
+                              phone: inv.customerPhone || '',
+                              message: text,
+                              invoice: inv,
+                              mode: 'text'
+                            });
+                          }}
+                          className="flex items-center gap-1 px-2 py-1 bg-zinc-800 hover:bg-zinc-700 text-zinc-300 hover:text-white rounded text-xs font-semibold cursor-pointer transition-colors"
+                          title="Send only the prepared text message through WhatsApp"
+                        >
+                          <Send size={13} />
+                          <span>Send Text</span>
                         </button>
                         <button
                           onClick={() => onSelectInvoice(inv.id)}
@@ -511,6 +539,8 @@ export const InvoiceList: React.FC<Props> = ({
             pdfElementId={whatsAppModal.invoice ? `invoice-list-printable-${whatsAppModal.invoice.id}` : undefined}
             pdfFilename={whatsAppModal.invoice ? `Invoice-${whatsAppModal.invoice.invoiceNumber}` : undefined}
             documentType="Invoice"
+            documentNumber={whatsAppModal.invoice?.invoiceNumber}
+            defaultMode={whatsAppModal.mode || 'whatsapp'}
           />
         </>
       )}

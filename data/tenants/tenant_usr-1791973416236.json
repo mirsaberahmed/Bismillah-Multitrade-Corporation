@@ -1113,7 +1113,7 @@
       "action": "Invoice Created",
       "date": "2026-09-25",
       "time": "05:45 PM",
-      "details": "Created invoice INV-2026-0025 for MIR SABER AHMED AKIL (Grand Total: \u09f3283,340)"
+      "details": "Created invoice INV-2026-0025 for MIR SABER AHMED AKIL (Grand Total: ৳283,340)"
     },
     {
       "id": "act-1790371162213-2132",
@@ -1161,7 +1161,7 @@
       "action": "Invoice Created",
       "date": "2026-09-26",
       "time": "03:16 AM",
-      "details": "Created invoice INV-2026-0001 for MD HASAN (Grand Total: \u09f3170,004)"
+      "details": "Created invoice INV-2026-0001 for MD HASAN (Grand Total: ৳170,004)"
     },
     {
       "id": "act-1790370490478-9ao6",
@@ -1209,7 +1209,7 @@
       "action": "Invoice Created",
       "date": "2026-09-26",
       "time": "02:54 AM",
-      "details": "Created invoice INV-2026-0000 for MIR AKIL (Grand Total: \u09f3170,004)"
+      "details": "Created invoice INV-2026-0000 for MIR AKIL (Grand Total: ৳170,004)"
     },
     {
       "id": "act-1790369502844-qcps",
@@ -1249,7 +1249,7 @@
       "action": "Invoice Created",
       "date": "2026-09-26",
       "time": "02:48 AM",
-      "details": "Created invoice INV-2026-0000 for NANA (Grand Total: \u09f3170,004)"
+      "details": "Created invoice INV-2026-0000 for NANA (Grand Total: ৳170,004)"
     },
     {
       "id": "act-1790369056894-5ftn",
@@ -1297,7 +1297,7 @@
       "action": "Invoice Created",
       "date": "2026-09-26",
       "time": "02:22 AM",
-      "details": "Created invoice INV-2026-0000 for Mir Saber Ahmed Akil (Grand Total: \u09f3170,004)"
+      "details": "Created invoice INV-2026-0000 for Mir Saber Ahmed Akil (Grand Total: ৳170,004)"
     },
     {
       "id": "act-1791977206285-0x5n",
@@ -1345,7 +1345,7 @@
       "action": "Invoice Created",
       "date": "2026-10-11",
       "time": "07:20 PM",
-      "details": "Created invoice INV-2026-161425 for MIR SABER AHMED AKIL (Grand Total: \u09f30)"
+      "details": "Created invoice INV-2026-161425 for MIR SABER AHMED AKIL (Grand Total: ৳0)"
     },
     {
       "id": "act-1791717496839-mgoq",
@@ -1457,7 +1457,7 @@
       "action": "Invoice Created",
       "date": "2026-10-11",
       "time": "05:00 PM",
-      "details": "Created invoice INV-2026-161423 for MUAJ AHMED (Grand Total: \u09f314,000.4)"
+      "details": "Created invoice INV-2026-161423 for MUAJ AHMED (Grand Total: ৳14,000.4)"
     },
     {
       "id": "act-1791716302976-nuv0",
@@ -1489,7 +1489,7 @@
       "action": "Invoice Created",
       "date": "2026-10-11",
       "time": "04:56 PM",
-      "details": "Created invoice INV-2026-161422 for MD HASAN (Grand Total: \u09f3195,600)"
+      "details": "Created invoice INV-2026-161422 for MD HASAN (Grand Total: ৳195,600)"
     },
     {
       "id": "act-1791716006323-dowi",
@@ -1793,7 +1793,7 @@
       "action": "Invoice Created",
       "date": "2026-10-12",
       "time": "07:09 PM",
-      "details": "Created invoice INV-2026-161424 for MUAJ AHMED (Grand Total: \u09f342,800)"
+      "details": "Created invoice INV-2026-161424 for MUAJ AHMED (Grand Total: ৳42,800)"
     },
     {
       "id": "act-1791748917186-ehf3",
@@ -2028,7 +2028,8 @@
       "details": "User admin (Super Admin) logged in"
     }
   ],
-  "updatedAtServer": "2026-10-15T10:42:07.740Z",
+  "updatedAtServer": "2026-10-17T18:51:05.130Z",
   "userId": "usr-1791973416236",
-  "companyOwner": "AKIL"
+  "companyOwner": "AKIL",
+  "test_sync_key": "live_test_123"
 }

@@ -4,7 +4,8 @@ import {
   Printer,
   Download,
   FileText,
-  MessageSquare
+  MessageSquare,
+  Send
 } from 'lucide-react';
 import { SalesInvoice, CompanySettings } from '../../types';
 import { PrintableInvoice } from '../documents/PrintableInvoice';
@@ -28,6 +29,7 @@ export const InvoicePrintModal: React.FC<Props> = ({
 }) => {
   const [isDownloadingPdf, setIsDownloadingPdf] = useState(false);
   const [showWhatsAppModal, setShowWhatsAppModal] = useState(false);
+  const [whatsAppMode, setWhatsAppMode] = useState<'whatsapp' | 'text'>('whatsapp');
 
   if (!isOpen || !invoice) return null;
 
@@ -93,15 +95,32 @@ export const InvoicePrintModal: React.FC<Props> = ({
               <span>{isDownloadingPdf ? 'Exporting...' : 'Save PDF'}</span>
             </button>
 
-            {/* Send to WhatsApp with PDF */}
+            {/* Send WhatsApp with PDF Attachment */}
             <button
               type="button"
-              onClick={() => setShowWhatsAppModal(true)}
+              onClick={() => {
+                setWhatsAppMode('whatsapp');
+                setShowWhatsAppModal(true);
+              }}
               className="flex items-center gap-1.5 px-3.5 py-2 rounded-lg bg-emerald-600 hover:bg-emerald-500 text-white text-xs font-bold shadow-md transition-colors cursor-pointer"
-              title="Send Invoice PDF directly to WhatsApp"
+              title="Send Invoice PDF directly through WhatsApp"
             >
               <MessageSquare size={14} />
               <span>Send WhatsApp</span>
+            </button>
+
+            {/* Send Text Only */}
+            <button
+              type="button"
+              onClick={() => {
+                setWhatsAppMode('text');
+                setShowWhatsAppModal(true);
+              }}
+              className="flex items-center gap-1.5 px-3 py-2 rounded-lg bg-zinc-800 hover:bg-zinc-700 text-zinc-100 text-xs font-semibold border border-zinc-700 transition-colors cursor-pointer"
+              title="Send only the prepared text message through WhatsApp"
+            >
+              <Send size={14} className="text-emerald-400" />
+              <span>Send Text</span>
             </button>
 
             {/* Close Button */}
@@ -136,6 +155,8 @@ export const InvoicePrintModal: React.FC<Props> = ({
         pdfElementId={`modal-printable-invoice-${invoice.id}`}
         pdfFilename={`Invoice-${invoice.invoiceNumber}`}
         documentType="Invoice"
+        documentNumber={invoice.invoiceNumber}
+        defaultMode={whatsAppMode}
       />
     </div>
   );

@@ -272,10 +272,71 @@ function loadTenantData(userId: string, user: RegisteredUserRecord): any {
     }
   }
 
-  // If no tenant data exists for this user, create an isolated fresh blank workspace
-  const freshData = createBlankTenantState(user);
+  // If no tenant data exists for this user, bootstrap with shared business records
+  const sharedData = loadSharedDatabase();
+  const freshData = Object.keys(sharedData).length > 2 ? { ...sharedData, userId } : createBlankTenantState(user);
   fs.writeFileSync(filePath, JSON.stringify(freshData, null, 2), 'utf-8');
   return freshData;
+}
+
+function loadSharedDatabase(): any {
+  if (fs.existsSync(LEGACY_DB_FILE)) {
+    try {
+      const parsed = JSON.parse(fs.readFileSync(LEGACY_DB_FILE, 'utf-8'));
+      if (parsed && typeof parsed === 'object') return parsed;
+    } catch (e) {
+      console.error('Error reading shared database:', e);
+    }
+  }
+  // Fallback: search tenants directory for rich records
+  if (fs.existsSync(TENANTS_DIR)) {
+    try {
+      const files = fs.readdirSync(TENANTS_DIR);
+      let bestData: any = {};
+      let maxLen = 0;
+      for (const f of files) {
+        if (f.endsWith('.json')) {
+          const raw = fs.readFileSync(path.join(TENANTS_DIR, f), 'utf-8');
+          if (raw.length > maxLen) {
+            maxLen = raw.length;
+            bestData = JSON.parse(raw);
+          }
+        }
+      }
+      if (maxLen > 2000) return bestData;
+    } catch {}
+  }
+  return {};
+}
+
+function saveSharedDatabase(incoming: any): any {
+  const current = loadSharedDatabase();
+  const merged = {
+    ...current,
+    ...incoming,
+    updatedAtServer: new Date().toISOString()
+  };
+  try {
+    fs.writeFileSync(LEGACY_DB_FILE, JSON.stringify(merged, null, 2), 'utf-8');
+  } catch (e) {
+    console.error('Error writing shared database:', e);
+  }
+  // Propagate to tenant files
+  try {
+    if (fs.existsSync(TENANTS_DIR)) {
+      const files = fs.readdirSync(TENANTS_DIR);
+      for (const f of files) {
+        if (f.startsWith('tenant_') && f.endsWith('.json')) {
+          const tPath = path.join(TENANTS_DIR, f);
+          try {
+            const oldT = JSON.parse(fs.readFileSync(tPath, 'utf-8'));
+            fs.writeFileSync(tPath, JSON.stringify({ ...oldT, ...incoming, updatedAtServer: merged.updatedAtServer }, null, 2), 'utf-8');
+          } catch {}
+        }
+      }
+    }
+  } catch {}
+  return merged;
 }
 
 function saveTenantData(userId: string, data: any) {
@@ -286,6 +347,8 @@ function saveTenantData(userId: string, data: any) {
     updatedAtServer: new Date().toISOString()
   };
   fs.writeFileSync(filePath, JSON.stringify(nextData, null, 2), 'utf-8');
+  // Also keep shared master database updated
+  saveSharedDatabase(data);
   return nextData;
 }
 
@@ -308,6 +371,18 @@ function requireAuth(req: express.Request, res: express.Response, next: express.
 
   (req as any).userSession = session;
   next();
+}
+
+const sseClients = new Set<express.Response>();
+function broadcastStateUpdate(change: any) {
+  const payload = `data: ${JSON.stringify({ type: 'DATABASE_UPDATED', change, timestamp: Date.now() })}\n\n`;
+  for (const client of sseClients) {
+    try {
+      client.write(payload);
+    } catch {
+      sseClients.delete(client);
+    }
+  }
 }
 
 async function startServer() {
@@ -1111,33 +1186,100 @@ async function startServer() {
     }
   });
 
-  // Public unauthenticated request to /api/state: STRICTLY BLOCKED for data isolation!
-  // Returns empty / null so public link visitors never see stored admin or business records.
-  app.get('/api/state', (req, res) => {
-    // If authenticated via token, route to their isolated tenant data
-    const authHeader = req.headers.authorization;
-    const token = authHeader && authHeader.startsWith('Bearer ') ? authHeader.slice(7) : (req.headers['x-session-token'] as string);
-
-    if (token && activeSessions.has(token)) {
-      const session = activeSessions.get(token)!;
-      const users = loadUsersRegistry();
-      const user = users.find(u => u.id === session.userId);
-      if (user) {
-        const tenantData = loadTenantData(session.userId, user);
-        res.json({ ok: true, data: tenantData });
-        return;
-      }
+  // Live SSE stream for instant database updates
+  app.get('/api/state/stream', (_req, res) => {
+    res.setHeader('Content-Type', 'text/event-stream');
+    res.setHeader('Cache-Control', 'no-cache');
+    res.setHeader('Connection', 'keep-alive');
+    if (typeof (res as any).flushHeaders === 'function') {
+      (res as any).flushHeaders();
     }
 
-    // Unauthenticated visitors get null / blank state to protect privacy
-    res.json({ ok: true, data: null, message: 'Unauthenticated visitor: fresh blank state.' });
+    res.write(`data: ${JSON.stringify({ type: 'CONNECTED', timestamp: Date.now() })}\n\n`);
+    sseClients.add(res);
+
+    _req.on('close', () => {
+      sseClients.delete(res);
+    });
+  });
+
+  // Master live state endpoint: returns company shared ERP data
+  app.get('/api/state', (req, res) => {
+    try {
+      const authHeader = req.headers.authorization;
+      const token = authHeader && authHeader.startsWith('Bearer ') ? authHeader.slice(7) : (req.headers['x-session-token'] as string);
+
+      if (token && activeSessions.has(token)) {
+        const session = activeSessions.get(token)!;
+        const users = loadUsersRegistry();
+        const user = users.find(u => u.id === session.userId);
+        if (user) {
+          const tenantData = loadTenantData(session.userId, user);
+          res.json({ ok: true, data: tenantData });
+          return;
+        }
+      }
+
+      // Return shared master database
+      const data = loadSharedDatabase();
+      res.json({ ok: true, data });
+    } catch (err) {
+      console.error('Error fetching state:', err);
+      res.status(500).json({ ok: false, error: 'Failed to load state.' });
+    }
+  });
+
+  // Master live update endpoint: saves additions, edits, deletions to persistent database
+  app.post('/api/state', (req, res) => {
+    try {
+      const payload = req.body;
+      if (!payload || typeof payload !== 'object') {
+        res.status(400).json({ ok: false, error: 'Invalid state payload.' });
+        return;
+      }
+
+      let toMerge = payload;
+      if (payload.sectionId && payload.updatedData !== undefined) {
+        toMerge = { [payload.sectionId]: payload.updatedData };
+      }
+
+      const saved = saveSharedDatabase(toMerge);
+      broadcastStateUpdate(toMerge);
+      res.json({ ok: true, updatedAt: saved.updatedAtServer });
+    } catch (err) {
+      console.error('Error saving state:', err);
+      res.status(500).json({ ok: false, error: 'Failed to save database state.' });
+    }
+  });
+
+  // Individual section get and post endpoints
+  app.get('/api/section/:sectionId', (req, res) => {
+    try {
+      const db = loadSharedDatabase();
+      const sec = req.params.sectionId;
+      res.json({ ok: true, sectionId: sec, data: db[sec] !== undefined ? db[sec] : null });
+    } catch (err) {
+      res.status(500).json({ ok: false, error: 'Failed to load section.' });
+    }
+  });
+
+  app.post('/api/section/:sectionId', (req, res) => {
+    try {
+      const sec = req.params.sectionId;
+      const data = req.body.data !== undefined ? req.body.data : req.body;
+      const saved = saveSharedDatabase({ [sec]: data });
+      broadcastStateUpdate({ [sec]: data });
+      res.json({ ok: true, sectionId: sec, updatedAt: saved.updatedAtServer });
+    } catch (err) {
+      res.status(500).json({ ok: false, error: 'Failed to save section.' });
+    }
   });
 
   // =========================================================================
   // WHATSAPP BUSINESS API & DIRECT DOCUMENT DELIVERY MODULE
   // =========================================================================
-  // Strict Whitelist: ONLY Invoice, Delivery Slip, and Money Receipt are allowed.
-  const ALLOWED_WHATSAPP_DOCS = ['Invoice', 'Delivery Slip', 'Money Receipt'] as const;
+  // Strict Whitelist: Invoice, Delivery Slip, Expense Sheet, and Money Receipt
+  const ALLOWED_WHATSAPP_DOCS = ['Invoice', 'Delivery Slip', 'Expense Sheet', 'Money Receipt'] as const;
   type AllowedDocType = typeof ALLOWED_WHATSAPP_DOCS[number];
   const WHATSAPP_LOGS_FILE = path.join(DATA_DIR, 'whatsapp_audit_logs.json');
 
@@ -1212,7 +1354,7 @@ async function startServer() {
       allowedDocumentTypes: ALLOWED_WHATSAPP_DOCS,
       metaConfigured: hasMetaToken && hasMetaPhoneId,
       twilioConfigured: hasTwilio,
-      policy: 'WhatsApp delivery strictly restricted to Invoice, Delivery Slip, and Money Receipt only.'
+      policy: 'WhatsApp delivery strictly restricted to Invoice, Delivery Slip, Expense Sheet, and Money Receipt.'
     });
   });
 
@@ -1226,7 +1368,7 @@ async function startServer() {
     }
   });
 
-  // Endpoint: Send Target PDF Document via WhatsApp (Meta Cloud API / Twilio / Direct Link)
+  // Endpoint: Send Target PDF Document directly via WhatsApp as document attachment
   app.post('/api/whatsapp/send-document', async (req, res) => {
     try {
       const {
@@ -1234,7 +1376,6 @@ async function startServer() {
         documentNumber,
         recipientPhone,
         recipientName,
-        companionText,
         pdfBase64,
         filename
       } = req.body;
@@ -1292,18 +1433,175 @@ async function startServer() {
       const host = req.get('host') || 'localhost:3000';
       const fullPublicPdfUrl = `${proto}://${host}/api/pdf/${safeFilename}`;
 
-      // 6. Build Outgoing Message Text with verified PDF Document Link
-      const trimmedCompanion = (companionText || '').trim();
-      let fullMessageText = trimmedCompanion;
-      if (fullMessageText) {
-        fullMessageText += `\n\n📄 *Official ${documentType} PDF:*\n${fullPublicPdfUrl}\n_(Tap link to view or download full PDF document)_`;
-      } else {
-        fullMessageText = `Dear Customer,\n\nPlease find your official ${documentType} #${documentNumber || ''} attached.\n\n📄 *Official PDF Document Link:*\n${fullPublicPdfUrl}\n\nThank you for your business!`;
+      // 6. Dispatch via Meta WhatsApp Cloud API (Actual PDF Document Attachment Upload)
+      const metaToken = process.env.WHATSAPP_API_TOKEN || process.env.META_WHATSAPP_TOKEN;
+      const metaPhoneId = process.env.WHATSAPP_PHONE_NUMBER_ID;
+
+      let deliveryStatus = 'ready_for_dispatch';
+      let deliveryMode = 'direct_chat';
+      let messageId: string | null = null;
+      let mediaId: string | null = null;
+      let apiResponseInfo: any = null;
+
+      if (metaToken && metaPhoneId) {
+        try {
+          const controller = new AbortController();
+          const timeoutId = setTimeout(() => controller.abort(), 20000); // 20s timeout
+
+          // Step 1: Upload actual PDF binary as WhatsApp Media Attachment
+          const formData = new FormData();
+          formData.append('messaging_product', 'whatsapp');
+          formData.append('type', 'application/pdf');
+          formData.append('file', new Blob([buffer], { type: 'application/pdf' }), safeFilename);
+
+          const uploadRes = await fetch(`https://graph.facebook.com/v19.0/${metaPhoneId}/media`, {
+            method: 'POST',
+            headers: {
+              'Authorization': `Bearer ${metaToken}`
+            },
+            body: formData,
+            signal: controller.signal
+          });
+          const uploadData = await uploadRes.json();
+
+          if (uploadRes.ok && uploadData?.id) {
+            mediaId = uploadData.id;
+
+            // Step 2: Send WhatsApp document message using media ID (without link or text caption)
+            const metaUrl = `https://graph.facebook.com/v19.0/${metaPhoneId}/messages`;
+            const metaPayload = {
+              messaging_product: 'whatsapp',
+              recipient_type: 'individual',
+              to: formattedPhone,
+              type: 'document',
+              document: {
+                id: mediaId,
+                filename: safeFilename
+              }
+            };
+
+            const metaRes = await fetch(metaUrl, {
+              method: 'POST',
+              headers: {
+                'Authorization': `Bearer ${metaToken}`,
+                'Content-Type': 'application/json'
+              },
+              body: JSON.stringify(metaPayload),
+              signal: controller.signal
+            });
+            clearTimeout(timeoutId);
+
+            const metaData = await metaRes.json();
+            if (metaRes.ok && metaData?.messages?.[0]?.id) {
+              deliveryStatus = 'sent_via_meta_cloud_api';
+              deliveryMode = 'meta_cloud_api';
+              messageId = metaData.messages[0].id;
+              apiResponseInfo = metaData;
+            } else {
+              console.warn('Meta WhatsApp Cloud API send error:', metaData);
+              deliveryStatus = 'meta_api_fallback';
+              apiResponseInfo = metaData;
+            }
+          } else {
+            console.warn('Meta WhatsApp Media Upload failed:', uploadData);
+            deliveryStatus = 'meta_media_upload_failed';
+            apiResponseInfo = uploadData;
+          }
+        } catch (apiErr: any) {
+          console.error('Meta WhatsApp Cloud API request failed:', apiErr);
+          deliveryStatus = 'meta_api_timeout_or_error';
+          apiResponseInfo = { error: apiErr.message };
+        }
       }
 
-      const directWhatsAppUrl = `https://wa.me/${formattedPhone}?text=${encodeURIComponent(fullMessageText)}`;
+      // 7. Secure Audit Logging
+      const auditEntry = {
+        id: `wa-doc-${Date.now()}-${Math.random().toString(36).slice(2, 7)}`,
+        timestamp: new Date().toISOString(),
+        userId: authenticatedUser.id,
+        userName: authenticatedUser.name,
+        documentType,
+        documentNumber: documentNumber || 'N/A',
+        recipientPhone: formattedPhone,
+        recipientName: recipientName || '',
+        filename: safeFilename,
+        fileSizeBytes: buffer.length,
+        deliveryMode,
+        deliveryStatus,
+        messageId,
+        mediaId,
+        attachmentType: 'pdf_document',
+        apiResponse: apiResponseInfo
+      };
 
-      // 7. Dispatch via Meta WhatsApp Cloud API if configured
+      appendWhatsAppAuditLog(auditEntry);
+
+      res.json({
+        ok: true,
+        message: `${documentType} PDF document processed for WhatsApp attachment delivery.`,
+        auditId: auditEntry.id,
+        documentType,
+        documentNumber,
+        recipientPhone: formattedPhone,
+        filename: safeFilename,
+        deliveryMode,
+        deliveryStatus,
+        messageId,
+        mediaId
+      });
+    } catch (err: any) {
+      console.error('Error in WhatsApp send-document:', err);
+      res.status(500).json({ ok: false, error: err.message || 'Internal error processing WhatsApp document' });
+    }
+  });
+
+  // Endpoint: Send Prepared Text Message Only via WhatsApp
+  app.post('/api/whatsapp/send-text', async (req, res) => {
+    try {
+      const {
+        documentType,
+        documentNumber,
+        recipientPhone,
+        recipientName,
+        messageText
+      } = req.body;
+
+      if (!documentType || !ALLOWED_WHATSAPP_DOCS.includes(documentType as any)) {
+        res.status(403).json({
+          ok: false,
+          error: `Prohibited Document: WhatsApp integration is strictly restricted to ${ALLOWED_WHATSAPP_DOCS.join(', ')} only.`
+        });
+        return;
+      }
+
+      if (!messageText || typeof messageText !== 'string' || !messageText.trim()) {
+        res.status(400).json({
+          ok: false,
+          error: 'Prepared text message cannot be empty.'
+        });
+        return;
+      }
+
+      const phoneValidation = validateRecipientWhatsAppPhone(recipientPhone);
+      if (!phoneValidation.isValid) {
+        res.status(400).json({
+          ok: false,
+          error: phoneValidation.error || 'Invalid WhatsApp phone number.'
+        });
+        return;
+      }
+      const formattedPhone = phoneValidation.formatted;
+
+      let authenticatedUser = { id: 'usr-admin', name: 'Authorized System User' };
+      const authHeader = req.headers.authorization;
+      const token = authHeader && authHeader.startsWith('Bearer ') ? authHeader.slice(7) : (req.headers['x-session-token'] as string);
+      if (token && activeSessions.has(token)) {
+        const session = activeSessions.get(token)!;
+        authenticatedUser = { id: session.userId, name: session.fullName || session.username || 'Authorized User' };
+      }
+
+      const directWhatsAppUrl = `https://wa.me/${formattedPhone}?text=${encodeURIComponent(messageText.trim())}`;
+
       const metaToken = process.env.WHATSAPP_API_TOKEN || process.env.META_WHATSAPP_TOKEN;
       const metaPhoneId = process.env.WHATSAPP_PHONE_NUMBER_ID;
 
@@ -1315,18 +1613,16 @@ async function startServer() {
       if (metaToken && metaPhoneId) {
         try {
           const controller = new AbortController();
-          const timeoutId = setTimeout(() => controller.abort(), 15000); // 15s timeout
+          const timeoutId = setTimeout(() => controller.abort(), 15000);
 
           const metaUrl = `https://graph.facebook.com/v19.0/${metaPhoneId}/messages`;
           const metaPayload = {
             messaging_product: 'whatsapp',
             recipient_type: 'individual',
             to: formattedPhone,
-            type: 'document',
-            document: {
-              link: fullPublicPdfUrl,
-              filename: safeFilename,
-              caption: trimmedCompanion || `${documentType} #${documentNumber || ''}`
+            type: 'text',
+            text: {
+              body: messageText.trim()
             }
           };
 
@@ -1348,20 +1644,17 @@ async function startServer() {
             messageId = metaData.messages[0].id;
             apiResponseInfo = metaData;
           } else {
-            console.warn('Meta WhatsApp Cloud API error:', metaData);
             deliveryStatus = 'meta_api_fallback';
             apiResponseInfo = metaData;
           }
         } catch (apiErr: any) {
-          console.error('Meta WhatsApp Cloud API request failed:', apiErr);
           deliveryStatus = 'meta_api_timeout_or_error';
           apiResponseInfo = { error: apiErr.message };
         }
       }
 
-      // 8. Secure Audit Logging
       const auditEntry = {
-        id: `wa-audit-${Date.now()}-${Math.random().toString(36).slice(2, 7)}`,
+        id: `wa-text-${Date.now()}-${Math.random().toString(36).slice(2, 7)}`,
         timestamp: new Date().toISOString(),
         userId: authenticatedUser.id,
         userName: authenticatedUser.name,
@@ -1369,13 +1662,11 @@ async function startServer() {
         documentNumber: documentNumber || 'N/A',
         recipientPhone: formattedPhone,
         recipientName: recipientName || '',
-        filename: safeFilename,
-        fileSizeBytes: buffer.length,
         deliveryMode,
         deliveryStatus,
         messageId,
-        publicPdfUrl: fullPublicPdfUrl,
-        companionTextLength: trimmedCompanion.length,
+        messageType: 'text_only',
+        textLength: messageText.length,
         apiResponse: apiResponseInfo
       };
 
@@ -1383,20 +1674,19 @@ async function startServer() {
 
       res.json({
         ok: true,
-        message: 'WhatsApp document delivery prepared and logged successfully.',
+        message: 'WhatsApp text message dispatched / prepared successfully.',
         auditId: auditEntry.id,
         documentType,
         documentNumber,
         recipientPhone: formattedPhone,
-        publicPdfUrl: fullPublicPdfUrl,
         directWhatsAppUrl,
         deliveryMode,
         deliveryStatus,
         messageId
       });
     } catch (err: any) {
-      console.error('Error in WhatsApp send-document:', err);
-      res.status(500).json({ ok: false, error: err.message || 'Internal error processing WhatsApp document' });
+      console.error('Error in WhatsApp send-text:', err);
+      res.status(500).json({ ok: false, error: err.message || 'Internal error processing WhatsApp text message' });
     }
   });
 

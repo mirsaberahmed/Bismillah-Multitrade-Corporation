@@ -21,7 +21,8 @@ import {
   X,
   Trash2,
   Eye,
-  MessageSquare
+  MessageSquare,
+  Send
 } from 'lucide-react';
 import { useData } from '../../context/DataContext';
 import {
@@ -134,6 +135,7 @@ export const InvoiceDetails: React.FC<Props> = ({ invoiceId, onBack, onEdit }) =
     pdfFilename?: string;
     documentType?: 'Invoice' | 'Delivery Slip' | 'Money Receipt';
     documentNumber?: string;
+    defaultMode?: 'whatsapp' | 'text';
   }>({
     isOpen: false,
     title: '',
@@ -142,7 +144,8 @@ export const InvoiceDetails: React.FC<Props> = ({ invoiceId, onBack, onEdit }) =
     pdfElementId: undefined,
     pdfFilename: undefined,
     documentType: undefined,
-    documentNumber: undefined
+    documentNumber: undefined,
+    defaultMode: 'whatsapp'
   });
 
   if (!invoice) {
@@ -217,8 +220,8 @@ export const InvoiceDetails: React.FC<Props> = ({ invoiceId, onBack, onEdit }) =
   };
 
   // Submit new Delivery Slip
-  const handleConfirmDeliverySlip = (e: React.FormEvent) => {
-    e.preventDefault();
+  const handleConfirmDeliverySlip = (e?: React.FormEvent, targetMode?: 'whatsapp' | 'text') => {
+    if (e) e.preventDefault();
 
     // Verify at least one item has delivered qty > 0
     const hasAnyQty = Object.values(deliveryQuantities).some(q => q > 0);
@@ -288,7 +291,9 @@ export const InvoiceDetails: React.FC<Props> = ({ invoiceId, onBack, onEdit }) =
       message: text,
       pdfElementId: `modal-printable-slip-${createdSlip.id}`,
       pdfFilename: `Delivery-Slip-${createdSlip.deliverySlipNumber}`,
-      documentType: 'Delivery Slip'
+      documentType: 'Delivery Slip',
+      documentNumber: createdSlip.deliverySlipNumber,
+      defaultMode: targetMode || 'whatsapp'
     });
   };
 
@@ -584,7 +589,7 @@ export const InvoiceDetails: React.FC<Props> = ({ invoiceId, onBack, onEdit }) =
               <span>Print Invoice</span>
             </button>
 
-            {/* 1b. Send Invoice via WhatsApp */}
+            {/* Send Invoice via WhatsApp (PDF Attachment) */}
             <button
               onClick={() => {
                 const text = generateInvoiceWhatsAppText(invoice, settings?.companyName || 'Bismillah Multitrade Corporation');
@@ -595,14 +600,39 @@ export const InvoiceDetails: React.FC<Props> = ({ invoiceId, onBack, onEdit }) =
                   message: text,
                   pdfElementId: `printable-invoice-${invoice.id}`,
                   pdfFilename: `Invoice-${invoice.invoiceNumber}`,
-                  documentType: 'Invoice'
+                  documentType: 'Invoice',
+                  documentNumber: invoice.invoiceNumber,
+                  defaultMode: 'whatsapp'
                 });
               }}
               className="flex items-center gap-1.5 px-3 py-2 bg-emerald-600 hover:bg-emerald-500 text-white rounded-lg text-xs font-bold transition-all shadow-xs cursor-pointer"
-              title="Directly send invoice to any WhatsApp number"
+              title="Send Invoice PDF directly through WhatsApp"
             >
               <MessageSquare size={15} />
               <span>Send WhatsApp</span>
+            </button>
+
+            {/* Send Text (Prepared Text Only) */}
+            <button
+              onClick={() => {
+                const text = generateInvoiceWhatsAppText(invoice, settings?.companyName || 'Bismillah Multitrade Corporation');
+                setWhatsAppModalProps({
+                  isOpen: true,
+                  title: `Send Invoice #${invoice.invoiceNumber} Text`,
+                  phone: invoice.customerPhone || '',
+                  message: text,
+                  pdfElementId: `printable-invoice-${invoice.id}`,
+                  pdfFilename: `Invoice-${invoice.invoiceNumber}`,
+                  documentType: 'Invoice',
+                  documentNumber: invoice.invoiceNumber,
+                  defaultMode: 'text'
+                });
+              }}
+              className="flex items-center gap-1.5 px-3 py-2 bg-zinc-800 hover:bg-zinc-700 text-zinc-100 rounded-lg text-xs font-semibold border border-zinc-700 transition-colors cursor-pointer"
+              title="Send only the prepared text message through WhatsApp"
+            >
+              <Send size={14} className="text-emerald-400" />
+              <span>Send Text</span>
             </button>
 
             {/* 2. Record Payment */}
@@ -1014,7 +1044,7 @@ export const InvoiceDetails: React.FC<Props> = ({ invoiceId, onBack, onEdit }) =
                           <span>{isDownloadingPdf && selectedSlipForPdf?.id === slip.id ? 'Saving PDF...' : 'PDF'}</span>
                         </button>
 
-                        {/* Send Delivery Slip via WhatsApp */}
+                        {/* Send Delivery Slip via WhatsApp (PDF Attachment) */}
                         <button
                           onClick={() => {
                             const text = generateDeliverySlipWhatsAppText(slip, settings?.companyName || 'Bismillah Multitrade Corporation');
@@ -1025,14 +1055,39 @@ export const InvoiceDetails: React.FC<Props> = ({ invoiceId, onBack, onEdit }) =
                               message: text,
                               pdfElementId: `modal-printable-slip-${slip.id}`,
                               pdfFilename: `Delivery-Slip-${slip.deliverySlipNumber}`,
-                              documentType: 'Delivery Slip'
+                              documentType: 'Delivery Slip',
+                              documentNumber: slip.deliverySlipNumber,
+                              defaultMode: 'whatsapp'
                             });
                           }}
                           className="flex items-center gap-1 px-2.5 py-1 bg-emerald-800/80 hover:bg-emerald-700 text-white rounded text-xs font-semibold border border-emerald-700 transition-colors cursor-pointer"
-                          title="Send Delivery Slip to WhatsApp"
+                          title="Send Delivery Slip PDF directly through WhatsApp"
                         >
                           <MessageSquare size={13} />
-                          <span>WhatsApp</span>
+                          <span>Send WhatsApp</span>
+                        </button>
+
+                        {/* Send Text (Prepared Text Only) */}
+                        <button
+                          onClick={() => {
+                            const text = generateDeliverySlipWhatsAppText(slip, settings?.companyName || 'Bismillah Multitrade Corporation');
+                            setWhatsAppModalProps({
+                              isOpen: true,
+                              title: `Send Delivery Slip #${slip.deliverySlipNumber} Text`,
+                              phone: slip.receiverPhone || slip.phone || invoice.customerPhone || '',
+                              message: text,
+                              pdfElementId: `modal-printable-slip-${slip.id}`,
+                              pdfFilename: `Delivery-Slip-${slip.deliverySlipNumber}`,
+                              documentType: 'Delivery Slip',
+                              documentNumber: slip.deliverySlipNumber,
+                              defaultMode: 'text'
+                            });
+                          }}
+                          className="flex items-center gap-1 px-2 py-1 bg-zinc-800 hover:bg-zinc-700 text-zinc-300 hover:text-white rounded text-xs font-semibold border border-zinc-700 transition-colors cursor-pointer"
+                          title="Send only the prepared text message through WhatsApp"
+                        >
+                          <Send size={13} className="text-emerald-400" />
+                          <span>Send Text</span>
                         </button>
 
                         {/* Delete Delivery Slip */}
@@ -1702,17 +1757,40 @@ export const InvoiceDetails: React.FC<Props> = ({ invoiceId, onBack, onEdit }) =
               </div>
 
               {/* Modal Buttons */}
-              <div className="flex justify-end gap-2 pt-3 border-t border-zinc-800">
+              <div className="flex justify-end gap-2 pt-3 border-t border-zinc-800 flex-wrap">
                 <button
                   type="button"
                   onClick={() => setShowCreateSlipModal(false)}
-                  className="px-4 py-2 bg-zinc-800 hover:bg-zinc-700 text-zinc-300 rounded-lg"
+                  className="px-4 py-2 bg-zinc-800 hover:bg-zinc-700 text-zinc-300 rounded-lg text-xs font-semibold cursor-pointer"
                 >
                   Cancel
                 </button>
+
+                {/* Send WhatsApp (PDF Attachment) */}
+                <button
+                  type="button"
+                  onClick={(e) => handleConfirmDeliverySlip(e, 'whatsapp')}
+                  className="flex items-center gap-1.5 px-4 py-2 bg-emerald-600 hover:bg-emerald-500 text-white font-bold rounded-lg text-xs shadow-md shadow-emerald-600/20 transition-all cursor-pointer"
+                  title="Generate slip and send PDF document directly through WhatsApp"
+                >
+                  <MessageSquare size={14} />
+                  <span>Send WhatsApp</span>
+                </button>
+
+                {/* Send Text (Prepared Text Only) */}
+                <button
+                  type="button"
+                  onClick={(e) => handleConfirmDeliverySlip(e, 'text')}
+                  className="flex items-center gap-1.5 px-4 py-2 bg-zinc-800 hover:bg-zinc-700 text-zinc-100 font-semibold rounded-lg text-xs border border-zinc-700 transition-colors cursor-pointer"
+                  title="Generate slip and send only prepared text message through WhatsApp"
+                >
+                  <Send size={13} className="text-emerald-400" />
+                  <span>Send Text</span>
+                </button>
+
                 <button
                   type="submit"
-                  className="flex items-center gap-1.5 px-5 py-2 bg-blue-600 hover:bg-blue-500 text-white font-bold rounded-lg shadow-md transition-colors"
+                  className="flex items-center gap-1.5 px-5 py-2 bg-blue-600 hover:bg-blue-500 text-white font-bold rounded-lg text-xs shadow-md transition-colors cursor-pointer"
                 >
                   <Truck size={15} />
                   <span>Confirm &amp; Generate Slip</span>
@@ -1991,6 +2069,7 @@ export const InvoiceDetails: React.FC<Props> = ({ invoiceId, onBack, onEdit }) =
           pdfFilename={whatsAppModalProps.pdfFilename}
           documentType={whatsAppModalProps.documentType || 'Invoice'}
           documentNumber={whatsAppModalProps.documentNumber}
+          defaultMode={whatsAppModalProps.defaultMode || 'whatsapp'}
         />
       )}
 

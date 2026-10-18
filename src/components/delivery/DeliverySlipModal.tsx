@@ -13,7 +13,8 @@ import {
   User,
   Phone,
   MapPin,
-  MessageSquare
+  MessageSquare,
+  Send
 } from 'lucide-react';
 import { DeliverySlip, DeliveryStatus, DeliveryMethod } from '../../types';
 import { useData } from '../../context/DataContext';
@@ -67,6 +68,7 @@ export const DeliverySlipModal: React.FC<Props> = ({
   const [totalWeight, setTotalWeight] = useState('');
   const [showDeleteConfirm, setShowDeleteConfirm] = useState(false);
   const [showWhatsAppModal, setShowWhatsAppModal] = useState(false);
+  const [whatsAppMode, setWhatsAppMode] = useState<'whatsapp' | 'text'>('whatsapp');
 
   useEffect(() => {
     if (slip) {
@@ -231,16 +233,35 @@ export const DeliverySlipModal: React.FC<Props> = ({
               </button>
             )}
 
-            {/* WhatsApp Send Button */}
+            {/* Send WhatsApp (PDF Attachment) */}
             {slip && (
               <button
                 type="button"
-                onClick={() => setShowWhatsAppModal(true)}
+                onClick={() => {
+                  setWhatsAppMode('whatsapp');
+                  setShowWhatsAppModal(true);
+                }}
                 className="flex items-center gap-1 px-3 py-1.5 rounded-lg bg-emerald-600 hover:bg-emerald-500 text-white text-xs font-bold shadow-xs transition-colors cursor-pointer"
-                title="Send Delivery Slip to WhatsApp"
+                title="Send Delivery Slip PDF directly through WhatsApp"
               >
                 <MessageSquare size={14} />
-                <span>WhatsApp</span>
+                <span>Send WhatsApp</span>
+              </button>
+            )}
+
+            {/* Send Text (Prepared Text Only) */}
+            {slip && (
+              <button
+                type="button"
+                onClick={() => {
+                  setWhatsAppMode('text');
+                  setShowWhatsAppModal(true);
+                }}
+                className="flex items-center gap-1 px-3 py-1.5 rounded-lg bg-zinc-800 hover:bg-zinc-700 text-zinc-100 text-xs font-semibold border border-zinc-700 transition-colors cursor-pointer"
+                title="Send only the prepared text message through WhatsApp"
+              >
+                <Send size={13} className="text-emerald-400" />
+                <span>Send Text</span>
               </button>
             )}
 
@@ -625,6 +646,8 @@ export const DeliverySlipModal: React.FC<Props> = ({
           pdfElementId={`modal-printable-slip-${slip.id}`}
           pdfFilename={`Delivery-Slip-${slip.deliverySlipNumber}`}
           documentType="Delivery Slip"
+          documentNumber={slip.deliverySlipNumber}
+          defaultMode={whatsAppMode}
         />
       )}
     </div>

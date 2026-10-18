@@ -800,6 +800,8 @@ export interface ExpenseRecord {
   paymentMethod: PaymentMethod | string;
   reference?: string;
   referenceNumber?: string;
+  phone?: string;
+  payeePhone?: string;
   approvedBy?: string;
   preparedBy?: string;
   checkedBy?: string;

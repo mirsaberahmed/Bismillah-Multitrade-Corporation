@@ -17,7 +17,7 @@ import { getTodayDateString, numberToWordsBDT, formatCurrency } from '../../util
 import { WhatsAppSendModal } from '../common/WhatsAppSendModal';
 import { generateInvoiceWhatsAppText } from '../../utils/whatsapp';
 import { PrintableInvoice } from '../documents/PrintableInvoice';
-import { MessageSquare, CheckCircle2 } from 'lucide-react';
+import { MessageSquare, CheckCircle2, Send } from 'lucide-react';
 
 interface Props {
   invoiceId?: string; // If editing
@@ -111,6 +111,7 @@ export const InvoiceForm: React.FC<Props> = ({ invoiceId, onCancel, onSuccess })
   const [customerSavedNotice, setCustomerSavedNotice] = useState(false);
   const [createdInvoice, setCreatedInvoice] = useState<SalesInvoice | null>(null);
   const [whatsAppModalOpen, setWhatsAppModalOpen] = useState(false);
+  const [whatsAppMode, setWhatsAppMode] = useState<'whatsapp' | 'text'>('whatsapp');
 
   // When an existing customer is selected from dropdown, populate all contact & billing fields
   const handleCustomerChange = (id: string) => {
@@ -289,8 +290,8 @@ export const InvoiceForm: React.FC<Props> = ({ invoiceId, onCancel, onSuccess })
   const amountInWords = numberToWordsBDT(Math.round(grandTotal * 100) / 100);
 
   // Form Submission
-  const handleSubmit = (e: React.FormEvent) => {
-    e.preventDefault();
+  const handleSubmit = (e?: React.FormEvent, targetMode?: 'whatsapp' | 'text') => {
+    if (e) e.preventDefault();
 
     if (!customerName.trim()) {
       alert('Please write or select a customer name.');
@@ -354,8 +355,13 @@ export const InvoiceForm: React.FC<Props> = ({ invoiceId, onCancel, onSuccess })
     };
 
     const savedId = saveInvoice(fullInvoice);
-    if (!isEditing) {
+    if (targetMode) {
       setCreatedInvoice(fullInvoice);
+      setWhatsAppMode(targetMode);
+      setWhatsAppModalOpen(true);
+    } else if (!isEditing) {
+      setCreatedInvoice(fullInvoice);
+      setWhatsAppMode('whatsapp');
       setWhatsAppModalOpen(true);
     } else {
       onSuccess(savedId);
@@ -364,7 +370,7 @@ export const InvoiceForm: React.FC<Props> = ({ invoiceId, onCancel, onSuccess })
 
   return (
     <>
-      <form onSubmit={handleSubmit} className="space-y-6 pb-12">
+      <form onSubmit={(e) => handleSubmit(e)} className="space-y-6 pb-12">
       {/* Header Bar */}
       <div className="flex flex-col sm:flex-row sm:items-center justify-between gap-3 bg-zinc-900 border border-zinc-800 p-4 rounded-xl">
         <div className="flex items-center gap-3">
@@ -386,7 +392,7 @@ export const InvoiceForm: React.FC<Props> = ({ invoiceId, onCancel, onSuccess })
           </div>
         </div>
 
-        <div className="flex items-center gap-2">
+        <div className="flex items-center gap-2 flex-wrap">
           <button
             type="button"
             onClick={onCancel}
@@ -394,9 +400,32 @@ export const InvoiceForm: React.FC<Props> = ({ invoiceId, onCancel, onSuccess })
           >
             Cancel
           </button>
+
+          {/* Send WhatsApp (PDF Attachment) */}
+          <button
+            type="button"
+            onClick={(e) => handleSubmit(e, 'whatsapp')}
+            className="flex items-center gap-1.5 px-4 py-2 bg-emerald-600 hover:bg-emerald-500 text-white font-bold rounded-lg text-xs shadow-md shadow-emerald-600/20 transition-all cursor-pointer"
+            title="Save and send Invoice PDF directly through WhatsApp"
+          >
+            <MessageSquare size={14} />
+            <span>Send WhatsApp</span>
+          </button>
+
+          {/* Send Text (Prepared Text Only) */}
+          <button
+            type="button"
+            onClick={(e) => handleSubmit(e, 'text')}
+            className="flex items-center gap-1.5 px-4 py-2 bg-zinc-800 hover:bg-zinc-700 text-zinc-100 font-semibold rounded-lg text-xs border border-zinc-700 transition-colors cursor-pointer"
+            title="Save and send only prepared text message through WhatsApp"
+          >
+            <Send size={13} className="text-emerald-400" />
+            <span>Send Text</span>
+          </button>
+
           <button
             type="submit"
-            className="flex items-center gap-1.5 px-5 py-2 bg-amber-500 hover:bg-amber-400 text-zinc-950 font-bold rounded-lg text-xs shadow-md shadow-amber-500/20 active:scale-[0.98] transition-all"
+            className="flex items-center gap-1.5 px-5 py-2 bg-amber-500 hover:bg-amber-400 text-zinc-950 font-bold rounded-lg text-xs shadow-md shadow-amber-500/20 active:scale-[0.98] transition-all cursor-pointer"
           >
             <Save size={15} />
             <span>Save Invoice</span>
@@ -1081,7 +1110,7 @@ export const InvoiceForm: React.FC<Props> = ({ invoiceId, onCancel, onSuccess })
             </span>
           </div>
 
-          <div className="flex items-center justify-end gap-3 pt-4 border-t border-zinc-800">
+          <div className="flex items-center justify-end gap-3 pt-4 border-t border-zinc-800 flex-wrap">
             <button
               type="button"
               onClick={onCancel}
@@ -1089,9 +1118,32 @@ export const InvoiceForm: React.FC<Props> = ({ invoiceId, onCancel, onSuccess })
             >
               Cancel
             </button>
+
+            {/* Send WhatsApp (PDF Attachment) */}
+            <button
+              type="button"
+              onClick={(e) => handleSubmit(e, 'whatsapp')}
+              className="flex items-center gap-1.5 px-4 py-2 bg-emerald-600 hover:bg-emerald-500 text-white font-bold rounded-lg text-xs shadow-md shadow-emerald-600/20 transition-all cursor-pointer"
+              title="Save and send Invoice PDF directly through WhatsApp"
+            >
+              <MessageSquare size={14} />
+              <span>Send WhatsApp</span>
+            </button>
+
+            {/* Send Text (Prepared Text Only) */}
+            <button
+              type="button"
+              onClick={(e) => handleSubmit(e, 'text')}
+              className="flex items-center gap-1.5 px-4 py-2 bg-zinc-800 hover:bg-zinc-700 text-zinc-100 font-semibold rounded-lg text-xs border border-zinc-700 transition-colors cursor-pointer"
+              title="Save and send only prepared text message through WhatsApp"
+            >
+              <Send size={13} className="text-emerald-400" />
+              <span>Send Text</span>
+            </button>
+
             <button
               type="submit"
-              className="flex items-center gap-1.5 px-6 py-2.5 bg-amber-500 hover:bg-amber-400 text-zinc-950 font-bold rounded-lg text-xs shadow-md shadow-amber-500/20 active:scale-[0.98] transition-all"
+              className="flex items-center gap-1.5 px-6 py-2.5 bg-amber-500 hover:bg-amber-400 text-zinc-950 font-bold rounded-lg text-xs shadow-md shadow-amber-500/20 active:scale-[0.98] transition-all cursor-pointer"
             >
               <Save size={15} />
               <span>Save Invoice</span>
@@ -1138,6 +1190,8 @@ export const InvoiceForm: React.FC<Props> = ({ invoiceId, onCancel, onSuccess })
         pdfElementId={createdInvoice ? `created-invoice-printable-${createdInvoice.id}` : undefined}
         pdfFilename={createdInvoice ? `Invoice-${createdInvoice.invoiceNumber}` : undefined}
         documentType="Invoice"
+        documentNumber={createdInvoice?.invoiceNumber}
+        defaultMode={whatsAppMode}
       />
     </>
   );

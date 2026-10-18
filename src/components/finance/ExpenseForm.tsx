@@ -10,11 +10,16 @@ import {
   User,
   DollarSign,
   AlertCircle,
-  Receipt
+  Receipt,
+  MessageSquare,
+  Send
 } from 'lucide-react';
 import { useData } from '../../context/DataContext';
 import { ExpenseRecord, ExpenseItem, PaymentMethod, ExpenseCategory } from '../../types';
 import { getTodayDateString, numberToWordsBDT, formatCurrency } from '../../utils/formatters';
+import { WhatsAppSendModal } from '../common/WhatsAppSendModal';
+import { generateExpenseWhatsAppText } from '../../utils/whatsapp';
+import { PrintableExpenseSheet } from '../documents/PrintableExpenseSheet';
 
 interface Props {
   expenseId?: string; // If editing
@@ -44,12 +49,18 @@ export const ExpenseForm: React.FC<Props> = ({ expenseId, onCancel, onSuccess })
   const {
     expenses,
     suppliers,
+    settings,
     saveExpense,
     getNextNumber
   } = useData();
 
   const isEditing = Boolean(expenseId);
   const existingExpense = expenses.find(e => e.id === expenseId);
+
+  // WhatsApp Sending State
+  const [createdExpense, setCreatedExpense] = useState<ExpenseRecord | null>(null);
+  const [whatsAppModalOpen, setWhatsAppModalOpen] = useState(false);
+  const [whatsAppMode, setWhatsAppMode] = useState<'whatsapp' | 'text'>('whatsapp');
 
   // Form State
   const [voucherNumber, setVoucherNumber] = useState(
@@ -144,8 +155,8 @@ export const ExpenseForm: React.FC<Props> = ({ expenseId, onCancel, onSuccess })
   const calculatedTotal = items.reduce((sum, item) => sum + (Number(item.amount) || 0), 0);
   const totalInWords = numberToWordsBDT(calculatedTotal);
 
-  const handleSubmit = (e: React.FormEvent) => {
-    e.preventDefault();
+  const handleSubmit = (e?: React.FormEvent, targetMode?: 'whatsapp' | 'text') => {
+    if (e) e.preventDefault();
     setFormError('');
 
     if (!paidTo.trim()) {
@@ -188,50 +199,85 @@ export const ExpenseForm: React.FC<Props> = ({ expenseId, onCancel, onSuccess })
     };
 
     saveExpense(payload);
-    onSuccess(payload.id);
+
+    if (targetMode) {
+      setCreatedExpense(payload);
+      setWhatsAppMode(targetMode);
+      setWhatsAppModalOpen(true);
+    } else if (!isEditing) {
+      setCreatedExpense(payload);
+      setWhatsAppMode('whatsapp');
+      setWhatsAppModalOpen(true);
+    } else {
+      onSuccess(payload.id);
+    }
   };
 
   return (
-    <form onSubmit={handleSubmit} className="space-y-6 pb-12">
-      {/* Top Header Bar matching InvoiceForm */}
-      <div className="flex flex-col sm:flex-row sm:items-center justify-between gap-3 bg-zinc-900 border border-zinc-800 p-4 rounded-xl">
-        <div className="flex items-center gap-3">
-          <button
-            type="button"
-            onClick={onCancel}
-            className="p-1.5 rounded-lg bg-zinc-800 hover:bg-zinc-700 text-zinc-300 transition-colors cursor-pointer"
-            title="Cancel"
-          >
-            <ArrowLeft size={18} />
-          </button>
-          <div>
-            <h1 className="text-xl font-black text-zinc-100 uppercase tracking-tight flex items-center gap-2">
-              <Receipt size={22} className="text-red-400" />
-              <span>{isEditing ? `Edit Expense Sheet: ${voucherNumber}` : 'Create New Expense Sheet'}</span>
-            </h1>
-            <p className="text-xs text-zinc-400">
-              Bismillah Multitrade Corporation • Official Debit Voucher &amp; Expense Sheet
-            </p>
+    <>
+      <form onSubmit={(e) => handleSubmit(e)} className="space-y-6 pb-12">
+        {/* Top Header Bar matching InvoiceForm */}
+        <div className="flex flex-col sm:flex-row sm:items-center justify-between gap-3 bg-zinc-900 border border-zinc-800 p-4 rounded-xl">
+          <div className="flex items-center gap-3">
+            <button
+              type="button"
+              onClick={onCancel}
+              className="p-1.5 rounded-lg bg-zinc-800 hover:bg-zinc-700 text-zinc-300 transition-colors cursor-pointer"
+              title="Cancel"
+            >
+              <ArrowLeft size={18} />
+            </button>
+            <div>
+              <h1 className="text-xl font-black text-zinc-100 uppercase tracking-tight flex items-center gap-2">
+                <Receipt size={22} className="text-red-400" />
+                <span>{isEditing ? `Edit Expense Sheet: ${voucherNumber}` : 'Create New Expense Sheet'}</span>
+              </h1>
+              <p className="text-xs text-zinc-400">
+                Bismillah Multitrade Corporation • Official Debit Voucher &amp; Expense Sheet
+              </p>
+            </div>
+          </div>
+
+          <div className="flex items-center gap-2 flex-wrap">
+            <button
+              type="button"
+              onClick={onCancel}
+              className="px-4 py-2 bg-zinc-800 hover:bg-zinc-700 text-zinc-300 rounded-lg text-xs font-semibold transition-colors cursor-pointer"
+            >
+              Cancel
+            </button>
+
+            {/* Send WhatsApp (PDF Attachment) */}
+            <button
+              type="button"
+              onClick={(e) => handleSubmit(e, 'whatsapp')}
+              className="flex items-center gap-1.5 px-4 py-2 bg-emerald-600 hover:bg-emerald-500 text-white font-bold rounded-lg text-xs shadow-md shadow-emerald-600/20 transition-all cursor-pointer"
+              title="Save and send Expense Sheet PDF directly through WhatsApp"
+            >
+              <MessageSquare size={14} />
+              <span>Send WhatsApp</span>
+            </button>
+
+            {/* Send Text (Prepared Text Only) */}
+            <button
+              type="button"
+              onClick={(e) => handleSubmit(e, 'text')}
+              className="flex items-center gap-1.5 px-4 py-2 bg-zinc-800 hover:bg-zinc-700 text-zinc-100 font-semibold rounded-lg text-xs border border-zinc-700 transition-colors cursor-pointer"
+              title="Save and send only prepared text message through WhatsApp"
+            >
+              <Send size={13} className="text-emerald-400" />
+              <span>Send Text</span>
+            </button>
+
+            <button
+              type="submit"
+              className="flex items-center gap-1.5 px-5 py-2 bg-red-600 hover:bg-red-500 text-white font-bold rounded-lg text-xs shadow-md shadow-red-600/25 active:scale-[0.98] transition-all cursor-pointer"
+            >
+              <Save size={15} />
+              <span>{isEditing ? 'Update Expense Sheet' : 'Save Expense Sheet'}</span>
+            </button>
           </div>
         </div>
-
-        <div className="flex items-center gap-2">
-          <button
-            type="button"
-            onClick={onCancel}
-            className="px-4 py-2 bg-zinc-800 hover:bg-zinc-700 text-zinc-300 rounded-lg text-xs font-semibold transition-colors cursor-pointer"
-          >
-            Cancel
-          </button>
-          <button
-            type="submit"
-            className="flex items-center gap-1.5 px-5 py-2 bg-red-600 hover:bg-red-500 text-white font-bold rounded-lg text-xs shadow-md shadow-red-600/25 active:scale-[0.98] transition-all cursor-pointer"
-          >
-            <Save size={15} />
-            <span>{isEditing ? 'Update Expense Sheet' : 'Save Expense Sheet'}</span>
-          </button>
-        </div>
-      </div>
 
       {formError && (
         <div className="p-3 bg-red-500/10 border border-red-500/30 rounded-xl text-red-400 text-xs flex items-center gap-2">
@@ -504,7 +550,7 @@ export const ExpenseForm: React.FC<Props> = ({ expenseId, onCancel, onSuccess })
       </div>
 
       {/* Bottom Action Buttons */}
-      <div className="flex items-center justify-end gap-3 pt-2">
+      <div className="flex items-center justify-end gap-3 pt-2 flex-wrap">
         <button
           type="button"
           onClick={onCancel}
@@ -512,6 +558,29 @@ export const ExpenseForm: React.FC<Props> = ({ expenseId, onCancel, onSuccess })
         >
           Cancel
         </button>
+
+        {/* Send WhatsApp (PDF Attachment) */}
+        <button
+          type="button"
+          onClick={(e) => handleSubmit(e, 'whatsapp')}
+          className="flex items-center gap-1.5 px-5 py-2.5 bg-emerald-600 hover:bg-emerald-500 text-white font-bold rounded-xl text-xs shadow-lg shadow-emerald-600/20 transition-all cursor-pointer"
+          title="Save and send Expense Sheet PDF directly through WhatsApp"
+        >
+          <MessageSquare size={15} />
+          <span>Send WhatsApp</span>
+        </button>
+
+        {/* Send Text (Prepared Text Only) */}
+        <button
+          type="button"
+          onClick={(e) => handleSubmit(e, 'text')}
+          className="flex items-center gap-1.5 px-5 py-2.5 bg-zinc-800 hover:bg-zinc-700 text-zinc-100 font-bold rounded-xl text-xs border border-zinc-700 transition-colors cursor-pointer"
+          title="Save and send only prepared text message through WhatsApp"
+        >
+          <Send size={14} className="text-emerald-400" />
+          <span>Send Text</span>
+        </button>
+
         <button
           type="submit"
           className="flex items-center gap-2 px-6 py-2.5 bg-red-600 hover:bg-red-500 text-white font-black rounded-xl text-xs shadow-lg shadow-red-600/30 active:scale-[0.98] transition-all cursor-pointer"
@@ -521,5 +590,47 @@ export const ExpenseForm: React.FC<Props> = ({ expenseId, onCancel, onSuccess })
         </button>
       </div>
     </form>
+
+    {/* Offscreen container for high-res PDF generation */}
+    {createdExpense && (
+      <div
+        id={`created-expense-printable-${createdExpense.id}`}
+        style={{
+          position: 'fixed',
+          left: '0',
+          top: '0',
+          width: '800px',
+          backgroundColor: '#ffffff',
+          zIndex: -9999,
+          pointerEvents: 'none'
+        }}
+      >
+        <PrintableExpenseSheet expense={createdExpense} settings={settings} />
+      </div>
+    )}
+
+    {/* Direct WhatsApp Send Modal after Expense Sheet Creation */}
+    <WhatsAppSendModal
+      isOpen={whatsAppModalOpen}
+      onClose={() => {
+        setWhatsAppModalOpen(false);
+        if (createdExpense) {
+          onSuccess(createdExpense.id);
+        }
+      }}
+      title={`Expense Sheet #${createdExpense?.voucherNumber || createdExpense?.expenseNumber || ''} Created! Send to WhatsApp`}
+      defaultPhone={createdExpense?.phone || ''}
+      initialMessage={
+        createdExpense
+          ? generateExpenseWhatsAppText(createdExpense, settings?.companyName || 'Bismillah Multitrade Corporation')
+          : ''
+      }
+      pdfElementId={createdExpense ? `created-expense-printable-${createdExpense.id}` : undefined}
+      pdfFilename={createdExpense ? `Expense-Sheet-${createdExpense.voucherNumber || createdExpense.expenseNumber || createdExpense.id}` : undefined}
+      documentType="Expense Sheet"
+      documentNumber={createdExpense?.voucherNumber || createdExpense?.expenseNumber}
+      defaultMode={whatsAppMode}
+    />
+  </>
   );
 };
