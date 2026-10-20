@@ -1817,7 +1817,7 @@ export const InvoiceDetails: React.FC<Props> = ({ invoiceId, onBack, onEdit }) =
               </button>
             </div>
 
-            <form onSubmit={handleRecordPaymentSubmit} className="space-y-3 text-xs">
+            <form onSubmit={handleRecordPaymentSubmit} noValidate className="space-y-3 text-xs">
               <div className="bg-zinc-950 p-3 rounded-lg border border-zinc-800 flex justify-between">
                 <span className="text-zinc-400">Total Invoice Balance Due:</span>
                 <span className="font-mono font-bold text-red-400 text-sm">
@@ -1830,8 +1830,8 @@ export const InvoiceDetails: React.FC<Props> = ({ invoiceId, onBack, onEdit }) =
                 <input
                   type="number"
                   required
-                  min="1"
-                  max={invoice.balanceDue}
+                  step="any"
+                  min="0.01"
                   value={paymentAmount}
                   onChange={(e) => setPaymentAmount(Number(e.target.value))}
                   className="w-full bg-zinc-950 border border-emerald-500 rounded-lg px-3 py-2 text-base font-mono font-black text-emerald-400"
@@ -2075,7 +2075,7 @@ export const InvoiceDetails: React.FC<Props> = ({ invoiceId, onBack, onEdit }) =
 
       {/* Offscreen Printable Containers for High-Fidelity PDF Generation */}
       <div
-        id={`printable-invoice-${invoice.id}`}
+        id={`offscreen-invoice-container-${invoice.id}`}
         style={{
           position: 'fixed',
           left: '0',

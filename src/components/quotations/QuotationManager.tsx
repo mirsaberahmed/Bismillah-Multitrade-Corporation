@@ -641,7 +641,8 @@ export const QuotationManager: React.FC<Props> = ({ onNavigateToInvoice }) => {
                           <td className="p-2 text-right">
                             <input
                               type="number"
-                              min="1"
+                              min="0"
+                              step="any"
                               placeholder="0"
                               value={it.quantity === 0 ? '' : it.quantity}
                               onFocus={(e) => e.target.select()}
@@ -703,6 +704,7 @@ export const QuotationManager: React.FC<Props> = ({ onNavigateToInvoice }) => {
                     <span>Discount:</span>
                     <input
                       type="number"
+                      step="any"
                       placeholder="0"
                       value={overallDiscount === 0 ? '' : overallDiscount}
                       onFocus={(e) => e.target.select()}

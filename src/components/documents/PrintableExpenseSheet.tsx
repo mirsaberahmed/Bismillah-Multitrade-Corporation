@@ -267,11 +267,34 @@ export const PrintableExpenseSheet: React.FC<Props> = ({ expense, settings }) =>
         </div>
       </div>
 
-      {/* 5. Official Signatures & Seal Section: Single signature on the right side only with seal above the line */}
+      {/* 5. Official Signatures Section - Payee, Prepared By, and Official Seal */}
       <div className="border-t border-black pt-4 mt-8">
-        <div className="flex justify-end items-end pt-2 px-4 text-center text-xs text-black">
+        <div className="flex justify-between items-end pt-2 px-4 text-center text-xs text-black">
+          {/* Receiver / Payee */}
+          <div>
+            <div className="h-[28mm] flex items-end justify-center pb-1">
+              <div className="w-44 border-b border-black"></div>
+            </div>
+            <div className="pt-1.5 font-bold text-black uppercase tracking-wide text-xs">
+              PAYEE / RECEIVER SIGNATURE
+            </div>
+          </div>
+
+          {/* Prepared / Accounts Officer */}
+          <div>
+            <div className="h-[28mm] flex items-end justify-center pb-1">
+              <div className="w-44 border-b border-black"></div>
+            </div>
+            <div className="pt-1.5 font-bold text-black uppercase tracking-wide text-xs">
+              PREPARED BY
+            </div>
+            <div className="text-[10px] text-gray-700 font-medium">
+              {expense.preparedBy || 'Accounts Officer'}
+            </div>
+          </div>
+
+          {/* Approved By / Official Seal */}
           <div className="flex flex-col items-center">
-            {/* Seal positioned safely above the signature line */}
             <div className="h-[28mm] flex flex-col items-center justify-end pb-1.5">
               {BISMILLAH_SIGNATURE_DATA_URI && (
                 <img
@@ -280,7 +303,7 @@ export const PrintableExpenseSheet: React.FC<Props> = ({ expense, settings }) =>
                   className="w-[28mm] h-[28mm] object-contain select-none pointer-events-none"
                 />
               )}
-              <div className="w-64 border-b border-black mt-1"></div>
+              <div className="w-56 border-b border-black mt-1"></div>
             </div>
             <div className="pt-1.5 font-bold text-black uppercase tracking-wide text-xs">
               BISMILLAH MULTITRADE CORPORATION

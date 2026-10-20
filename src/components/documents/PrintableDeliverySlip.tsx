@@ -207,20 +207,27 @@ export const PrintableDeliverySlip: React.FC<Props> = ({ deliverySlip, settings 
         </div>
       </div>
 
-      {/* Signature Block - Signature on Top, Name Below */}
-      <div className="pt-2 mt-4 print:mt-2 flex justify-end">
-        <div className="text-center w-64">
-          {/* Signature Image on Top of Line */}
+      {/* Signatures Footer - Receiver on Left, Official Seal & Signature on Right */}
+      <div className="flex justify-between items-end pt-4 mt-6 print:mt-4 px-4 text-center text-xs text-black">
+        <div>
+          <div className="h-[32mm] flex items-end justify-center pb-1">
+            <div className="w-52 border-b border-black"></div>
+          </div>
+          <div className="pt-1.5 font-bold text-black uppercase tracking-wide">
+            RECEIVER / CUSTOMER SIGNATURE
+          </div>
+        </div>
+
+        <div>
           <div className="h-[32mm] flex flex-col items-center justify-end pb-1">
             <img
               src={BISMILLAH_SIGNATURE_DATA_URI}
               alt="Bismillah Multitrade Official Seal & Signature"
               className="w-[29mm] h-[29mm] object-contain mb-0.5 select-none pointer-events-none"
             />
-            <div className="w-56 border-b border-black"></div>
+            <div className="w-64 border-b border-black"></div>
           </div>
-          {/* Name Underneath */}
-          <div className="pt-1.5 font-bold text-black uppercase text-[11px] tracking-wider">
+          <div className="pt-1.5 font-bold text-black uppercase tracking-wide">
             BISMILLAH MULTITRADE CORPORATION
           </div>
         </div>

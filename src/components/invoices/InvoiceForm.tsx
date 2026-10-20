@@ -274,20 +274,22 @@ export const InvoiceForm: React.FC<Props> = ({ invoiceId, onCancel, onSuccess })
   const netAfterDiscount = subtotal - itemDiscountTotal - overallDiscount;
   const grandTotal = Math.max(
     0,
-    netAfterDiscount +
-      vatTotal +
-      taxTotal +
-      aitAmount +
-      transportCharge +
-      shippingCharge +
-      loadingCharge +
-      otherCharge +
-      previousDue +
-      roundAdjustment
+    Math.round(
+      (netAfterDiscount +
+        vatTotal +
+        taxTotal +
+        aitAmount +
+        transportCharge +
+        shippingCharge +
+        loadingCharge +
+        otherCharge +
+        previousDue +
+        roundAdjustment) * 100
+    ) / 100
   );
 
-  const balanceDue = Math.max(0, grandTotal - paidAmount);
-  const amountInWords = numberToWordsBDT(Math.round(grandTotal * 100) / 100);
+  const balanceDue = Math.max(0, Math.round((grandTotal - paidAmount) * 100) / 100);
+  const amountInWords = numberToWordsBDT(grandTotal);
 
   // Form Submission
   const handleSubmit = (e?: React.FormEvent, targetMode?: 'whatsapp' | 'text') => {
@@ -370,7 +372,7 @@ export const InvoiceForm: React.FC<Props> = ({ invoiceId, onCancel, onSuccess })
 
   return (
     <>
-      <form onSubmit={(e) => handleSubmit(e)} className="space-y-6 pb-12">
+      <form onSubmit={(e) => handleSubmit(e)} noValidate className="space-y-6 pb-12">
       {/* Header Bar */}
       <div className="flex flex-col sm:flex-row sm:items-center justify-between gap-3 bg-zinc-900 border border-zinc-800 p-4 rounded-xl">
         <div className="flex items-center gap-3">
@@ -680,6 +682,7 @@ export const InvoiceForm: React.FC<Props> = ({ invoiceId, onCancel, onSuccess })
             <label className="block text-zinc-400 font-medium mb-1">Customer Previous Due (BDT)</label>
             <input
               type="number"
+              step="any"
               placeholder="0"
               value={previousDue === 0 ? '' : previousDue}
               onFocus={(e) => e.target.select()}
@@ -799,6 +802,7 @@ export const InvoiceForm: React.FC<Props> = ({ invoiceId, onCancel, onSuccess })
                     <input
                       type="number"
                       min="0"
+                      step="any"
                       placeholder="0"
                       value={item.quantity === 0 ? '' : item.quantity}
                       onFocus={(e) => e.target.select()}
@@ -832,6 +836,7 @@ export const InvoiceForm: React.FC<Props> = ({ invoiceId, onCancel, onSuccess })
                     <input
                       type="number"
                       min="0"
+                      step="any"
                       placeholder="0"
                       value={item.discountValue === 0 ? '' : item.discountValue}
                       onFocus={(e) => e.target.select()}
@@ -844,6 +849,7 @@ export const InvoiceForm: React.FC<Props> = ({ invoiceId, onCancel, onSuccess })
                     <input
                       type="number"
                       min="0"
+                      step="any"
                       placeholder="0"
                       value={item.vatRate === 0 ? '' : item.vatRate}
                       onFocus={(e) => e.target.select()}
@@ -970,6 +976,7 @@ export const InvoiceForm: React.FC<Props> = ({ invoiceId, onCancel, onSuccess })
             <input
               type="number"
               min="0"
+              step="any"
               placeholder="0"
               value={overallDiscount === 0 ? '' : overallDiscount}
               onFocus={(e) => e.target.select()}
@@ -989,6 +996,7 @@ export const InvoiceForm: React.FC<Props> = ({ invoiceId, onCancel, onSuccess })
             <input
               type="number"
               min="0"
+              step="any"
               placeholder="0"
               value={aitAmount === 0 ? '' : aitAmount}
               onFocus={(e) => e.target.select()}
@@ -1003,6 +1011,7 @@ export const InvoiceForm: React.FC<Props> = ({ invoiceId, onCancel, onSuccess })
             <input
               type="number"
               min="0"
+              step="any"
               placeholder="0"
               value={transportCharge === 0 ? '' : transportCharge}
               onFocus={(e) => e.target.select()}
@@ -1017,6 +1026,7 @@ export const InvoiceForm: React.FC<Props> = ({ invoiceId, onCancel, onSuccess })
             <input
               type="number"
               min="0"
+              step="any"
               placeholder="0"
               value={loadingCharge === 0 ? '' : loadingCharge}
               onFocus={(e) => e.target.select()}
@@ -1088,7 +1098,7 @@ export const InvoiceForm: React.FC<Props> = ({ invoiceId, onCancel, onSuccess })
             <input
               type="number"
               min="0"
-              max={grandTotal}
+              step="any"
               placeholder="0"
               value={paidAmount === 0 ? '' : paidAmount}
               onFocus={(e) => e.target.select()}
