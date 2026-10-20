@@ -1194,6 +1194,40 @@ export const DataProvider: React.FC<{ children: React.ReactNode }> = ({ children
     };
 
     if (isNew) {
+      if (paid > 0 && (!invoiceData.paymentIds || invoiceData.paymentIds.length === 0)) {
+        const receiptNo = getNextNumber('payment');
+        const initialPayment: PaymentRecord = {
+          id: 'pay-' + Date.now(),
+          receiptNumber: receiptNo,
+          date: fullInvoice.invoiceDate || getTodayDateString(),
+          paymentDate: fullInvoice.invoiceDate || getTodayDateString(),
+          type: 'Customer Collection',
+          entityId: resolvedCustomerId,
+          entityName: fullInvoice.customerName,
+          invoiceId: fullInvoice.id,
+          invoiceNumber: fullInvoice.invoiceNumber,
+          totalAmount: fullInvoice.grandTotal,
+          amount: paid,
+          paidAmount: paid,
+          dueAmount: fullInvoice.balanceDue,
+          paymentStatus: fullInvoice.balanceDue <= 0 ? 'Paid' : 'Partial',
+          amountInWords: numberToWordsBDT(paid),
+          currency: fullInvoice.currency,
+          paymentMethod: 'Cash',
+          bank: settings.bankName || 'General Bank',
+          receivedBy: 'Accounts Officer',
+          collectedBy: 'Accounts Officer',
+          notes: `Initial payment received on Invoice #${fullInvoice.invoiceNumber}`,
+          createdAt: getTodayDateString()
+        };
+        fullInvoice.paymentIds = [initialPayment.id];
+        setPayments(prev => {
+          const nextPayments = [initialPayment, ...prev];
+          syncSectionLive('payments', nextPayments);
+          return nextPayments;
+        });
+      }
+
       const nextInvoices = [fullInvoice, ...invoices];
       setInvoices(nextInvoices);
       syncSectionLive('invoices', nextInvoices);
@@ -2069,9 +2103,12 @@ export const DataProvider: React.FC<{ children: React.ReactNode }> = ({ children
 
     // Dynamic calculations for Partial vs Full Paid status
     const inv = payment.invoiceId ? invoices.find(i => i.id === payment.invoiceId) : null;
-    const totalAmt = payment.totalAmount || (inv ? inv.grandTotal : payment.amount);
-    const newPaid = inv ? (inv.paidAmount || 0) + payment.amount : payment.amount;
-    const newDue = inv ? Math.max(0, inv.grandTotal - newPaid) : 0;
+    const totalAmt = (inv ? inv.grandTotal : 0) || payment.totalAmount || payment.amount;
+    const existingPaymentsTotal = payments
+      .filter(p => p.invoiceId === payment.invoiceId && p.id !== payment.id)
+      .reduce((sum, p) => sum + p.amount, 0);
+    const newPaid = existingPaymentsTotal + payment.amount;
+    const newDue = Math.max(0, totalAmt - newPaid);
     const cleanStatus: 'Unpaid' | 'Partial' | 'Paid' = newDue <= 0 ? 'Paid' : (newPaid > 0 ? 'Partial' : 'Unpaid');
 
     const fullPayment: PaymentRecord = {
@@ -2084,11 +2121,13 @@ export const DataProvider: React.FC<{ children: React.ReactNode }> = ({ children
     };
 
     if (isNew) {
-      setPayments(prev => [fullPayment, ...prev]);
+      const nextPayments = [fullPayment, ...payments];
+      setPayments(nextPayments);
+      syncSectionLive('payments', nextPayments);
 
       // If against an invoice, allocate and update invoice status
       if (fullPayment.invoiceId) {
-        setInvoices(prev => prev.map(invItem => {
+        const nextInvoices = invoices.map(invItem => {
           if (invItem.id === fullPayment.invoiceId) {
             let status: PaymentStatus = 'Partially Paid';
             if (newPaid >= invItem.grandTotal) {
@@ -2105,25 +2144,33 @@ export const DataProvider: React.FC<{ children: React.ReactNode }> = ({ children
             };
           }
           return invItem;
-        }));
+        });
+        setInvoices(nextInvoices);
+        syncSectionLive('invoices', nextInvoices);
       }
 
       // Update customer or supplier balance
       if (fullPayment.type === 'Customer Collection') {
-        setCustomers(prev => prev.map(c => c.id === fullPayment.entityId ? {
+        const nextCustomers = customers.map(c => c.id === fullPayment.entityId ? {
           ...c,
           currentBalance: Math.max(0, (c.currentBalance || 0) - fullPayment.amount)
-        } : c));
+        } : c);
+        setCustomers(nextCustomers);
+        syncSectionLive('customers', nextCustomers);
       } else {
-        setSuppliers(prev => prev.map(s => s.id === fullPayment.entityId ? {
+        const nextSuppliers = suppliers.map(s => s.id === fullPayment.entityId ? {
           ...s,
           currentPayable: Math.max(0, (s.currentPayable || 0) - fullPayment.amount)
-        } : s));
+        } : s);
+        setSuppliers(nextSuppliers);
+        syncSectionLive('suppliers', nextSuppliers);
       }
 
       logActivity('Payment Recorded', `Recorded ${fullPayment.type} of ৳ ${fullPayment.amount.toLocaleString()} (Receipt: ${fullPayment.receiptNumber}, Due: ৳ ${newDue.toLocaleString()})`);
     } else {
-      setPayments(prev => prev.map(p => p.id === fullPayment.id ? fullPayment : p));
+      const nextPayments = payments.map(p => p.id === fullPayment.id ? fullPayment : p);
+      setPayments(nextPayments);
+      syncSectionLive('payments', nextPayments);
     }
   };
 
@@ -2133,9 +2180,13 @@ export const DataProvider: React.FC<{ children: React.ReactNode }> = ({ children
 
     const diff = updated.amount - existing.amount;
     const inv = updated.invoiceId ? invoices.find(i => i.id === updated.invoiceId) : null;
-    const totalAmt = updated.totalAmount || (inv ? inv.grandTotal : updated.amount);
-    const newPaidForInv = inv ? Math.max(0, (inv.paidAmount || 0) + diff) : updated.amount;
-    const newDueForInv = inv ? Math.max(0, (inv ? inv.grandTotal : totalAmt) - newPaidForInv) : 0;
+    const totalAmt = (inv ? inv.grandTotal : 0) || updated.totalAmount || updated.amount;
+
+    const otherPaymentsTotal = payments
+      .filter(p => p.invoiceId === updated.invoiceId && p.id !== updated.id)
+      .reduce((sum, p) => sum + p.amount, 0);
+    const newPaidForInv = otherPaymentsTotal + updated.amount;
+    const newDueForInv = Math.max(0, totalAmt - newPaidForInv);
     const statusForInv: PaymentStatus = newDueForInv <= 0 ? 'Paid' : (newPaidForInv > 0 ? 'Partially Paid' : 'Unpaid');
     const paymentStatusClean: 'Unpaid' | 'Partial' | 'Paid' = newDueForInv <= 0 ? 'Paid' : (newPaidForInv > 0 ? 'Partial' : 'Unpaid');
 
@@ -2149,11 +2200,13 @@ export const DataProvider: React.FC<{ children: React.ReactNode }> = ({ children
       updatedAt: new Date().toISOString()
     };
 
-    setPayments(prev => prev.map(p => p.id === updated.id ? formattedPayment : p));
+    const nextPayments = payments.map(p => p.id === updated.id ? formattedPayment : p);
+    setPayments(nextPayments);
+    syncSectionLive('payments', nextPayments);
 
     // Update Invoice if linked
     if (updated.invoiceId) {
-      setInvoices(prev => prev.map(i => {
+      const nextInvoices = invoices.map(i => {
         if (i.id === updated.invoiceId) {
           return {
             ...i,
@@ -2163,20 +2216,26 @@ export const DataProvider: React.FC<{ children: React.ReactNode }> = ({ children
           };
         }
         return i;
-      }));
+      });
+      setInvoices(nextInvoices);
+      syncSectionLive('invoices', nextInvoices);
     }
 
     // Update Customer / Supplier balance
     if (updated.type === 'Customer Collection') {
-      setCustomers(prev => prev.map(c => c.id === updated.entityId ? {
+      const nextCustomers = customers.map(c => c.id === updated.entityId ? {
         ...c,
         currentBalance: Math.max(0, (c.currentBalance || 0) - diff)
-      } : c));
+      } : c);
+      setCustomers(nextCustomers);
+      syncSectionLive('customers', nextCustomers);
     } else {
-      setSuppliers(prev => prev.map(s => s.id === updated.entityId ? {
+      const nextSuppliers = suppliers.map(s => s.id === updated.entityId ? {
         ...s,
         currentPayable: Math.max(0, (s.currentPayable || 0) - diff)
-      } : s));
+      } : s);
+      setSuppliers(nextSuppliers);
+      syncSectionLive('suppliers', nextSuppliers);
     }
 
     logActivity('Payment Updated', `Updated Money Receipt ${updated.receiptNumber} amount to ৳ ${updated.amount.toLocaleString()} (Remaining Due: ৳ ${newDueForInv.toLocaleString()})`);
@@ -2188,34 +2247,42 @@ export const DataProvider: React.FC<{ children: React.ReactNode }> = ({ children
 
     // Revert invoice allocations
     if (existing.invoiceId) {
-      setInvoices(prev => prev.map(inv => {
+      const nextInvoices = invoices.map(inv => {
         if (inv.id === existing.invoiceId) {
-          const revertedPaid = Math.max(0, (inv.paidAmount || 0) - existing.amount);
-          const revertedDue = Math.max(0, inv.grandTotal - revertedPaid);
-          const revertedStatus: PaymentStatus = revertedDue <= 0 ? 'Paid' : (revertedPaid > 0 ? 'Partially Paid' : 'Unpaid');
+          const remainingPaymentsTotal = payments
+            .filter(p => p.invoiceId === inv.id && p.id !== id)
+            .reduce((sum, p) => sum + p.amount, 0);
+          const revertedDue = Math.max(0, inv.grandTotal - remainingPaymentsTotal);
+          const revertedStatus: PaymentStatus = revertedDue <= 0 ? 'Paid' : (remainingPaymentsTotal > 0 ? 'Partially Paid' : 'Unpaid');
           return {
             ...inv,
-            paidAmount: revertedPaid,
+            paidAmount: remainingPaymentsTotal,
             balanceDue: revertedDue,
             paymentStatus: revertedStatus,
             paymentIds: (inv.paymentIds || []).filter(pid => pid !== id)
           };
         }
         return inv;
-      }));
+      });
+      setInvoices(nextInvoices);
+      syncSectionLive('invoices', nextInvoices);
     }
 
     // Revert Customer or Supplier balances
     if (existing.type === 'Customer Collection') {
-      setCustomers(prev => prev.map(c => c.id === existing.entityId ? {
+      const nextCustomers = customers.map(c => c.id === existing.entityId ? {
         ...c,
         currentBalance: (c.currentBalance || 0) + existing.amount
-      } : c));
+      } : c);
+      setCustomers(nextCustomers);
+      syncSectionLive('customers', nextCustomers);
     } else {
-      setSuppliers(prev => prev.map(s => s.id === existing.entityId ? {
+      const nextSuppliers = suppliers.map(s => s.id === existing.entityId ? {
         ...s,
         currentPayable: (s.currentPayable || 0) + existing.amount
-      } : s));
+      } : s);
+      setSuppliers(nextSuppliers);
+      syncSectionLive('suppliers', nextSuppliers);
     }
 
     const nextPayments = payments.filter(p => p.id !== id);

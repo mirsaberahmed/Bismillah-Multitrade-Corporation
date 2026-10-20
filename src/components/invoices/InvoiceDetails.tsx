@@ -305,8 +305,10 @@ export const InvoiceDetails: React.FC<Props> = ({ invoiceId, onBack, onEdit }) =
       return;
     }
 
-    const prevPaid = invoice.paidAmount || 0;
-    const newTotalPaid = prevPaid + paymentAmount;
+    const otherPaymentsTotal = payments
+      .filter(p => p.invoiceId === invoice.id)
+      .reduce((sum, p) => sum + p.amount, 0);
+    const newTotalPaid = otherPaymentsTotal + paymentAmount;
     const remDue = Math.max(0, invoice.grandTotal - newTotalPaid);
     const pStatus: 'Paid' | 'Partial' = remDue <= 0 ? 'Paid' : 'Partial';
 
@@ -1818,11 +1820,25 @@ export const InvoiceDetails: React.FC<Props> = ({ invoiceId, onBack, onEdit }) =
             </div>
 
             <form onSubmit={handleRecordPaymentSubmit} noValidate className="space-y-3 text-xs">
-              <div className="bg-zinc-950 p-3 rounded-lg border border-zinc-800 flex justify-between">
-                <span className="text-zinc-400">Total Invoice Balance Due:</span>
-                <span className="font-mono font-bold text-red-400 text-sm">
-                  {formatCurrency(invoice.balanceDue)}
-                </span>
+              <div className="bg-zinc-950 p-3 rounded-lg border border-zinc-800 space-y-1.5">
+                <div className="flex justify-between">
+                  <span className="text-zinc-400">Total Invoice Bill:</span>
+                  <span className="font-mono font-bold text-zinc-200">
+                    {formatCurrency(invoice.grandTotal)}
+                  </span>
+                </div>
+                <div className="flex justify-between">
+                  <span className="text-zinc-400">Already Paid:</span>
+                  <span className="font-mono font-bold text-emerald-400">
+                    {formatCurrency(invoice.paidAmount)}
+                  </span>
+                </div>
+                <div className="flex justify-between pt-1 border-t border-zinc-800">
+                  <span className="text-zinc-300 font-semibold">Remaining Balance Due:</span>
+                  <span className="font-mono font-bold text-red-400 text-sm">
+                    {formatCurrency(invoice.balanceDue)}
+                  </span>
+                </div>
               </div>
 
               <div>

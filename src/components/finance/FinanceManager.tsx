@@ -114,12 +114,14 @@ export const FinanceManager: React.FC<FinanceManagerProps> = ({
     }
 
     const linkedInvoice = editingPayment.invoiceId ? invoices.find(i => i.id === editingPayment.invoiceId) : null;
-    const totalBill = editingPayment.totalAmount || (linkedInvoice ? linkedInvoice.grandTotal : editingPayment.amount);
+    const totalBill = (linkedInvoice ? linkedInvoice.grandTotal : 0) || editingPayment.totalAmount || editingPayment.amount;
     
-    // Calculate paid prior to this receipt
-    const diff = editAmount - editingPayment.amount;
-    const newPaidForInv = linkedInvoice ? Math.max(0, (linkedInvoice.paidAmount || 0) + diff) : editAmount;
-    const newDueForInv = linkedInvoice ? Math.max(0, linkedInvoice.grandTotal - newPaidForInv) : 0;
+    // Calculate accurate total paid across other receipts for this invoice
+    const otherPaymentsTotal = payments
+      .filter(p => p.invoiceId === editingPayment.invoiceId && p.id !== editingPayment.id)
+      .reduce((sum, p) => sum + p.amount, 0);
+    const newPaidForInv = otherPaymentsTotal + editAmount;
+    const newDueForInv = Math.max(0, totalBill - newPaidForInv);
     const pStatusClean: 'Unpaid' | 'Partial' | 'Paid' = newDueForInv <= 0 ? 'Paid' : (newPaidForInv > 0 ? 'Partial' : 'Unpaid');
 
     const updatedRecord: PaymentRecord = {
@@ -464,10 +466,12 @@ export const FinanceManager: React.FC<FinanceManagerProps> = ({
       {/* ========================================================================= */}
       {editingPayment && (() => {
         const linkedInv = editingPayment.invoiceId ? invoices.find(i => i.id === editingPayment.invoiceId) : null;
-        const totalBill = editingPayment.totalAmount || (linkedInv ? linkedInv.grandTotal : editingPayment.amount);
-        const diff = editAmount - editingPayment.amount;
-        const livePaid = linkedInv ? Math.max(0, (linkedInv.paidAmount || 0) + diff) : editAmount;
-        const liveDue = linkedInv ? Math.max(0, linkedInv.grandTotal - livePaid) : Math.max(0, totalBill - editAmount);
+        const totalBill = (linkedInv ? linkedInv.grandTotal : 0) || editingPayment.totalAmount || editingPayment.amount;
+        const otherPaymentsTotal = payments
+          .filter(p => p.invoiceId === editingPayment.invoiceId && p.id !== editingPayment.id)
+          .reduce((sum, p) => sum + p.amount, 0);
+        const livePaid = otherPaymentsTotal + editAmount;
+        const liveDue = Math.max(0, totalBill - livePaid);
         const liveIsPaid = liveDue <= 0;
 
         return (
@@ -555,8 +559,8 @@ export const FinanceManager: React.FC<FinanceManagerProps> = ({
                     <input
                       type="number"
                       required
-                      min={1}
-                      step={1}
+                      min={0.01}
+                      step="any"
                       value={editAmount}
                       onChange={(e) => setEditAmount(Number(e.target.value) || 0)}
                       className="w-full bg-zinc-950 border border-zinc-700 focus:border-emerald-500 rounded-lg px-3 py-2 text-emerald-400 font-mono font-bold focus:outline-none"
