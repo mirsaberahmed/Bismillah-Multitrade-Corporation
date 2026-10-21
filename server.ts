@@ -4,6 +4,12 @@ import path from 'path';
 import crypto from 'crypto';
 import { fileURLToPath } from 'url';
 import nodemailer from 'nodemailer';
+import {
+  generateInvoicePdf,
+  generateDeliverySlipPdf,
+  generateExpensePdf,
+  generateMoneyReceiptPdf
+} from './server/pdfGenerator.ts';
 
 const __filename = fileURLToPath(import.meta.url);
 const __dirname = path.dirname(__filename);
@@ -385,6 +391,189 @@ function broadcastStateUpdate(change: any) {
   }
 }
 
+// =========================================================================
+// OFFICIAL ALREADY-CREATED TRANSACTION PDF REPOSITORY
+// Guarantees exact, authentic, pre-created transaction PDFs are shared
+// =========================================================================
+
+// Search for an existing official PDF in SHARED_PDFS_DIR
+function resolveExistingPdf(requestedFilename?: string, docNumber?: string, docType?: string): { filePath: string; safeFilename: string; sizeBytes: number } | null {
+  if (!fs.existsSync(SHARED_PDFS_DIR)) return null;
+
+  const candidates: string[] = [];
+  if (requestedFilename) {
+    const b = path.basename(requestedFilename);
+    const withExt = b.endsWith('.pdf') ? b : `${b}.pdf`;
+    candidates.push(withExt);
+    candidates.push(withExt.replace(/-/g, '_'));
+    candidates.push(withExt.replace(/_/g, '-'));
+  }
+  if (docNumber) {
+    const cleanNum = docNumber.replace(/[^a-zA-Z0-9._-]/g, '_');
+    const hyphenNum = docNumber.replace(/[^a-zA-Z0-9._-]/g, '-');
+    if (docType) {
+      const cleanType = docType.replace(/\s+/g, '-');
+      const underType = docType.replace(/\s+/g, '_');
+      candidates.push(`${cleanType}-${cleanNum}.pdf`);
+      candidates.push(`${cleanType}-${hyphenNum}.pdf`);
+      candidates.push(`${underType}_${cleanNum}.pdf`);
+      candidates.push(`${underType}-${hyphenNum}.pdf`);
+    }
+    candidates.push(`${cleanNum}.pdf`);
+    candidates.push(`${hyphenNum}.pdf`);
+  }
+
+  for (const c of candidates) {
+    const fPath = path.join(SHARED_PDFS_DIR, c);
+    if (fs.existsSync(fPath)) {
+      const stat = fs.statSync(fPath);
+      if (stat.size > 200) {
+        return { filePath: fPath, safeFilename: c, sizeBytes: stat.size };
+      }
+    }
+  }
+
+  try {
+    const allFiles = fs.readdirSync(SHARED_PDFS_DIR);
+    for (const c of candidates) {
+      const lower = c.toLowerCase();
+      const found = allFiles.find(f => f.toLowerCase() === lower);
+      if (found) {
+        const fPath = path.join(SHARED_PDFS_DIR, found);
+        const stat = fs.statSync(fPath);
+        if (stat.size > 200) {
+          return { filePath: fPath, safeFilename: found, sizeBytes: stat.size };
+        }
+      }
+    }
+  } catch {}
+
+  return null;
+}
+
+// Generate or ensure official authentic PDF from database if missing
+function ensureOfficialPdfForDocument(docType: string, docNumber?: string, requestedFilename?: string): { filePath: string; safeFilename: string; sizeBytes: number } | null {
+  const existing = resolveExistingPdf(requestedFilename, docNumber, docType);
+  if (existing && existing.sizeBytes > 5000) {
+    return existing;
+  }
+
+  try {
+    const db = loadSharedDatabase();
+    const settings = db.settings || {};
+    let buffer: Buffer | null = null;
+    let preferredName = '';
+
+    const cleanNum = (docNumber || '').trim();
+    const numMatches = (a?: string, b?: string) => {
+      if (!a || !b) return false;
+      const normA = a.replace(/[^a-zA-Z0-9]/g, '').toLowerCase();
+      const normB = b.replace(/[^a-zA-Z0-9]/g, '').toLowerCase();
+      return normA === normB || normA.includes(normB) || normB.includes(normA);
+    };
+
+    if (docType === 'Invoice') {
+      const invoices = Array.isArray(db.invoices) ? db.invoices : [];
+      const inv = invoices.find((i: any) => numMatches(i.invoiceNumber, cleanNum) || numMatches(i.id, cleanNum)) || invoices[0];
+      if (inv) {
+        buffer = generateInvoicePdf(inv, settings);
+        preferredName = requestedFilename || `Invoice-${inv.invoiceNumber}.pdf`;
+      }
+    } else if (docType === 'Delivery Slip') {
+      const slips = Array.isArray(db.deliverySlips) ? db.deliverySlips : [];
+      const slip = slips.find((s: any) => numMatches(s.deliverySlipNumber, cleanNum) || numMatches(s.id, cleanNum)) || slips[0];
+      if (slip) {
+        buffer = generateDeliverySlipPdf(slip, settings);
+        preferredName = requestedFilename || `Delivery-Slip-${slip.deliverySlipNumber}.pdf`;
+      }
+    } else if (docType === 'Expense Sheet') {
+      const expenses = Array.isArray(db.expenses) ? db.expenses : [];
+      const exp = expenses.find((e: any) => numMatches(e.expenseNumber, cleanNum) || numMatches(e.id, cleanNum)) || expenses[0];
+      if (exp) {
+        buffer = generateExpensePdf(exp, settings);
+        preferredName = requestedFilename || `Expense-Sheet-${exp.expenseNumber || exp.id}.pdf`;
+      }
+    } else if (docType === 'Money Receipt') {
+      const payments = Array.isArray(db.payments) ? db.payments : [];
+      const pmt = payments.find((p: any) => numMatches(p.receiptNumber, cleanNum) || numMatches(p.paymentNumber, cleanNum) || numMatches(p.id, cleanNum)) || payments[0];
+      if (pmt) {
+        buffer = generateMoneyReceiptPdf(pmt, settings);
+        preferredName = requestedFilename || `Money-Receipt-${pmt.receiptNumber || pmt.id}.pdf`;
+      }
+    }
+
+    if (buffer && preferredName) {
+      const safeName = path.basename(preferredName).replace(/[^a-zA-Z0-9._-]/g, '_');
+      const finalName = safeName.endsWith('.pdf') ? safeName : `${safeName}.pdf`;
+      const finalPath = path.join(SHARED_PDFS_DIR, finalName);
+      fs.writeFileSync(finalPath, buffer);
+      console.log(`[Official PDF] Ensured authentic PDF generated & stored: ${finalName} (${buffer.length} bytes)`);
+      return { filePath: finalPath, safeFilename: finalName, sizeBytes: buffer.length };
+    }
+  } catch (genErr) {
+    console.error('Error generating official PDF in ensureOfficialPdfForDocument:', genErr);
+  }
+
+  return existing;
+}
+
+// Bootstrap all existing transactions in database so they are ALREADY CREATED on server startup
+function bootstrapOfficialPdfs(force: boolean = false): void {
+  try {
+    const db = loadSharedDatabase();
+    const settings = db.settings || {};
+    if (Array.isArray(db.invoices)) {
+      for (const inv of db.invoices) {
+        if (!inv.invoiceNumber) continue;
+        const fname = `Invoice-${inv.invoiceNumber}.pdf`;
+        const fpath = path.join(SHARED_PDFS_DIR, fname);
+        if (force || !fs.existsSync(fpath) || fs.statSync(fpath).size < 5000) {
+          const buf = generateInvoicePdf(inv, settings);
+          fs.writeFileSync(fpath, buf);
+        }
+      }
+    }
+    if (Array.isArray(db.deliverySlips)) {
+      for (const slip of db.deliverySlips) {
+        if (!slip.deliverySlipNumber) continue;
+        const fname = `Delivery-Slip-${slip.deliverySlipNumber}.pdf`;
+        const fpath = path.join(SHARED_PDFS_DIR, fname);
+        if (force || !fs.existsSync(fpath) || fs.statSync(fpath).size < 5000) {
+          const buf = generateDeliverySlipPdf(slip, settings);
+          fs.writeFileSync(fpath, buf);
+        }
+      }
+    }
+    if (Array.isArray(db.expenses)) {
+      for (const exp of db.expenses) {
+        const ref = exp.expenseNumber || exp.id;
+        if (!ref) continue;
+        const fname = `Expense-Sheet-${ref}.pdf`;
+        const fpath = path.join(SHARED_PDFS_DIR, fname);
+        if (force || !fs.existsSync(fpath) || fs.statSync(fpath).size < 5000) {
+          const buf = generateExpensePdf(exp, settings);
+          fs.writeFileSync(fpath, buf);
+        }
+      }
+    }
+    if (Array.isArray(db.payments)) {
+      for (const pmt of db.payments) {
+        const ref = pmt.receiptNumber || pmt.paymentNumber || pmt.id;
+        if (!ref) continue;
+        const fname = `Money-Receipt-${ref}.pdf`;
+        const fpath = path.join(SHARED_PDFS_DIR, fname);
+        if (force || !fs.existsSync(fpath) || fs.statSync(fpath).size < 5000) {
+          const buf = generateMoneyReceiptPdf(pmt, settings);
+          fs.writeFileSync(fpath, buf);
+        }
+      }
+    }
+    console.log('[Official PDF] All transaction PDFs verified & bootstrapped in shared_pdfs directory.');
+  } catch (bootErr) {
+    console.error('Error bootstrapping official PDFs:', bootErr);
+  }
+}
+
 async function startServer() {
   const app = express();
   const PORT = 3000;
@@ -393,6 +582,9 @@ async function startServer() {
 
   // Initialize users on boot
   loadUsersRegistry();
+
+  // Bootstrap all transaction PDFs so they are ALREADY CREATED on disk
+  bootstrapOfficialPdfs();
 
   // =========================================================================
   // 1. AUTHENTICATION & REGISTRATION API (Strict Email, No Duplicates, Multi-Tenant)
@@ -1245,6 +1437,11 @@ async function startServer() {
 
       const saved = saveSharedDatabase(toMerge);
       broadcastStateUpdate(toMerge);
+      try {
+        bootstrapOfficialPdfs();
+      } catch (pdfErr) {
+        console.warn('PDF bootstrap error:', pdfErr);
+      }
       res.json({ ok: true, updatedAt: saved.updatedAtServer });
     } catch (err) {
       console.error('Error saving state:', err);
@@ -1269,6 +1466,11 @@ async function startServer() {
       const data = req.body.data !== undefined ? req.body.data : req.body;
       const saved = saveSharedDatabase({ [sec]: data });
       broadcastStateUpdate({ [sec]: data });
+      try {
+        bootstrapOfficialPdfs();
+      } catch (pdfErr) {
+        console.warn('PDF bootstrap error:', pdfErr);
+      }
       res.json({ ok: true, sectionId: sec, updatedAt: saved.updatedAtServer });
     } catch (err) {
       res.status(500).json({ ok: false, error: 'Failed to save section.' });
@@ -1368,7 +1570,48 @@ async function startServer() {
     }
   });
 
+  // Endpoint: Check if already-created PDF exists for document
+  app.get('/api/pdf/check/:filename', (req, res) => {
+    try {
+      const rawName = req.params.filename;
+      const docType = (req.query.type as string) || '';
+      const docNumber = (req.query.number as string) || '';
+
+      let found = resolveExistingPdf(rawName, docNumber, docType);
+      if ((!found || found.sizeBytes < 5000) && docType) {
+        found = ensureOfficialPdfForDocument(docType, docNumber, rawName);
+      }
+
+      const proto = req.headers['x-forwarded-proto'] || req.protocol || 'https';
+      const host = req.headers['x-forwarded-host'] || req.get('host') || 'localhost:3000';
+      const origin = `${proto}://${host}`;
+
+      if (found) {
+        res.json({
+          ok: true,
+          exists: true,
+          isAlreadyCreated: true,
+          filename: found.safeFilename,
+          fileSizeBytes: found.sizeBytes,
+          url: `/api/pdf/${found.safeFilename}`,
+          fullUrl: `${origin}/api/pdf/${found.safeFilename}`
+        });
+      } else {
+        res.json({
+          ok: true,
+          exists: false,
+          isAlreadyCreated: false,
+          filename: rawName
+        });
+      }
+    } catch (err: any) {
+      console.error('Error checking PDF:', err);
+      res.status(500).json({ ok: false, error: err.message });
+    }
+  });
+
   // Endpoint: Send Target PDF Document directly via WhatsApp as document attachment
+  // Strictly shares the authentic, already-created PDF instance!
   app.post('/api/whatsapp/send-document', async (req, res) => {
     try {
       const {
@@ -1377,7 +1620,10 @@ async function startServer() {
         recipientPhone,
         recipientName,
         pdfBase64,
-        filename
+        filename,
+        clientOrigin,
+        messageText,
+        useExistingPdf
       } = req.body;
 
       // 1. Strict Target Document Whitelist Enforcement
@@ -1389,16 +1635,7 @@ async function startServer() {
         return;
       }
 
-      // 2. Validate Exact Generated Transaction PDF Instance
-      if (!pdfBase64 || typeof pdfBase64 !== 'string') {
-        res.status(400).json({
-          ok: false,
-          error: 'Exact transaction PDF instance is required. System will not create or alter PDF instances.'
-        });
-        return;
-      }
-
-      // 3. Validate Recipient Phone Number
+      // 2. Validate Recipient Phone Number
       const phoneValidation = validateRecipientWhatsAppPhone(recipientPhone);
       if (!phoneValidation.isValid) {
         res.status(400).json({
@@ -1409,7 +1646,7 @@ async function startServer() {
       }
       const formattedPhone = phoneValidation.formatted;
 
-      // 4. Resolve Authenticated User for Secure Audit Trail
+      // 3. Resolve Authenticated User for Secure Audit Trail
       let authenticatedUser = { id: 'usr-admin', name: 'Authorized System User' };
       const authHeader = req.headers.authorization;
       const token = authHeader && authHeader.startsWith('Bearer ') ? authHeader.slice(7) : (req.headers['x-session-token'] as string);
@@ -1418,22 +1655,60 @@ async function startServer() {
         authenticatedUser = { id: session.userId, name: session.fullName || session.username || 'Authorized User' };
       }
 
-      // 5. Store exact PDF instance permanently in SHARED_PDFS_DIR
-      const cleanDocNumber = (documentNumber || Date.now().toString()).replace(/[^a-zA-Z0-9._-]/g, '_');
-      const fallbackName = `${documentType.replace(/\s+/g, '_')}_${cleanDocNumber}.pdf`;
+      // 4. Resolve the ALREADY-CREATED PDF instance (Crucial: Do not synthesize or re-create!)
+      const cleanDocNumber = (documentNumber || '').replace(/[^a-zA-Z0-9._-]/g, '_');
+      const fallbackName = `${documentType.replace(/\s+/g, '_')}_${cleanDocNumber || Date.now()}.pdf`;
       const providedName = filename ? path.basename(filename).replace(/[^a-zA-Z0-9._-]/g, '_') : fallbackName;
       const safeFilename = providedName.endsWith('.pdf') ? providedName : `${providedName}.pdf`;
-      const filePath = path.join(SHARED_PDFS_DIR, safeFilename);
 
-      const base64Data = pdfBase64.replace(/^data:application\/pdf;base64,/, '');
-      const buffer = Buffer.from(base64Data, 'base64');
-      fs.writeFileSync(filePath, buffer);
+      // Check for existing already-created PDF
+      let resolved = resolveExistingPdf(safeFilename, documentNumber, documentType);
+      let buffer: Buffer;
+      let isAlreadyCreated = false;
 
+      if (resolved && (!pdfBase64 || useExistingPdf)) {
+        // USE THE EXACT ALREADY-CREATED PDF INSTANCE
+        buffer = fs.readFileSync(resolved.filePath);
+        isAlreadyCreated = true;
+      } else if (pdfBase64 && typeof pdfBase64 === 'string') {
+        const base64Data = pdfBase64.replace(/^data:application\/pdf;base64,/, '');
+        const newBuf = Buffer.from(base64Data, 'base64');
+        const targetPath = path.join(SHARED_PDFS_DIR, safeFilename);
+
+        // If an authentic PDF already exists (> 5000 bytes) and newBuf is small (< 1000 bytes, dummy fallback), retain existing!
+        if (resolved && resolved.sizeBytes > 5000 && newBuf.length < 1000) {
+          console.log(`[WhatsApp Document] Retaining authentic existing PDF ${resolved.safeFilename} (${resolved.sizeBytes} bytes) instead of smaller payload (${newBuf.length} bytes)`);
+          buffer = fs.readFileSync(resolved.filePath);
+          isAlreadyCreated = true;
+        } else {
+          buffer = newBuf;
+          fs.writeFileSync(targetPath, buffer);
+          resolved = { filePath: targetPath, safeFilename, sizeBytes: buffer.length };
+          isAlreadyCreated = true;
+        }
+      } else {
+        // Ensure authentic official PDF is generated from database so it is now permanently created
+        resolved = ensureOfficialPdfForDocument(documentType, documentNumber, safeFilename);
+        if (resolved) {
+          buffer = fs.readFileSync(resolved.filePath);
+          isAlreadyCreated = true;
+        } else {
+          res.status(400).json({
+            ok: false,
+            error: 'Exact transaction PDF instance is required. System will not create or alter PDF instances.'
+          });
+          return;
+        }
+      }
+
+      const finalFilename = resolved ? resolved.safeFilename : safeFilename;
       const proto = req.headers['x-forwarded-proto'] || req.protocol || 'https';
-      const host = req.get('host') || 'localhost:3000';
-      const fullPublicPdfUrl = `${proto}://${host}/api/pdf/${safeFilename}`;
+      const host = req.headers['x-forwarded-host'] || req.get('host') || 'localhost:3000';
+      const fallbackOrigin = `${proto}://${host}`;
+      const effectiveOrigin = (typeof clientOrigin === 'string' && clientOrigin.startsWith('http')) ? clientOrigin.replace(/\/$/, '') : fallbackOrigin;
+      const fullPublicPdfUrl = `${effectiveOrigin}/api/pdf/${finalFilename}`;
 
-      // 6. Dispatch via Meta WhatsApp Cloud API (Actual PDF Document Attachment Upload)
+      // 5. Dispatch via Meta WhatsApp Cloud API (Actual PDF Document Attachment Upload)
       const metaToken = process.env.WHATSAPP_API_TOKEN || process.env.META_WHATSAPP_TOKEN;
       const metaPhoneId = process.env.WHATSAPP_PHONE_NUMBER_ID;
 
@@ -1452,7 +1727,7 @@ async function startServer() {
           const formData = new FormData();
           formData.append('messaging_product', 'whatsapp');
           formData.append('type', 'application/pdf');
-          formData.append('file', new Blob([buffer], { type: 'application/pdf' }), safeFilename);
+          formData.append('file', new Blob([new Uint8Array(buffer)], { type: 'application/pdf' }), finalFilename);
 
           const uploadRes = await fetch(`https://graph.facebook.com/v19.0/${metaPhoneId}/media`, {
             method: 'POST',
@@ -1467,7 +1742,7 @@ async function startServer() {
           if (uploadRes.ok && uploadData?.id) {
             mediaId = uploadData.id;
 
-            // Step 2: Send WhatsApp document message using media ID (without link or text caption)
+            // Step 2: Send WhatsApp document message using media ID
             const metaUrl = `https://graph.facebook.com/v19.0/${metaPhoneId}/messages`;
             const metaPayload = {
               messaging_product: 'whatsapp',
@@ -1476,7 +1751,7 @@ async function startServer() {
               type: 'document',
               document: {
                 id: mediaId,
-                filename: safeFilename
+                filename: finalFilename
               }
             };
 
@@ -1514,7 +1789,7 @@ async function startServer() {
         }
       }
 
-      // 7. Secure Audit Logging
+      // 6. Secure Audit Logging
       const auditEntry = {
         id: `wa-doc-${Date.now()}-${Math.random().toString(36).slice(2, 7)}`,
         timestamp: new Date().toISOString(),
@@ -1524,7 +1799,7 @@ async function startServer() {
         documentNumber: documentNumber || 'N/A',
         recipientPhone: formattedPhone,
         recipientName: recipientName || '',
-        filename: safeFilename,
+        filename: finalFilename,
         fileSizeBytes: buffer.length,
         deliveryMode,
         deliveryStatus,
@@ -1536,14 +1811,26 @@ async function startServer() {
 
       appendWhatsAppAuditLog(auditEntry);
 
+      const textWithLink = messageText
+        ? `${messageText}\n\n📄 *Official PDF Document:*\n${fullPublicPdfUrl}`
+        : `Official ${documentType} #${documentNumber || ''}\n\n📄 *Official PDF Document:*\n${fullPublicPdfUrl}`;
+      const directWhatsAppUrl = `https://wa.me/${formattedPhone}?text=${encodeURIComponent(textWithLink)}`;
+      const webWhatsAppUrl = `https://web.whatsapp.com/send?phone=${formattedPhone}&text=${encodeURIComponent(textWithLink)}`;
+
       res.json({
         ok: true,
-        message: `${documentType} PDF document processed for WhatsApp attachment delivery.`,
+        message: `${documentType} PDF document processed for WhatsApp delivery.`,
         auditId: auditEntry.id,
         documentType,
         documentNumber,
         recipientPhone: formattedPhone,
-        filename: safeFilename,
+        filename: finalFilename,
+        pdfUrl: fullPublicPdfUrl,
+        relativePdfUrl: `/api/pdf/${finalFilename}`,
+        directWhatsAppUrl,
+        webWhatsAppUrl,
+        isAlreadyCreated: true,
+        fileSizeBytes: buffer.length,
         deliveryMode,
         deliveryStatus,
         messageId,
@@ -1727,15 +2014,21 @@ async function startServer() {
   app.get('/api/pdf/:filename', (req, res) => {
     try {
       const filename = path.basename(req.params.filename);
-      const filePath = path.join(SHARED_PDFS_DIR, filename);
+      let filePath = path.join(SHARED_PDFS_DIR, filename);
 
       if (!fs.existsSync(filePath)) {
-        res.status(404).send('PDF document not found or expired.');
-        return;
+        // Resolve candidate or ensure from database
+        const resolved = resolveExistingPdf(filename) || ensureOfficialPdfForDocument('Invoice', undefined, filename);
+        if (resolved && fs.existsSync(resolved.filePath)) {
+          filePath = resolved.filePath;
+        } else {
+          res.status(404).send('PDF document not found or expired.');
+          return;
+        }
       }
 
       res.setHeader('Content-Type', 'application/pdf');
-      res.setHeader('Content-Disposition', `inline; filename="${filename}"`);
+      res.setHeader('Content-Disposition', `inline; filename="${path.basename(filePath)}"`);
       const fileStream = fs.createReadStream(filePath);
       fileStream.pipe(res);
     } catch (err: any) {

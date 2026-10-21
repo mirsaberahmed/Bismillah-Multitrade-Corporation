@@ -65,6 +65,7 @@ export async function downloadElementAsPdf(
 
 /**
  * Generates an A4 PDF document from an HTML element and returns it as a File and Blob for sharing.
+ * If the element is not found or fails, it retrieves the authentic, already-created PDF from the server.
  */
 export async function generateElementAsPdfBlob(
   element: HTMLElement | null,
@@ -74,43 +75,22 @@ export async function generateElementAsPdfBlob(
 ): Promise<{ file: File; blob: Blob; dataUrl: string } | null> {
   const cleanFilename = filename.endsWith('.pdf') ? filename : `${filename}.pdf`;
 
-  const generateFallbackPdf = (): { file: File; blob: Blob; dataUrl: string } => {
-    const pdf = new jsPDF({
-      orientation: 'portrait',
-      unit: 'mm',
-      format: 'a4',
-      compress: true
-    });
-
-    // Clean corporate header
-    pdf.setFont('helvetica', 'bold');
-    pdf.setFontSize(16);
-    pdf.text('BISMILLAH MULTITRADE CORPORATION', 20, 25);
-    pdf.setFontSize(9);
-    pdf.setFont('helvetica', 'normal');
-    pdf.text('Official Business Document & Accounting Record', 20, 31);
-    pdf.line(20, 34, 190, 34);
-
-    // Document info
-    pdf.setFont('helvetica', 'bold');
-    pdf.setFontSize(12);
-    pdf.text(cleanFilename.replace('.pdf', ''), 20, 44);
-
-    if (fallbackText) {
-      pdf.setFont('helvetica', 'normal');
-      pdf.setFontSize(10);
-      const splitLines = pdf.splitTextToSize(fallbackText, 170);
-      pdf.text(splitLines, 20, 54);
+  // Fetch already-created official PDF from the server
+  const fetchExistingServerPdf = async (): Promise<{ file: File; blob: Blob; dataUrl: string } | null> => {
+    try {
+      const res = await fetch(`/api/pdf/${cleanFilename}`);
+      if (res.ok) {
+        const blob = await res.blob();
+        if (blob && blob.size > 1000) {
+          const file = new File([blob], cleanFilename, { type: 'application/pdf' });
+          const dataUrl = URL.createObjectURL(blob);
+          return { file, blob, dataUrl };
+        }
+      }
+    } catch (e) {
+      console.warn('Could not fetch existing server PDF:', e);
     }
-
-    pdf.setFontSize(8);
-    pdf.setTextColor(120, 120, 120);
-    pdf.text('Generated via Bismillah Multitrade Corporation ERP', 20, 280);
-
-    const blob = pdf.output('blob');
-    const file = new File([blob], cleanFilename, { type: 'application/pdf' });
-    const dataUrl = pdf.output('dataurlstring');
-    return { file, blob, dataUrl };
+    return null;
   };
 
   try {
@@ -182,17 +162,15 @@ export async function generateElementAsPdfBlob(
           return { file, blob, dataUrl };
         }
       } catch (canvasErr) {
-        console.warn('html2canvas failed, switching to vector PDF fallback:', canvasErr);
-        // Fall back to direct vector PDF
-        return generateFallbackPdf();
+        console.warn('html2canvas capture skipped, using authentic server PDF:', canvasErr);
       }
     }
 
-    // If no DOM element was found, generate pristine vector PDF
-    return generateFallbackPdf();
+    // Always fallback to retrieving the authentic already-created server PDF
+    return await fetchExistingServerPdf();
   } catch (err) {
     console.error('Failed to generate PDF blob:', err);
-    return generateFallbackPdf();
+    return await fetchExistingServerPdf();
   } finally {
     if (onProgress) onProgress(false);
   }

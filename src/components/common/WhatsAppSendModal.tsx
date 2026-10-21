@@ -2,24 +2,20 @@ import React, { useState, useEffect } from 'react';
 import {
   MessageSquare,
   X,
-  Send,
   Copy,
   Check,
   Phone,
   FileText,
   Loader2,
-  CheckCircle2,
   AlertTriangle,
-  RotateCcw
+  Send
 } from 'lucide-react';
 import {
-  getWhatsAppUrl,
   AllowedWhatsAppDocumentType,
   isAllowedWhatsAppDocument,
   isValidWhatsAppPhone,
   formatWhatsAppPhone
 } from '../../utils/whatsapp';
-import { generateElementAsPdfBlob } from '../../utils/pdfExport';
 
 interface WhatsAppSendModalProps {
   isOpen: boolean;
@@ -43,77 +39,60 @@ export const WhatsAppSendModal: React.FC<WhatsAppSendModalProps> = ({
   defaultPhone,
   initialMessage,
   recipientLabel = 'Customer WhatsApp Number',
-  pdfElementId,
-  pdfElement,
   pdfFilename = 'Document',
   documentType,
-  documentNumber,
-  defaultMode = 'whatsapp'
+  documentNumber
 }) => {
   const [phone, setPhone] = useState(defaultPhone || '');
   const [message, setMessage] = useState(initialMessage || '');
   const [copied, setCopied] = useState(false);
-  const [isProcessingPdf, setIsProcessingPdf] = useState(false);
+  const [isProcessing, setIsProcessing] = useState(false);
   const [isSendingText, setIsSendingText] = useState(false);
+  const [existingPdf, setExistingPdf] = useState<{
+    exists: boolean;
+    isAlreadyCreated?: boolean;
+    filename?: string;
+    url?: string;
+    fileSizeBytes?: number;
+  } | null>(null);
   const [statusNotice, setStatusNotice] = useState<{
     type: 'success' | 'error' | 'info';
     text: string;
-    auditId?: string;
-    actionUrl?: string;
-    actionLabel?: string;
+    pdfUrl?: string;
+    filename?: string;
   } | null>(null);
 
-  const [activeMode, setActiveMode] = useState<'whatsapp' | 'text'>(defaultMode || 'whatsapp');
-
-  // Sync state when modal opens
+  // Sync state and check for already-created PDF when modal opens
   useEffect(() => {
     if (isOpen) {
       setPhone(defaultPhone || '');
       setMessage(initialMessage || '');
       setCopied(false);
-      setIsProcessingPdf(false);
+      setIsProcessing(false);
       setIsSendingText(false);
       setStatusNotice(null);
-      setActiveMode(defaultMode || 'whatsapp');
+
+      // Check if official PDF is already created on server
+      const cleanName = pdfFilename || `${documentType}-${documentNumber || 'doc'}`;
+      fetch(`/api/pdf/check/${encodeURIComponent(cleanName)}?type=${encodeURIComponent(documentType)}&number=${encodeURIComponent(documentNumber || '')}`)
+        .then(res => res.json())
+        .then(data => {
+          if (data && data.exists) {
+            setExistingPdf(data);
+          } else {
+            setExistingPdf(null);
+          }
+        })
+        .catch(err => {
+          console.warn('Check existing PDF error:', err);
+          setExistingPdf(null);
+        });
     }
-  }, [isOpen, defaultPhone, initialMessage, defaultMode]);
+  }, [isOpen, defaultPhone, initialMessage, pdfFilename, documentType, documentNumber]);
 
   if (!isOpen) return null;
 
-  // Exact confirmation text per requirements
-  const preparedConfirmationText = `${documentType} PDF & Message Prepared!`;
-
   const isDocumentAllowed = isAllowedWhatsAppDocument(documentType);
-
-  const getTargetElement = (): HTMLElement | null => {
-    if (pdfElement) return pdfElement;
-    if (pdfElementId) {
-      const byId = document.getElementById(pdfElementId);
-      if (byId && (byId.offsetHeight > 0 || byId.scrollHeight > 0)) return byId;
-      if (byId) return byId;
-
-      try {
-        const query = document.querySelector(`#${CSS.escape(pdfElementId)}`);
-        if (query) return query as HTMLElement;
-      } catch {
-        // ignore
-      }
-
-      const stripped = pdfElementId.replace(/^(modal-|list-|printable-|offscreen-)/, '');
-      const partial = document.querySelector(`[id*="${stripped}"]`);
-      if (partial) return partial as HTMLElement;
-    }
-
-    // Fall back to any active printable sheet on the screen
-    const sheets = document.querySelectorAll('.printable-sheet');
-    for (let i = 0; i < sheets.length; i++) {
-      const s = sheets[i] as HTMLElement;
-      if (s.offsetHeight > 0 || s.scrollHeight > 0) return s;
-    }
-    if (sheets.length > 0) return sheets[0] as HTMLElement;
-
-    return null;
-  };
 
   const handleCopy = () => {
     navigator.clipboard.writeText(message);
@@ -121,25 +100,8 @@ export const WhatsAppSendModal: React.FC<WhatsAppSendModalProps> = ({
     setTimeout(() => setCopied(false), 2000);
   };
 
-  const handleResetMessage = () => {
-    setMessage(initialMessage || '');
-  };
-
-  const handleClearMessage = () => {
-    setMessage('');
-  };
-
-  const blobToBase64 = (blob: Blob): Promise<string> => {
-    return new Promise((resolve, reject) => {
-      const reader = new FileReader();
-      reader.onloadend = () => resolve(reader.result as string);
-      reader.onerror = reject;
-      reader.readAsDataURL(blob);
-    });
-  };
-
-  // 1. BUTTON 1: "Send WhatsApp" - Sends existing PDF file directly through WhatsApp as document attachment
-  const handleSendWhatsAppPdf = async () => {
+  // 1. Send WhatsApp with Official PDF Document
+  const handleSendWhatsApp = async () => {
     if (!isDocumentAllowed) {
       setStatusNotice({
         type: 'error',
@@ -164,29 +126,13 @@ export const WhatsAppSendModal: React.FC<WhatsAppSendModalProps> = ({
       return;
     }
 
-    const el = getTargetElement();
-    setIsProcessingPdf(true);
+    setIsProcessing(true);
     setStatusNotice(null);
 
     try {
-      let pdfFile: File | null = null;
-      let pdfBase64: string | null = null;
+      const targetFilename = existingPdf?.filename || (pdfFilename.endsWith('.pdf') ? pdfFilename : `${pdfFilename}.pdf`);
 
-      // Capture the exact already-rendered document instance or vector fallback
-      const result = await generateElementAsPdfBlob(el, pdfFilename, undefined, message);
-      if (result) {
-        pdfFile = result.file;
-        pdfBase64 = await blobToBase64(result.blob);
-      }
-
-      if (!pdfBase64) {
-        // Fallback: If somehow still null, try text dispatch
-        console.warn('PDF base64 was empty, falling back to text message delivery');
-        await handleSendTextOnly();
-        return;
-      }
-
-      // Call backend WhatsApp API to dispatch real PDF attachment
+      // Call backend WhatsApp API using the ALREADY-CREATED PDF instance
       const token = localStorage.getItem('erp_token') || sessionStorage.getItem('erp_token');
       const response = await fetch('/api/whatsapp/send-document', {
         method: 'POST',
@@ -198,75 +144,110 @@ export const WhatsAppSendModal: React.FC<WhatsAppSendModalProps> = ({
           documentType,
           documentNumber: documentNumber || pdfFilename,
           recipientPhone: phone,
-          pdfBase64,
-          filename: pdfFilename
+          filename: targetFilename,
+          clientOrigin: window.location.origin,
+          messageText: message,
+          useExistingPdf: true
         })
       });
 
       const data = await response.json();
 
       if (!response.ok || !data.ok) {
-        throw new Error(data.error || 'Failed to dispatch WhatsApp PDF document.');
+        throw new Error(data.error || 'Failed to dispatch WhatsApp document.');
       }
 
-      // If native sharing is supported (Mobile/Android/iOS/PWA/Desktop Safari/Chrome),
-      // share the real binary .pdf file into WhatsApp as a direct document attachment!
+      const activeFilename = data.filename || targetFilename;
+      const cleanPhone = formatWhatsAppPhone(phone);
+      const publicPdfUrl = data.pdfUrl || `${window.location.origin}/api/pdf/${activeFilename}`;
+      const messageWithPdfLink = message.trim()
+        ? `${message.trim()}\n\n📄 *Official PDF Document:*\n${publicPdfUrl}`
+        : `Official ${documentType} #${documentNumber || ''}\n\n📄 *Official PDF Document:*\n${publicPdfUrl}`;
+
+      const directChatUrl = data.directWhatsAppUrl || `https://wa.me/${cleanPhone}?text=${encodeURIComponent(messageWithPdfLink)}`;
+
+      // Fetch the exact already-created PDF blob for auto-download & mobile share
+      let pdfFile: File | null = null;
+      let pdfBlob: Blob | null = null;
+      try {
+        const blobRes = await fetch(`/api/pdf/${activeFilename}`);
+        if (blobRes.ok) {
+          pdfBlob = await blobRes.blob();
+          pdfFile = new File([pdfBlob], activeFilename, { type: 'application/pdf' });
+        }
+      } catch (blobErr) {
+        console.warn('Error fetching PDF blob for download:', blobErr);
+      }
+
+      // Automatically download the exact already-created PDF to the user's device
+      if (pdfBlob) {
+        try {
+          const downloadUrl = URL.createObjectURL(pdfBlob);
+          const a = document.createElement('a');
+          a.href = downloadUrl;
+          a.download = activeFilename;
+          document.body.appendChild(a);
+          a.click();
+          document.body.removeChild(a);
+          setTimeout(() => URL.revokeObjectURL(downloadUrl), 5000);
+        } catch (dlErr) {
+          console.warn('Auto-download PDF error:', dlErr);
+        }
+      }
+
+      // If native sharing is supported (Mobile/Android/iOS/PWA),
+      // share the real binary .pdf file into WhatsApp as a direct document attachment
       if (pdfFile && navigator.canShare && navigator.canShare({ files: [pdfFile] })) {
         try {
           await navigator.share({
             title: `${documentType} #${documentNumber || ''}`,
+            text: messageWithPdfLink,
             files: [pdfFile]
           });
-          setStatusNotice({
-            type: 'success',
-            text: `✅ ${documentType} PDF document attached and sent to WhatsApp!`,
-            auditId: data.auditId
-          });
-          setTimeout(onClose, 1200);
+          setTimeout(onClose, 800);
           return;
         } catch (shareErr: any) {
           if (shareErr.name === 'AbortError') {
-            setIsProcessingPdf(false);
+            setIsProcessing(false);
             return;
           }
+          console.warn('Web Share fallback to direct link:', shareErr);
         }
       }
 
-      // If sent via Meta Cloud API
-      if (data.deliveryMode === 'meta_cloud_api') {
+      // Direct WhatsApp chat link
+      try {
+        const link = document.createElement('a');
+        link.href = directChatUrl;
+        link.target = '_blank';
+        link.rel = 'noopener noreferrer';
+        document.body.appendChild(link);
+        link.click();
+        document.body.removeChild(link);
+      } catch {
+        window.open(directChatUrl, '_blank');
+      }
+
+      setTimeout(onClose, 800);
+    } catch (err: any) {
+      console.error('Send WhatsApp error:', err);
+      const cleanPhone = formatWhatsAppPhone(phone);
+      const fallbackUrl = `https://wa.me/${cleanPhone}?text=${encodeURIComponent(message)}`;
+      try {
+        window.open(fallbackUrl, '_blank');
+        setTimeout(onClose, 800);
+      } catch {
         setStatusNotice({
-          type: 'success',
-          text: `✅ ${documentType} PDF document delivered directly to WhatsApp chat via WhatsApp Business Cloud API!`,
-          auditId: data.auditId
-        });
-      } else {
-        const cleanPhone = formatWhatsAppPhone(phone);
-        const directChatUrl = `https://wa.me/${cleanPhone}`;
-        try {
-          window.open(directChatUrl, '_blank');
-        } catch {
-          // ignore popup blockers
-        }
-        setStatusNotice({
-          type: 'success',
-          text: `✅ ${documentType} PDF document attached and sent! Click button below if chat did not open automatically:`,
-          auditId: data.auditId,
-          actionUrl: directChatUrl,
-          actionLabel: `Open WhatsApp Chat (+${cleanPhone})`
+          type: 'error',
+          text: err.message || 'Error opening WhatsApp chat.'
         });
       }
-    } catch (err: any) {
-      console.error('Send WhatsApp PDF error:', err);
-      setStatusNotice({
-        type: 'error',
-        text: err.message || 'Error sending PDF via WhatsApp.'
-      });
     } finally {
-      setIsProcessingPdf(false);
+      setIsProcessing(false);
     }
   };
 
-  // 2. BUTTON 2: "Text Only" - Sends only the prepared text message through WhatsApp (no PDF, no link)
+  // 2. Send Text Only (Direct text dispatch to WhatsApp)
   const handleSendTextOnly = async () => {
     if (!phone.trim()) {
       setStatusNotice({
@@ -287,7 +268,7 @@ export const WhatsAppSendModal: React.FC<WhatsAppSendModalProps> = ({
     if (!message.trim()) {
       setStatusNotice({
         type: 'error',
-        text: 'Prepared text message cannot be empty.'
+        text: 'Send text box cannot be empty.'
       });
       return;
     }
@@ -296,66 +277,28 @@ export const WhatsAppSendModal: React.FC<WhatsAppSendModalProps> = ({
     setStatusNotice(null);
 
     try {
-      const token = localStorage.getItem('erp_token') || sessionStorage.getItem('erp_token');
-      const response = await fetch('/api/whatsapp/send-text', {
-        method: 'POST',
-        headers: {
-          'Content-Type': 'application/json',
-          ...(token ? { 'Authorization': `Bearer ${token}` } : {})
-        },
-        body: JSON.stringify({
-          documentType,
-          documentNumber: documentNumber || pdfFilename,
-          recipientPhone: phone,
-          messageText: message
-        })
-      });
+      const cleanPhone = formatWhatsAppPhone(phone);
+      const targetUrl = `https://wa.me/${cleanPhone}?text=${encodeURIComponent(message)}`;
 
-      const data = await response.json();
-
-      if (!response.ok || !data.ok) {
-        throw new Error(data.error || 'Failed to dispatch text message.');
+      // Open WhatsApp chat directly with the text message
+      try {
+        const link = document.createElement('a');
+        link.href = targetUrl;
+        link.target = '_blank';
+        link.rel = 'noopener noreferrer';
+        document.body.appendChild(link);
+        link.click();
+        document.body.removeChild(link);
+      } catch {
+        window.open(targetUrl, '_blank');
       }
 
-      // If Meta Cloud API sent the text directly
-      if (data.deliveryMode === 'meta_cloud_api') {
-        setStatusNotice({
-          type: 'success',
-          text: `✅ Prepared text message sent directly to WhatsApp via WhatsApp Business API!`,
-          auditId: data.auditId
-        });
-      } else {
-        // Direct launch wa.me with pure text only (no PDF, no link)
-        const targetUrl = data.directWhatsAppUrl || getWhatsAppUrl(phone, message);
-        const cleanPhone = formatWhatsAppPhone(phone);
-        try {
-          window.open(targetUrl, '_blank');
-        } catch {
-          // ignore popup blockers
-        }
-        setStatusNotice({
-          type: 'success',
-          text: `✅ Prepared text message ready! Click button below to open chat:`,
-          auditId: data.auditId,
-          actionUrl: targetUrl,
-          actionLabel: `Open WhatsApp Chat (+${cleanPhone})`
-        });
-      }
+      setTimeout(onClose, 800);
     } catch (err: any) {
       console.error('Send Text error:', err);
-      // Fallback: open wa.me directly
-      const cleanPhone = formatWhatsAppPhone(phone);
-      const fallbackUrl = `https://wa.me/${cleanPhone}?text=${encodeURIComponent(message)}`;
-      try {
-        window.open(fallbackUrl, '_blank');
-      } catch {
-        // ignore
-      }
       setStatusNotice({
-        type: 'info',
-        text: 'Click below to open WhatsApp chat with prepared text message:',
-        actionUrl: fallbackUrl,
-        actionLabel: `Open WhatsApp Chat (+${cleanPhone})`
+        type: 'error',
+        text: err.message || 'Error opening WhatsApp text chat.'
       });
     } finally {
       setIsSendingText(false);
@@ -363,8 +306,8 @@ export const WhatsAppSendModal: React.FC<WhatsAppSendModalProps> = ({
   };
 
   return (
-    <div className="fixed inset-0 z-50 flex items-center justify-center p-3 sm:p-4 bg-black/80 backdrop-blur-xs animate-in fade-in">
-      <div className="bg-zinc-900 border border-emerald-500/40 rounded-2xl w-full max-w-lg p-5 sm:p-6 space-y-4 text-xs shadow-2xl relative">
+    <div className="fixed inset-0 z-50 flex items-center justify-center p-4 bg-black/80 backdrop-blur-xs">
+      <div className="w-full max-w-lg max-h-[92vh] overflow-y-auto bg-zinc-900 border border-zinc-800 rounded-2xl shadow-2xl p-5 sm:p-6 space-y-4 text-zinc-100 animate-in fade-in zoom-in-95 duration-150">
         
         {/* Header */}
         <div className="flex items-center justify-between border-b border-zinc-800 pb-3">
@@ -392,57 +335,25 @@ export const WhatsAppSendModal: React.FC<WhatsAppSendModalProps> = ({
           </button>
         </div>
 
-        {/* EXACT REQUIREMENT 2: Prepared Confirmation Banner */}
-        <div className="p-3 rounded-xl bg-emerald-950/80 border border-emerald-500/60 text-emerald-200 flex items-center justify-center gap-2 shadow-inner">
-          <CheckCircle2 size={18} className="text-emerald-400 shrink-0" />
-          <span className="text-xs font-bold tracking-wide text-emerald-100">
-            {preparedConfirmationText}
-          </span>
-        </div>
-
-        {/* Status Notice Banner if present */}
-        {statusNotice && (
-          <div
-            className={`p-3 rounded-xl text-xs flex items-start gap-2 ${
-              statusNotice.type === 'success'
-                ? 'bg-emerald-950/70 border border-emerald-500/40 text-emerald-200'
-                : statusNotice.type === 'error'
-                ? 'bg-red-950/70 border border-red-500/40 text-red-200'
-                : 'bg-zinc-800 border border-zinc-700 text-zinc-200'
-            }`}
-          >
-            {statusNotice.type === 'success' ? (
-              <CheckCircle2 size={16} className="text-emerald-400 shrink-0 mt-0.5" />
-            ) : (
-              <AlertTriangle size={16} className="text-red-400 shrink-0 mt-0.5" />
-            )}
-            <div className="space-y-1 w-full">
-              <span className="leading-snug block font-medium">{statusNotice.text}</span>
-              {statusNotice.actionUrl && (
-                <div className="pt-1">
-                  <a
-                    href={statusNotice.actionUrl}
-                    target="_blank"
-                    rel="noopener noreferrer"
-                    className="inline-flex items-center gap-1.5 px-3 py-1.5 rounded-lg bg-emerald-600 hover:bg-emerald-500 text-white font-bold text-xs transition-colors shadow-xs"
-                  >
-                    <MessageSquare size={13} />
-                    <span>{statusNotice.actionLabel || 'Open WhatsApp Chat'}</span>
-                  </a>
-                </div>
-              )}
-              {statusNotice.auditId && (
-                <span className="text-[10px] text-emerald-400 font-mono block pt-0.5">
-                  Audit Ref: {statusNotice.auditId}
-                </span>
-              )}
-            </div>
+        {/* Status Error Notice if present */}
+        {statusNotice && statusNotice.type === 'error' && (
+          <div className="p-3 rounded-xl text-xs flex items-start gap-2 bg-red-950/70 border border-red-500/40 text-red-200">
+            <AlertTriangle size={16} className="text-red-400 shrink-0 mt-0.5" />
+            <span className="leading-snug block font-medium">{statusNotice.text}</span>
           </div>
         )}
 
+        {/* Target Document Info */}
+        <div className="flex items-center gap-2 p-2 px-3 rounded-lg bg-zinc-950 border border-zinc-800 text-[11px] text-zinc-300">
+          <FileText size={14} className="text-emerald-400 shrink-0" />
+          <span>
+            Target Document: <strong className="text-zinc-100 font-mono">{pdfFilename || documentNumber}</strong>
+          </span>
+        </div>
+
         {/* WhatsApp Phone Number Input */}
         <div className="space-y-1.5">
-          <label className="text-zinc-300 font-semibold flex items-center justify-between">
+          <label className="text-zinc-300 font-semibold flex items-center justify-between text-xs">
             <span className="flex items-center gap-1.5">
               <Phone size={13} className="text-emerald-400" />
               {recipientLabel} *
@@ -461,63 +372,64 @@ export const WhatsAppSendModal: React.FC<WhatsAppSendModalProps> = ({
           />
         </div>
 
-        {/* Prepared Text Message Preview / Customizer (Pure text only, no PDF link) */}
-        <div className="space-y-1.5">
-          <label className="text-zinc-300 font-semibold block">
-            Prepared Text Message
-          </label>
+        {/* SEND TEXT BOX (Explicitly Highlighted Message Input Area) */}
+        <div className="space-y-1.5 bg-zinc-950/60 p-3 rounded-xl border border-zinc-800 focus-within:border-emerald-500/60 transition-colors">
+          <div className="flex items-center justify-between">
+            <label className="text-emerald-400 font-bold flex items-center gap-1.5 text-xs">
+              <MessageSquare size={13} />
+              <span>Send Text Box (Message Text)</span>
+            </label>
+            <button
+              type="button"
+              onClick={handleCopy}
+              className="text-zinc-400 hover:text-emerald-400 text-[11px] font-semibold flex items-center gap-1 transition-colors cursor-pointer"
+            >
+              {copied ? <Check size={12} className="text-emerald-400" /> : <Copy size={12} />}
+              <span>{copied ? 'Copied' : 'Copy Text'}</span>
+            </button>
+          </div>
           <textarea
             rows={4}
             value={message}
             onChange={(e) => setMessage(e.target.value)}
-            placeholder="Prepared text message to send..."
-            className="w-full bg-zinc-950 border border-zinc-800 rounded-lg p-3 text-zinc-300 font-mono text-[11px] leading-relaxed focus:outline-none focus:border-emerald-500 resize-none"
+            placeholder="Type or edit the message here..."
+            className="w-full bg-zinc-950 border border-zinc-800 rounded-lg p-2.5 text-zinc-200 font-mono text-[11px] leading-relaxed focus:outline-none focus:border-emerald-500 resize-none shadow-inner"
           />
+          <p className="text-[10px] text-zinc-400">
+            Write or edit your text message above to send directly via WhatsApp.
+          </p>
         </div>
 
-        {/* EXACT REQUIREMENT 3: Send WhatsApp Popup
-            Contains ONLY these two buttons:
-            1. Send WhatsApp
-            2. Text Only
-            No additional options.
-        */}
-        <div className="pt-3 border-t border-zinc-800 grid grid-cols-2 gap-3">
-          {/* Button 1: Send WhatsApp (Sends the exact PDF document attachment) */}
+        {/* Action Buttons: Send WhatsApp and Send Text */}
+        <div className="pt-2 border-t border-zinc-800 grid grid-cols-2 gap-3">
+          {/* Button 1: Send WhatsApp (Sends document + message) */}
           <button
             type="button"
-            onClick={handleSendWhatsAppPdf}
-            disabled={isProcessingPdf || isSendingText}
-            className={`flex items-center justify-center gap-2 py-3 px-4 font-bold rounded-xl shadow-lg transition-all cursor-pointer text-xs disabled:opacity-50 ${
-              activeMode === 'whatsapp'
-                ? 'bg-emerald-600 hover:bg-emerald-500 text-white hover:shadow-emerald-900/40'
-                : 'bg-zinc-800 hover:bg-zinc-700 text-zinc-200 hover:text-white border border-zinc-700'
-            }`}
-            title="Send the exact PDF document attachment directly through WhatsApp"
+            onClick={handleSendWhatsApp}
+            disabled={isProcessing || isSendingText}
+            className="flex items-center justify-center gap-2 py-2.5 px-3 font-bold rounded-xl shadow-lg transition-all cursor-pointer text-xs disabled:opacity-50 bg-emerald-600 hover:bg-emerald-500 text-white shadow-emerald-900/30"
+            title="Send official PDF document & message directly through WhatsApp"
           >
-            {isProcessingPdf ? (
+            {isProcessing ? (
               <>
                 <Loader2 size={15} className="animate-spin" />
-                <span>Sending PDF...</span>
+                <span>Sending...</span>
               </>
             ) : (
               <>
-                <FileText size={15} className={activeMode === 'whatsapp' ? 'text-white' : 'text-emerald-400'} />
-                <span>Send WhatsApp (PDF)</span>
+                <FileText size={14} className="text-white" />
+                <span>Send WhatsApp</span>
               </>
             )}
           </button>
 
-          {/* Button 2: Text Only (Sends only the prepared text message through WhatsApp) */}
+          {/* Button 2: Send Text (Sends only the message from the Send Text Box) */}
           <button
             type="button"
             onClick={handleSendTextOnly}
-            disabled={isProcessingPdf || isSendingText}
-            className={`flex items-center justify-center gap-2 py-3 px-4 font-bold rounded-xl transition-all cursor-pointer text-xs disabled:opacity-50 ${
-              activeMode === 'text'
-                ? 'bg-emerald-600 hover:bg-emerald-500 text-white shadow-lg hover:shadow-emerald-900/40'
-                : 'bg-zinc-800 hover:bg-zinc-700 text-zinc-200 hover:text-white border border-zinc-700'
-            }`}
-            title="Send only the prepared text message through WhatsApp"
+            disabled={isProcessing || isSendingText}
+            className="flex items-center justify-center gap-2 py-2.5 px-3 font-bold rounded-xl transition-all cursor-pointer text-xs disabled:opacity-50 bg-zinc-800 hover:bg-zinc-700 text-zinc-200 hover:text-white border border-zinc-700"
+            title="Send message from Send Text Box directly to WhatsApp"
           >
             {isSendingText ? (
               <>
@@ -526,8 +438,8 @@ export const WhatsAppSendModal: React.FC<WhatsAppSendModalProps> = ({
               </>
             ) : (
               <>
-                <Send size={15} className={activeMode === 'text' ? 'text-white' : 'text-emerald-400'} />
-                <span>Send Text Only</span>
+                <Send size={14} className="text-emerald-400" />
+                <span>Send Text</span>
               </>
             )}
           </button>
