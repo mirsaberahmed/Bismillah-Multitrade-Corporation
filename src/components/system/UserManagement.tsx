@@ -1108,18 +1108,6 @@ export const UserManagement: React.FC<UserManagementProps> = ({ initialTab = 'us
                 </div>
 
                 <div>
-                  <label className="block text-slate-700 font-bold mb-1">Initial Password *</label>
-                  <input
-                    type="password"
-                    required
-                    placeholder="••••••••"
-                    value={newUser.password || ''}
-                    onChange={(e) => setNewUser({ ...newUser, password: e.target.value })}
-                    className="w-full bg-slate-50 border border-slate-200 rounded-xl px-3 py-2 text-slate-900 focus:outline-none focus:border-orange-500"
-                  />
-                </div>
-
-                <div>
                   <label className="block text-slate-700 font-bold mb-1">Department</label>
                   <select
                     value={newUser.department || 'Sales'}
@@ -1160,6 +1148,7 @@ export const UserManagement: React.FC<UserManagementProps> = ({ initialTab = 'us
                   <label className="block text-slate-700 font-bold mb-1">Initial Password *</label>
                   <input
                     type="password"
+                    autoComplete="new-password"
                     placeholder="Enter login password (min 4 chars)"
                     value={newUser.password || ''}
                     onChange={(e) => setNewUser({ ...newUser, password: e.target.value })}
@@ -1580,6 +1569,7 @@ export const UserManagement: React.FC<UserManagementProps> = ({ initialTab = 'us
                   <label className="block text-slate-700 font-bold mb-1">New Password *</label>
                   <input
                     type="password"
+                    autoComplete="new-password"
                     required
                     placeholder="Enter new password (min 6 chars)"
                     value={tempPassword}

@@ -678,12 +678,16 @@ export const LoginPage: React.FC<LoginPageProps> = ({ onLoginSuccess }) => {
                         <KeyRound size={17} />
                       </div>
                       <input
-                        type={showPassword ? 'text' : 'password'}
+                        type="text"
+                        style={{
+                          WebkitTextSecurity: showPassword ? 'none' : 'disc'
+                        } as React.CSSProperties}
+                        autoComplete="off"
                         required
                         value={password}
                         onChange={(e) => setPassword(e.target.value)}
-                        placeholder=""
-                        className="w-full pl-10 pr-10 py-2.5 bg-white border border-slate-300 focus:border-[#f97316] rounded-xl text-sm text-slate-900 placeholder:text-slate-400 focus:outline-none transition-all"
+                        placeholder="••••••••"
+                        className="w-full pl-10 pr-10 py-2.5 bg-white border border-slate-300 focus:border-[#f97316] rounded-xl text-sm text-slate-900 placeholder:text-slate-400 focus:outline-none transition-all font-mono tracking-wider"
                       />
                       <button
                         type="button"
@@ -862,6 +866,7 @@ export const LoginPage: React.FC<LoginPageProps> = ({ onLoginSuccess }) => {
                       </label>
                       <input
                         type="password"
+                        autoComplete="new-password"
                         required
                         placeholder="••••••••"
                         value={regPassword}
@@ -875,6 +880,7 @@ export const LoginPage: React.FC<LoginPageProps> = ({ onLoginSuccess }) => {
                       </label>
                       <input
                         type="password"
+                        autoComplete="new-password"
                         required
                         placeholder="••••••••"
                         value={regConfirmPassword}
@@ -1013,6 +1019,7 @@ export const LoginPage: React.FC<LoginPageProps> = ({ onLoginSuccess }) => {
                         </label>
                         <input
                           type="password"
+                          autoComplete="new-password"
                           required
                           placeholder="••••••••"
                           value={newResetPassword}
@@ -1026,6 +1033,7 @@ export const LoginPage: React.FC<LoginPageProps> = ({ onLoginSuccess }) => {
                         </label>
                         <input
                           type="password"
+                          autoComplete="new-password"
                           required
                           placeholder="••••••••"
                           value={confirmResetPassword}

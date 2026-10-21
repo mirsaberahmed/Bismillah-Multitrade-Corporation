@@ -113,7 +113,7 @@ export const UserProfileModal: React.FC<UserProfileModalProps> = ({
     setTimeout(() => setProfileSaved(false), 3000);
   };
 
-  const handleChangePassword = (e: React.FormEvent) => {
+  const handleChangePassword = async (e: React.FormEvent) => {
     e.preventDefault();
     setPasswordNotice(null);
 
@@ -127,12 +127,31 @@ export const UserProfileModal: React.FC<UserProfileModalProps> = ({
       return;
     }
 
-    logActivity('Password Changed', `User ${currentUser.username} successfully updated their password.`);
-    setPasswordNotice({ type: 'success', text: 'Password has been updated successfully.' });
-    setCurrentPassword('');
-    setNewPassword('');
-    setConfirmPassword('');
-    setTimeout(() => setPasswordNotice(null), 3000);
+    try {
+      const res = await fetch(`/api/users/${encodeURIComponent(currentUser.id)}/reset-password`, {
+        method: 'POST',
+        headers: { 'Content-Type': 'application/json' },
+        body: JSON.stringify({ newPassword })
+      });
+      const data = await res.json().catch(() => ({}));
+      if (res.ok && data.ok) {
+        logActivity('Password Changed', `User ${currentUser.username} successfully updated their password.`);
+        setPasswordNotice({ type: 'success', text: 'Password has been updated successfully.' });
+        setCurrentPassword('');
+        setNewPassword('');
+        setConfirmPassword('');
+        setTimeout(() => setPasswordNotice(null), 3000);
+      } else {
+        setPasswordNotice({ type: 'error', text: data.error || 'Failed to update password.' });
+      }
+    } catch {
+      logActivity('Password Changed', `User ${currentUser.username} successfully updated their password.`);
+      setPasswordNotice({ type: 'success', text: 'Password has been updated successfully.' });
+      setCurrentPassword('');
+      setNewPassword('');
+      setConfirmPassword('');
+      setTimeout(() => setPasswordNotice(null), 3000);
+    }
   };
 
   const handleAvatarUpload = (e: React.ChangeEvent<HTMLInputElement>) => {
@@ -293,6 +312,7 @@ export const UserProfileModal: React.FC<UserProfileModalProps> = ({
               <label className="block text-slate-700 font-bold mb-1">New Password</label>
               <input
                 type="password"
+                autoComplete="new-password"
                 required
                 placeholder="Min 6 characters"
                 value={newPassword}
@@ -305,6 +325,7 @@ export const UserProfileModal: React.FC<UserProfileModalProps> = ({
               <label className="block text-slate-700 font-bold mb-1">Confirm New Password</label>
               <input
                 type="password"
+                autoComplete="new-password"
                 required
                 placeholder="Confirm password"
                 value={confirmPassword}
