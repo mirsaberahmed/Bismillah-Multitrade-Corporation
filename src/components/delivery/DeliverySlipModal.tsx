@@ -215,21 +215,21 @@ export const DeliverySlipModal: React.FC<Props> = ({
               <button
                 type="button"
                 onClick={() => setMode('edit')}
-                className="flex items-center gap-1 px-3 py-1.5 rounded-lg bg-zinc-800 hover:bg-zinc-700 text-zinc-200 text-xs font-semibold border border-zinc-700 transition-colors cursor-pointer"
+                className="p-2 rounded-lg bg-zinc-800 hover:bg-zinc-700 text-zinc-200 border border-zinc-700 transition-colors cursor-pointer"
                 title="Edit Delivery Slip Details"
+                aria-label="Edit Delivery Slip"
               >
-                <Edit2 size={13} className="text-blue-400" />
-                <span>Edit Slip</span>
+                <Edit2 size={15} className="text-blue-400" />
               </button>
             ) : (
               <button
                 type="button"
                 onClick={() => setMode('view')}
-                className="flex items-center gap-1 px-3 py-1.5 rounded-lg bg-zinc-800 hover:bg-zinc-700 text-zinc-200 text-xs font-semibold border border-zinc-700 transition-colors cursor-pointer"
+                className="p-2 rounded-lg bg-zinc-800 hover:bg-zinc-700 text-zinc-200 border border-zinc-700 transition-colors cursor-pointer"
                 title="View Document Preview"
+                aria-label="View Document Preview"
               >
-                <Eye size={13} className="text-emerald-400" />
-                <span>View Slip</span>
+                <Eye size={15} className="text-emerald-400" />
               </button>
             )}
 
@@ -241,11 +241,11 @@ export const DeliverySlipModal: React.FC<Props> = ({
                   setWhatsAppMode('whatsapp');
                   setShowWhatsAppModal(true);
                 }}
-                className="flex items-center gap-1 px-3 py-1.5 rounded-lg bg-emerald-600 hover:bg-emerald-500 text-white text-xs font-bold shadow-xs transition-colors cursor-pointer"
+                className="p-2 rounded-lg bg-emerald-600 hover:bg-emerald-500 text-white shadow-xs transition-colors cursor-pointer"
                 title="Send Delivery Slip PDF directly through WhatsApp"
+                aria-label="Send WhatsApp"
               >
-                <MessageSquare size={14} />
-                <span>Send WhatsApp</span>
+                <MessageSquare size={15} />
               </button>
             )}
 
@@ -257,11 +257,11 @@ export const DeliverySlipModal: React.FC<Props> = ({
                   setWhatsAppMode('text');
                   setShowWhatsAppModal(true);
                 }}
-                className="flex items-center gap-1 px-3 py-1.5 rounded-lg bg-zinc-800 hover:bg-zinc-700 text-zinc-100 text-xs font-semibold border border-zinc-700 transition-colors cursor-pointer"
+                className="p-2 rounded-lg bg-zinc-800 hover:bg-zinc-700 text-zinc-100 border border-zinc-700 transition-colors cursor-pointer"
                 title="Send only the prepared text message through WhatsApp"
+                aria-label="Send Text"
               >
-                <Send size={13} className="text-emerald-400" />
-                <span>Send Text</span>
+                <Send size={15} className="text-emerald-400" />
               </button>
             )}
 
@@ -269,11 +269,11 @@ export const DeliverySlipModal: React.FC<Props> = ({
             <button
               type="button"
               onClick={handlePrint}
-              className="flex items-center gap-1 px-3 py-1.5 rounded-lg bg-amber-500 hover:bg-amber-400 text-zinc-950 text-xs font-bold shadow-xs transition-colors cursor-pointer"
+              className="p-2 rounded-lg bg-amber-500 hover:bg-amber-400 text-zinc-950 font-bold shadow-xs transition-colors cursor-pointer"
               title="Print Delivery Slip"
+              aria-label="Print Delivery Slip"
             >
-              <Printer size={14} />
-              <span>Print Slip</span>
+              <Printer size={15} />
             </button>
 
             {/* PDF Export */}
@@ -281,21 +281,22 @@ export const DeliverySlipModal: React.FC<Props> = ({
               type="button"
               onClick={handleDownloadPdf}
               disabled={isDownloadingPdf}
-              className="flex items-center gap-1 px-3 py-1.5 rounded-lg bg-zinc-800 hover:bg-zinc-700 text-amber-400 text-xs font-semibold border border-zinc-700 transition-colors disabled:opacity-50 cursor-pointer"
-              title="Download PDF"
+              className="p-2 rounded-lg bg-zinc-800 hover:bg-zinc-700 text-amber-400 border border-zinc-700 transition-colors disabled:opacity-50 cursor-pointer"
+              title={isDownloadingPdf ? "Exporting PDF..." : "Download PDF"}
+              aria-label="Download PDF"
             >
-              <Download size={14} />
-              <span>{isDownloadingPdf ? 'Exporting...' : 'PDF'}</span>
+              <Download size={15} />
             </button>
 
             {/* Delete Slip */}
             <button
               type="button"
               onClick={handleDelete}
-              className="p-1.5 rounded-lg bg-red-950/40 hover:bg-red-900/60 text-red-400 border border-red-900/40 transition-colors cursor-pointer"
+              className="p-2 rounded-lg bg-red-950/40 hover:bg-red-900/60 text-red-400 border border-red-900/40 transition-colors cursor-pointer"
               title="Delete Delivery Slip"
+              aria-label="Delete Delivery Slip"
             >
-              <Trash2 size={16} />
+              <Trash2 size={15} />
             </button>
 
             {/* Close Button */}

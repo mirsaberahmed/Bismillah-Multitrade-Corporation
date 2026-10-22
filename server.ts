@@ -584,7 +584,7 @@ async function startServer() {
   loadUsersRegistry();
 
   // Bootstrap all transaction PDFs so they are ALREADY CREATED on disk
-  bootstrapOfficialPdfs();
+  bootstrapOfficialPdfs(true);
 
   // =========================================================================
   // 1. AUTHENTICATION & REGISTRATION API (Strict Email, No Duplicates, Multi-Tenant)

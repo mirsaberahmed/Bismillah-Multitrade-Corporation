@@ -128,41 +128,41 @@ export function generateInvoicePdf(invoice: any, settings: CompanySettings): Buf
   const rightX = 196;
   const contentWidth = 182;
 
-  // 1. TOP HEADER (Exact 1-to-1 match with PrintableInvoice.tsx)
+  // 1. TOP HEADER (Spacious, prominent and balanced for A4)
   doc.setFont(fontName, 'bold');
-  doc.setFontSize(16);
+  doc.setFontSize(16.5);
   doc.setTextColor(0, 0, 0);
-  doc.text((settings.companyName || 'BISMILLAH MULTITRADE CORPORATION').toUpperCase(), leftX, 17);
+  doc.text((settings.companyName || 'BISMILLAH MULTITRADE CORPORATION').toUpperCase(), leftX, 16.5);
 
-  doc.setFontSize(8.5);
+  doc.setFontSize(9);
   doc.setFont(fontName, 'bold');
   doc.setTextColor(0, 0, 0);
-  doc.text((settings.businessType || 'IMPORT & EXPORT CONCERN / TRADING COMPANY').toUpperCase(), leftX, 22.5);
+  doc.text((settings.businessType || 'IMPORT & EXPORT CONCERN / TRADING COMPANY').toUpperCase(), leftX, 21.5);
 
   doc.setFont(fontName, 'normal');
-  doc.setFontSize(8);
-  doc.setTextColor(20, 20, 20);
-  doc.text(settings.address || 'Ananda Nibash, South Shewrapara, Mirpur, Dhaka-1216, Bangladesh', leftX, 27.5);
-  doc.text(`Phone: ${settings.phonePrimary || '+880 1312-893729'}${settings.phoneSecondary ? ` | ${settings.phoneSecondary}` : ' | +880 1400-967693'}`, leftX, 31.8);
-  doc.text(`Email: ${settings.email || 'info@bismillahmultitrade.com'}${settings.website ? ` | ${settings.website}` : ' | www.bismillahmultitrade.com'}`, leftX, 36);
+  doc.setFontSize(8.2);
+  doc.setTextColor(0, 0, 0);
+  doc.text(settings.address || 'Ananda Nibash, South Shewrapara, Mirpur, Dhaka-1216, Bangladesh', leftX, 26.2);
+  doc.text(`Phone: ${settings.phonePrimary || '+880 1312-893729'}${settings.phoneSecondary ? ` | ${settings.phoneSecondary}` : ' | +880 1400-967693'}`, leftX, 30.5);
+  doc.text(`Email: ${settings.email || 'info@bismillahmultitrade.com'}${settings.website ? ` | ${settings.website}` : ' | www.bismillahmultitrade.com'}`, leftX, 34.8);
 
   // Top Right: INVOICE Badge Box & Details
-  const badgeW = 42;
-  const badgeH = 8.5;
+  const badgeW = 48;
+  const badgeH = 9.5;
   const badgeX = rightX - badgeW;
   doc.setDrawColor(0, 0, 0);
   doc.setLineWidth(0.35);
   doc.rect(badgeX, 10.5, badgeW, badgeH);
 
   doc.setFont(fontName, 'bold');
-  doc.setFontSize(12);
+  doc.setFontSize(11.5);
   doc.setTextColor(0, 0, 0);
-  doc.text('INVOICE', badgeX + (badgeW / 2), 16.5, { align: 'center' });
+  doc.text('INVOICE', badgeX + (badgeW / 2), 17, { align: 'center' });
 
   // Invoice Metadata (under badge, right-aligned)
   const printHeaderRightRow = (label: string, value: string, yPos: number) => {
     doc.setFont(fontName, 'bold');
-    doc.setFontSize(8);
+    doc.setFontSize(8.5);
     const valWidth = doc.getTextWidth(value);
     doc.text(value, rightX, yPos, { align: 'right' });
 
@@ -170,61 +170,65 @@ export function generateInvoicePdf(invoice: any, settings: CompanySettings): Buf
     doc.text(label, rightX - valWidth - 1, yPos, { align: 'right' });
   };
 
-  printHeaderRightRow('Invoice No: ', String(invoice.invoiceNumber || 'INV_2026-161426'), 24.5);
-  printHeaderRightRow('Date: ', formatDateStr(invoice.invoiceDate) || '12 Oct 2026', 29);
-  printHeaderRightRow('Due Date: ', formatDateStr(invoice.dueDate) || '04 Nov 2026', 33.5);
+  printHeaderRightRow('Invoice No: ', String(invoice.invoiceNumber || 'INV_2026-161426'), 25);
+  printHeaderRightRow('Date: ', formatDateStr(invoice.invoiceDate) || '12 Oct 2026', 29.5);
+  printHeaderRightRow('Due Date: ', formatDateStr(invoice.dueDate) || '04 Nov 2026', 34);
 
   // Divider Line below Header
   doc.setDrawColor(0, 0, 0);
   doc.setLineWidth(0.35);
-  doc.line(leftX, 39, rightX, 39);
+  doc.line(leftX, 39.5, rightX, 39.5);
 
-  // 2. TWO COLUMN INFO BOXES
-  const boxY = 44;
-  const boxH = 34;
+  // 2. TWO COLUMN INFO BOXES (Upper & Lower space created, box height enlarged to 42mm)
+  const boxY = 46.5;
+  const boxH = 42;
   const boxW = 88;
 
-  // Left: BILL TO
+  // Left: BILL TO Box
   doc.rect(leftX, boxY, boxW, boxH);
   doc.setFont(fontName, 'bold');
-  doc.setFontSize(8);
+  doc.setFontSize(9);
   doc.setTextColor(0, 0, 0);
-  doc.text('BILL TO', leftX + 4, boxY + 5.5);
+  doc.text('BILL TO', leftX + 4.5, boxY + 6.5);
 
-  doc.setFontSize(9.5);
+  doc.setFontSize(11);
   doc.setFont(fontName, 'bold');
-  doc.text(String(invoice.customerName || 'MUAJ AHMED'), leftX + 4, boxY + 11.5);
+  doc.text(String(invoice.customerName || 'MUAJ AHMED').toUpperCase(), leftX + 4.5, boxY + 13.5);
 
   doc.setFont(fontName, 'normal');
-  doc.setFontSize(8);
-  const cAddr = String(invoice.customerAddress || 'SA PARIBAHAN, COX\'SBAZAR');
-  doc.text(doc.splitTextToSize(cAddr, 80), leftX + 4, boxY + 16.5);
+  doc.setFontSize(8.5);
+  const cAddr = String(invoice.customerAddress || 'SA PARIBAHAN, COX\'SBAZAR').toUpperCase();
+  doc.text(doc.splitTextToSize(cAddr, boxW - 9), leftX + 4.5, boxY + 19);
 
   // Inner divider line in BILL TO box
-  doc.line(leftX + 4, boxY + 24, leftX + boxW - 4, boxY + 24);
-  doc.text(`Phone: ${invoice.customerPhone || '01822037606'}`, leftX + 4, boxY + 29.5);
+  doc.line(leftX, boxY + 28, leftX + boxW, boxY + 28);
+  doc.text(`Phone: ${invoice.customerPhone || '01822037606'}`, leftX + 4.5, boxY + 34);
+  if (invoice.customerEmail) {
+    doc.text(`Email: ${invoice.customerEmail}`, leftX + 4.5, boxY + 38.5);
+  }
 
-  // Right: INVOICE INFORMATION
+  // Right: INVOICE INFORMATION Box
   const rightBoxX = rightX - boxW;
   doc.rect(rightBoxX, boxY, boxW, boxH);
   doc.setFont(fontName, 'bold');
-  doc.setFontSize(8);
-  doc.text('INVOICE INFORMATION', rightBoxX + 4, boxY + 5.5);
+  doc.setFontSize(9);
+  doc.text('INVOICE INFORMATION', rightBoxX + 4.5, boxY + 6.5);
 
   const printInfoRow = (label: string, val: string, yPos: number) => {
     doc.setFont(fontName, 'normal');
-    doc.setFontSize(8);
-    doc.text(label, rightBoxX + 4, yPos);
+    doc.setFontSize(8.5);
+    doc.text(label, rightBoxX + 4.5, yPos);
     doc.setFont(fontName, 'bold');
-    doc.text(val, rightBoxX + boxW - 4, yPos, { align: 'right' });
+    doc.text(val, rightBoxX + boxW - 4.5, yPos, { align: 'right' });
   };
 
-  printInfoRow('Payment Terms:', String(invoice.paymentTerms || '1 Days Credit'), boxY + 11.5);
-  printInfoRow('Executive:', String(invoice.salesPerson || 'Executive'), boxY + 17.5);
-  printInfoRow('Delivery Status:', String(invoice.deliveryStatus || 'DELIVERED').toUpperCase(), boxY + 23.5);
+  printInfoRow('Payment Terms:', String(invoice.paymentTerms || '1 Days Credit'), boxY + 14);
+  printInfoRow('Executive:', String(invoice.salesPerson || 'Executive'), boxY + 21);
+  printInfoRow('Delivery Status:', String(invoice.deliveryStatus || 'DELIVERED').toUpperCase(), boxY + 28);
+  printInfoRow('Payment Status:', String(invoice.paymentStatus || 'Pending').toUpperCase(), boxY + 35);
 
-  // 3. ITEMS TABLE
-  let tableY = 84;
+  // 3. ITEMS TABLE (Lower space from boxes: table starts at 96mm)
+  let tableY = 95.5;
   const colW = {
     sl: 12,
     desc: 80,
@@ -243,10 +247,9 @@ export function generateInvoicePdf(invoice: any, settings: CompanySettings): Buf
     amount: leftX + colW.sl + colW.desc + colW.qty + colW.unit + colW.rate
   };
 
-  // Header Row (White bg with black lines, bold text)
-  const headerH = 8;
+  // Header Row (Enlarged height & fonts)
+  const headerH = 9;
   doc.rect(leftX, tableY, contentWidth, headerH);
-  // Column dividers
   doc.line(colX.desc, tableY, colX.desc, tableY + headerH);
   doc.line(colX.qty, tableY, colX.qty, tableY + headerH);
   doc.line(colX.unit, tableY, colX.unit, tableY + headerH);
@@ -254,25 +257,25 @@ export function generateInvoicePdf(invoice: any, settings: CompanySettings): Buf
   doc.line(colX.amount, tableY, colX.amount, tableY + headerH);
 
   doc.setFont(fontName, 'bold');
-  doc.setFontSize(8);
+  doc.setFontSize(8.8);
   doc.setTextColor(0, 0, 0);
 
-  doc.text('SL', colX.sl + (colW.sl / 2), tableY + 5.2, { align: 'center' });
-  doc.text('Product Details', colX.desc + 4, tableY + 5.2);
-  doc.text('Qty', colX.qty + (colW.qty / 2), tableY + 5.2, { align: 'center' });
-  doc.text('Unit', colX.unit + (colW.unit / 2), tableY + 5.2, { align: 'center' });
-  doc.text('Unit Price', colX.rate + colW.rate - 4, tableY + 5.2, { align: 'right' });
-  doc.text('Total Amount', colX.amount + colW.amount - 4, tableY + 5.2, { align: 'right' });
+  doc.text('SL', colX.sl + (colW.sl / 2), tableY + 5.8, { align: 'center' });
+  doc.text('Product Details', colX.desc + 4, tableY + 5.8);
+  doc.text('Qty', colX.qty + (colW.qty / 2), tableY + 5.8, { align: 'center' });
+  doc.text('Unit', colX.unit + (colW.unit / 2), tableY + 5.8, { align: 'center' });
+  doc.text('Unit Price', colX.rate + colW.rate - 4, tableY + 5.8, { align: 'right' });
+  doc.text('Total Amount', colX.amount + colW.amount - 4, tableY + 5.8, { align: 'right' });
 
   tableY += headerH;
 
-  // Body Rows
+  // Body Rows (Roomy 10mm height, crisp 9pt font)
   const items = Array.isArray(invoice.items) && invoice.items.length > 0
     ? invoice.items
     : [{ productName: 'BURMIS PAIN RELIEF BALM', quantity: 168, unit: 'Pcs', unitPrice: 58.34, amount: 9800.28 }];
 
   items.forEach((item: any, idx: number) => {
-    const rowH = 8.5;
+    const rowH = 10;
     doc.rect(leftX, tableY, contentWidth, rowH);
     doc.line(colX.desc, tableY, colX.desc, tableY + rowH);
     doc.line(colX.qty, tableY, colX.qty, tableY + rowH);
@@ -281,16 +284,16 @@ export function generateInvoicePdf(invoice: any, settings: CompanySettings): Buf
     doc.line(colX.amount, tableY, colX.amount, tableY + rowH);
 
     doc.setFont(fontName, 'normal');
-    doc.setFontSize(8);
-    doc.text(String(idx + 1), colX.sl + (colW.sl / 2), tableY + 5.5, { align: 'center' });
+    doc.setFontSize(8.8);
+    doc.text(String(idx + 1), colX.sl + (colW.sl / 2), tableY + 6.2, { align: 'center' });
 
     doc.setFont(fontName, 'bold');
-    doc.text(String(item.productName || 'Item ' + (idx + 1)), colX.desc + 4, tableY + 5.5);
+    doc.text(String(item.productName || 'Item ' + (idx + 1)), colX.desc + 4, tableY + 6.2);
 
     doc.setFont(fontName, 'bold');
-    doc.text(String(item.quantity || 0), colX.qty + (colW.qty / 2), tableY + 5.5, { align: 'center' });
+    doc.text(String(item.quantity || 0), colX.qty + (colW.qty / 2), tableY + 6.2, { align: 'center' });
     doc.setFont(fontName, 'normal');
-    doc.text(String(item.unit || 'Pcs'), colX.unit + (colW.unit / 2), tableY + 5.5, { align: 'center' });
+    doc.text(String(item.unit || 'Pcs'), colX.unit + (colW.unit / 2), tableY + 6.2, { align: 'center' });
 
     // Unit Price (with Bengali Taka font)
     if (hasBengali) {
@@ -298,7 +301,7 @@ export function generateInvoicePdf(invoice: any, settings: CompanySettings): Buf
     } else {
       doc.setFont(fontName, 'normal');
     }
-    doc.text(formatAmount(item.unitPrice || 0), colX.rate + colW.rate - 4, tableY + 5.5, { align: 'right' });
+    doc.text(formatAmount(item.unitPrice || 0), colX.rate + colW.rate - 4, tableY + 6.2, { align: 'right' });
 
     // Total Amount (with Bengali Taka font, bold)
     if (hasBengali) {
@@ -306,83 +309,93 @@ export function generateInvoicePdf(invoice: any, settings: CompanySettings): Buf
     } else {
       doc.setFont(fontName, 'bold');
     }
-    doc.text(formatAmount(item.amount || (item.quantity * item.unitPrice) || 0), colX.amount + colW.amount - 4, tableY + 5.5, { align: 'right' });
+    doc.text(formatAmount(item.amount || (item.quantity * item.unitPrice) || 0), colX.amount + colW.amount - 4, tableY + 6.2, { align: 'right' });
 
     tableY += rowH;
   });
 
-  // 4. SUMMARY BOXES
-  const sumY = tableY + 6;
+  // 4. SUMMARY BOXES (Enlarged to 26mm height with upper spacing)
+  const sumY = tableY + 8;
   const wordsBoxW = 104;
   const totalsBoxW = 72;
-  const sumBoxH = 20;
+  const sumBoxH = 26;
 
   // Left: AMOUNT IN WORDS Box
   doc.rect(leftX, sumY, wordsBoxW, sumBoxH);
   doc.setFont(fontName, 'bold');
-  doc.setFontSize(8);
+  doc.setFontSize(9);
   doc.setTextColor(0, 0, 0);
-  doc.text('AMOUNT IN WORDS', leftX + 4, sumY + 5.5);
+  doc.text('AMOUNT IN WORDS', leftX + 4.5, sumY + 6.5);
 
   doc.setFont(fontName, 'italic');
-  doc.setFontSize(8);
+  doc.setFontSize(8.8);
   const words = invoice.amountInWords || 'Nine Thousand Eight Hundred Taka and Twenty Eight Paisa Only.';
-  doc.text(doc.splitTextToSize(words, wordsBoxW - 8), leftX + 4, sumY + 11.5);
+  doc.text(doc.splitTextToSize(words, wordsBoxW - 9), leftX + 4.5, sumY + 13.5);
 
   // Right: Subtotal & GRAND TOTAL Box
   const totalsBoxX = rightX - totalsBoxW;
   doc.rect(totalsBoxX, sumY, totalsBoxW, sumBoxH);
 
   doc.setFont(fontName, 'normal');
-  doc.setFontSize(8);
-  doc.text('Subtotal:', totalsBoxX + 4, sumY + 6);
+  doc.setFontSize(8.8);
+  doc.text('Subtotal:', totalsBoxX + 4.5, sumY + 7.5);
   if (hasBengali) doc.setFont('NotoBengali', 'bold');
   else doc.setFont(fontName, 'bold');
-  doc.text(formatAmount(invoice.subtotal || invoice.grandTotal || 9800.28), rightX - 4, sumY + 6, { align: 'right' });
+  doc.text(formatAmount(invoice.subtotal || invoice.grandTotal || 9800.28), rightX - 4.5, sumY + 7.5, { align: 'right' });
 
   // Dividing line
-  doc.line(totalsBoxX, sumY + 10, rightX, sumY + 10);
+  doc.line(totalsBoxX, sumY + 13, rightX, sumY + 13);
 
   doc.setFont(fontName, 'bold');
-  doc.setFontSize(9);
-  doc.text('GRAND TOTAL:', totalsBoxX + 4, sumY + 16.5);
+  doc.setFontSize(10.5);
+  doc.text('GRAND TOTAL:', totalsBoxX + 4.5, sumY + 20.5);
   if (hasBengali) doc.setFont('NotoBengali', 'bold');
   else doc.setFont(fontName, 'bold');
-  doc.text(formatAmount(invoice.grandTotal || 9800.28), rightX - 4, sumY + 16.5, { align: 'right' });
+  doc.text(formatAmount(invoice.grandTotal || 9800.28), rightX - 4.5, sumY + 20.5, { align: 'right' });
 
-  // 5. TERMS & CONDITIONS
-  const termsY = sumY + sumBoxH + 9;
+  // 5. TERMS & CONDITIONS (Clean spacing below summary box)
+  const termsY = sumY + sumBoxH + 8;
   doc.setFont(fontName, 'bold');
-  doc.setFontSize(8);
+  doc.setFontSize(8.8);
   doc.setTextColor(0, 0, 0);
   doc.text('TERMS & CONDITIONS:', leftX, termsY);
 
   doc.setFont(fontName, 'normal');
-  doc.setFontSize(7.5);
-  doc.text('1. All payments must be made to Bismillah Multitrade Corporation official accounts.', leftX, termsY + 5);
-  doc.text('2. Goods once sold and delivered in good condition will not be returned unless covered under manufacturing warranty.', leftX, termsY + 9.5);
-  doc.text('3. Discrepancies in goods or delivery slip must be reported in writing within 48 hours.', leftX, termsY + 14);
+  doc.setFontSize(8);
+  doc.text('1. All payments must be made to Bismillah Multitrade Corporation official accounts.', leftX, termsY + 5.5);
+  doc.text('2. Goods once sold and delivered in good condition will not be returned unless covered under manufacturing warranty.', leftX, termsY + 10.5);
+  doc.text('3. Discrepancies in goods or delivery slip must be reported in writing within 48 hours.', leftX, termsY + 15.5);
 
-  // 6. OFFICIAL CIRCULAR BLUE SEAL & SIGNATURE STAMP AT BOTTOM RIGHT
-  const sigY = 248;
+  // 6. OFFICIAL CIRCULAR BLUE SEAL & SIGNATURE STAMP AT BOTTOM (Seal size: 29mm)
+  const sigY = 250;
+  const sealW = 29;
+  const sealH = 29;
+  const lineW = 60;
+
+  // Customer signature on left
+  const custCenterX = leftX + 34;
   doc.setDrawColor(0, 0, 0);
   doc.setLineWidth(0.35);
-  doc.line(leftX + 4, sigY, leftX + 56, sigY);
+  doc.line(custCenterX - (lineW / 2), sigY, custCenterX + (lineW / 2), sigY);
   doc.setFont(fontName, 'bold');
-  doc.setFontSize(7.5);
-  doc.text('CUSTOMER SIGNATURE', leftX + 30, sigY + 4.5, { align: 'center' });
+  doc.setFontSize(8.5);
+  doc.text('CUSTOMER SIGNATURE', custCenterX, sigY + 5.5, { align: 'center' });
 
+  // Official Circular Blue Seal & Company Stamp on Right
+  const sealCenterX = rightX - 34;
   if (BISMILLAH_SIGNATURE_DATA_URI) {
     try {
-      doc.addImage(BISMILLAH_SIGNATURE_DATA_URI, 'PNG', 146, sigY - 30, 36, 36);
+      doc.addImage(BISMILLAH_SIGNATURE_DATA_URI, 'PNG', sealCenterX - (sealW / 2), sigY - sealH - 3, sealW, sealH);
     } catch (sigErr) {
-      console.warn('Signature image embed error:', sigErr);
+      console.warn('Seal image embed error:', sigErr);
     }
   }
-  doc.line(rightX - 60, sigY, rightX - 4, sigY);
+
+  doc.line(sealCenterX - (lineW / 2), sigY, sealCenterX + (lineW / 2), sigY);
   doc.setFont(fontName, 'bold');
-  doc.setFontSize(7.5);
-  doc.text('BISMILLAH MULTITRADE CORPORATION', rightX - 32, sigY + 4.5, { align: 'center' });
+  doc.setFontSize(8.5);
+  doc.text('BISMILLAH MULTITRADE', sealCenterX, sigY + 5.5, { align: 'center' });
+  doc.text('CORPORATION', sealCenterX, sigY + 9.8, { align: 'center' });
 
   return Buffer.from(doc.output('arraybuffer'));
 }
@@ -398,36 +411,36 @@ export function generateDeliverySlipPdf(slip: any, settings: CompanySettings): B
   const rightX = 196;
   const contentWidth = 182;
 
-  // Header
+  // 1. HEADER (Spacious, prominent and balanced for A4)
   doc.setFont(fontName, 'bold');
-  doc.setFontSize(16);
-  doc.text((settings.companyName || 'BISMILLAH MULTITRADE CORPORATION').toUpperCase(), leftX, 17);
+  doc.setFontSize(16.5);
+  doc.text((settings.companyName || 'BISMILLAH MULTITRADE CORPORATION').toUpperCase(), leftX, 16.5);
 
-  doc.setFontSize(8.5);
+  doc.setFontSize(9);
   doc.setFont(fontName, 'bold');
-  doc.text((settings.businessType || 'IMPORT & EXPORT CONCERN / TRADING COMPANY').toUpperCase(), leftX, 22.5);
+  doc.text((settings.businessType || 'IMPORT & EXPORT CONCERN / TRADING COMPANY').toUpperCase(), leftX, 21.5);
 
   doc.setFont(fontName, 'normal');
-  doc.setFontSize(8);
-  doc.text(settings.address || 'Ananda Nibash, South Shewrapara, Mirpur, Dhaka-1216, Bangladesh', leftX, 27.5);
-  doc.text(`Phone: ${settings.phonePrimary || '+880 1312-893729'}${settings.phoneSecondary ? ` | ${settings.phoneSecondary}` : ' | +880 1400-967693'}`, leftX, 31.8);
-  doc.text(`Email: ${settings.email || 'info@bismillahmultitrade.com'}${settings.website ? ` | ${settings.website}` : ' | www.bismillahmultitrade.com'}`, leftX, 36);
+  doc.setFontSize(8.2);
+  doc.text(settings.address || 'Ananda Nibash, South Shewrapara, Mirpur, Dhaka-1216, Bangladesh', leftX, 26.2);
+  doc.text(`Phone: ${settings.phonePrimary || '+880 1312-893729'}${settings.phoneSecondary ? ` | ${settings.phoneSecondary}` : ' | +880 1400-967693'}`, leftX, 30.5);
+  doc.text(`Email: ${settings.email || 'info@bismillahmultitrade.com'}${settings.website ? ` | ${settings.website}` : ' | www.bismillahmultitrade.com'}`, leftX, 34.8);
 
-  // Badge
-  const badgeW = 54;
-  const badgeH = 8.5;
+  // DELIVERY SLIP Box
+  const badgeW = 52;
+  const badgeH = 9.5;
   const badgeX = rightX - badgeW;
   doc.setDrawColor(0, 0, 0);
   doc.setLineWidth(0.35);
   doc.rect(badgeX, 10.5, badgeW, badgeH);
   doc.setFont(fontName, 'bold');
-  doc.setFontSize(11);
-  doc.text('DELIVERY CHALLAN', badgeX + (badgeW / 2), 16.5, { align: 'center' });
+  doc.setFontSize(11.5);
+  doc.text('DELIVERY SLIP', badgeX + (badgeW / 2), 17, { align: 'center' });
 
-  // Challan Info
+  // Right Reference Rows
   const printSlipRightRow = (label: string, value: string, yPos: number) => {
     doc.setFont(fontName, 'bold');
-    doc.setFontSize(8);
+    doc.setFontSize(8.5);
     const valWidth = doc.getTextWidth(value);
     doc.text(value, rightX, yPos, { align: 'right' });
 
@@ -435,133 +448,216 @@ export function generateDeliverySlipPdf(slip: any, settings: CompanySettings): B
     doc.text(label, rightX - valWidth - 1, yPos, { align: 'right' });
   };
 
-  printSlipRightRow('Challan No: ', String(slip.deliverySlipNumber || 'DS-2026-4700'), 24.5);
-  printSlipRightRow('Date: ', formatDateStr(slip.slipDate || slip.deliveryDate) || '12 Oct 2026', 29);
-  printSlipRightRow('Invoice No: ', String(slip.invoiceNumber || 'INV_2026-161426'), 33.5);
+  printSlipRightRow('Delivery Slip No: ', String(slip.deliverySlipNumber || 'DS-2026-4702'), 25);
+  printSlipRightRow('Invoice No: ', String(slip.invoiceNumber || 'INV_2026-161425'), 29.5);
+  printSlipRightRow('Delivery Date: ', formatDateStr(slip.slipDate || slip.deliveryDate) || '16 Oct 2026', 34);
 
-  doc.line(leftX, 39, rightX, 39);
+  // Top Full Width Separator Line
+  doc.setLineWidth(0.35);
+  doc.line(leftX, 39.5, rightX, 39.5);
 
-  // Two Boxes
-  const boxY = 44;
-  const boxH = 34;
-  const boxW = 88;
+  // 2. TWO BOXES: DELIVER TO & DELIVERY INFORMATION (Upper & Lower space created, box height enlarged to 42mm)
+  const boxY = 46.5;
+  const boxH = 42;
+  const boxW = (contentWidth - 6) / 2; // 88mm
 
-  // Deliver To
+  // Left Box: DELIVER TO
   doc.rect(leftX, boxY, boxW, boxH);
   doc.setFont(fontName, 'bold');
-  doc.setFontSize(8);
-  doc.text('DELIVER TO (CUSTOMER)', leftX + 4, boxY + 5.5);
+  doc.setFontSize(9);
+  doc.text('DELIVER TO', leftX + 4.5, boxY + 6.5);
 
-  doc.setFontSize(9.5);
-  doc.text(String(slip.customerName || 'MUAJ AHMED'), leftX + 4, boxY + 11.5);
+  doc.setFontSize(11);
+  doc.text(String(slip.customerName || 'MR. ARAFAT').toUpperCase(), leftX + 4.5, boxY + 13.5);
 
   doc.setFont(fontName, 'normal');
-  doc.setFontSize(8);
-  const sAddr = String(slip.deliveryAddress || slip.address || 'SA PARIBAHAN, COX\'SBAZAR');
-  doc.text(doc.splitTextToSize(sAddr, 80), leftX + 4, boxY + 16.5);
-  doc.line(leftX + 4, boxY + 24, leftX + boxW - 4, boxY + 24);
-  doc.text(`Contact: ${slip.receiverPhone || slip.phone || '01822037606'}`, leftX + 4, boxY + 29.5);
+  doc.setFontSize(8.5);
+  const sAddr = String(slip.deliveryAddress || slip.address || 'SA PARIBAHAN, NASIRABAD, CHITTAGONG').toUpperCase();
+  doc.text(doc.splitTextToSize(sAddr, boxW - 9), leftX + 4.5, boxY + 19);
 
-  // Transport Details
+  // Inner Divider Line
+  doc.line(leftX, boxY + 28, leftX + boxW, boxY + 28);
+
+  doc.setFont(fontName, 'normal');
+  doc.setFontSize(8.5);
+  const contactPerson = slip.contactPerson || slip.customerName || 'MR. ARAFAT';
+  doc.text(`Contact Person: ${contactPerson}`, leftX + 4.5, boxY + 34);
+  doc.text(`Phone: ${slip.receiverPhone || slip.phone || '01811781105'}`, leftX + 4.5, boxY + 38.5);
+
+  // Right Box: DELIVERY INFORMATION
   const rightBoxX = rightX - boxW;
   doc.rect(rightBoxX, boxY, boxW, boxH);
   doc.setFont(fontName, 'bold');
-  doc.setFontSize(8);
-  doc.text('DISPATCH INFORMATION', rightBoxX + 4, boxY + 5.5);
+  doc.setFontSize(9);
+  doc.text('DELIVERY INFORMATION', rightBoxX + 4.5, boxY + 6.5);
 
-  const printChallanRow = (label: string, val: string, yPos: number) => {
-    doc.setFont(fontName, 'normal');
-    doc.setFontSize(8);
-    doc.text(label, rightBoxX + 4, yPos);
-    doc.setFont(fontName, 'bold');
-    doc.text(val, rightBoxX + boxW - 4, yPos, { align: 'right' });
-  };
+  doc.setFont(fontName, 'bold');
+  doc.setFontSize(8.5);
+  doc.text('DELIVERY METHOD:', rightBoxX + 4.5, boxY + 14);
+  doc.setFont(fontName, 'normal');
+  doc.setFontSize(9.5);
+  doc.text(String(slip.deliveryMethod || 'Courier'), rightBoxX + 4.5, boxY + 20);
 
-  printChallanRow('Vehicle Number:', String(slip.vehicleNumber || 'Direct Logistics'), boxY + 11.5);
-  printChallanRow('Driver Name:', String(slip.driverName || 'Designated Driver'), boxY + 17.5);
-  printChallanRow('Delivery Status:', String(slip.deliveryStatus || 'DELIVERED').toUpperCase(), boxY + 23.5);
+  doc.setFont(fontName, 'bold');
+  doc.setFontSize(8.5);
+  doc.text('DELIVERY STATUS:', rightBoxX + 4.5, boxY + 28);
+  doc.setFont(fontName, 'bold');
+  doc.setFontSize(10.5);
+  doc.text(String(slip.deliveryStatus || 'DELIVERED').toUpperCase(), rightBoxX + 4.5, boxY + 34.5);
 
-  // Table
-  let tableY = 84;
-  const colW = { sl: 12, desc: 90, ord: 24, del: 24, unit: 16, rem: 16 };
+  // 3. ITEMS TABLE (Lower space from boxes: table starts at 96mm)
+  let tableY = 95.5;
+  const colW = { sl: 12, desc: 92, box: 18, weight: 20, del: 24, unit: 16 };
   const colX = {
     sl: leftX,
     desc: leftX + colW.sl,
-    ord: leftX + colW.sl + colW.desc,
-    del: leftX + colW.sl + colW.desc + colW.ord,
-    unit: leftX + colW.sl + colW.desc + colW.ord + colW.del,
-    rem: leftX + colW.sl + colW.desc + colW.ord + colW.del + colW.unit
+    box: leftX + colW.sl + colW.desc,
+    weight: leftX + colW.sl + colW.desc + colW.box,
+    del: leftX + colW.sl + colW.desc + colW.box + colW.weight,
+    unit: leftX + colW.sl + colW.desc + colW.box + colW.weight + colW.del
   };
 
-  const headerH = 8;
+  const headerH = 9;
   doc.rect(leftX, tableY, contentWidth, headerH);
   doc.line(colX.desc, tableY, colX.desc, tableY + headerH);
-  doc.line(colX.ord, tableY, colX.ord, tableY + headerH);
+  doc.line(colX.box, tableY, colX.box, tableY + headerH);
+  doc.line(colX.weight, tableY, colX.weight, tableY + headerH);
   doc.line(colX.del, tableY, colX.del, tableY + headerH);
   doc.line(colX.unit, tableY, colX.unit, tableY + headerH);
 
   doc.setFont(fontName, 'bold');
-  doc.setFontSize(8);
-  doc.text('SL', colX.sl + (colW.sl / 2), tableY + 5.2, { align: 'center' });
-  doc.text('Product Description', colX.desc + 4, tableY + 5.2);
-  doc.text('Ordered', colX.ord + (colW.ord / 2), tableY + 5.2, { align: 'center' });
-  doc.text('Delivered', colX.del + (colW.del / 2), tableY + 5.2, { align: 'center' });
-  doc.text('Unit', colX.unit + (colW.unit / 2), tableY + 5.2, { align: 'center' });
+  doc.setFontSize(8.8);
+  doc.text('SL', colX.sl + (colW.sl / 2), tableY + 5.8, { align: 'center' });
+  doc.text('Description', colX.desc + 4, tableY + 5.8);
+  doc.text('Box', colX.box + (colW.box / 2), tableY + 5.8, { align: 'center' });
+  doc.text('Weight', colX.weight + (colW.weight / 2), tableY + 5.8, { align: 'center' });
+  doc.text('Delivered Qty', colX.del + (colW.del / 2), tableY + 5.8, { align: 'center' });
+  doc.text('Unit', colX.unit + (colW.unit / 2), tableY + 5.8, { align: 'center' });
 
   tableY += headerH;
 
   const items = Array.isArray(slip.items) && slip.items.length > 0
     ? slip.items
-    : [{ productName: 'BURMIS PAIN RELIEF BALM', orderedQuantity: 168, deliveredQuantity: 168, unit: 'Pcs' }];
+    : [{ productName: 'PAIN RELIEF BALM', boxCount: 1, weight: '79gm', deliveredQuantity: 240, unit: 'Pcs' }];
+
+  let totalBoxes = 0;
+  let totalDeliveredQty = 0;
 
   items.forEach((item: any, idx: number) => {
-    const rowH = 8.5;
+    const rowH = 10;
     doc.rect(leftX, tableY, contentWidth, rowH);
     doc.line(colX.desc, tableY, colX.desc, tableY + rowH);
-    doc.line(colX.ord, tableY, colX.ord, tableY + rowH);
+    doc.line(colX.box, tableY, colX.box, tableY + rowH);
+    doc.line(colX.weight, tableY, colX.weight, tableY + rowH);
     doc.line(colX.del, tableY, colX.del, tableY + rowH);
     doc.line(colX.unit, tableY, colX.unit, tableY + rowH);
 
+    const boxVal = item.boxCount || item.boxes || 1;
+    const weightVal = item.weight ? (typeof item.weight === 'number' ? `${item.weight}gm` : String(item.weight)) : '79gm';
+    const qtyVal = Number(item.deliveredQuantity) || 0;
+    const unitVal = item.unit || 'Pcs';
+
+    totalBoxes += Number(boxVal) || 0;
+    totalDeliveredQty += qtyVal;
+
     doc.setFont(fontName, 'normal');
-    doc.setFontSize(8);
-    doc.text(String(idx + 1), colX.sl + (colW.sl / 2), tableY + 5.5, { align: 'center' });
+    doc.setFontSize(8.8);
+    doc.text(String(idx + 1), colX.sl + (colW.sl / 2), tableY + 6.2, { align: 'center' });
+
     doc.setFont(fontName, 'bold');
-    doc.text(String(item.productName || 'Item ' + (idx + 1)), colX.desc + 4, tableY + 5.5);
-    doc.text(String(item.orderedQuantity || item.deliveredQuantity || 0), colX.ord + (colW.ord / 2), tableY + 5.5, { align: 'center' });
-    doc.text(String(item.deliveredQuantity || 0), colX.del + (colW.del / 2), tableY + 5.5, { align: 'center' });
+    doc.text(String(item.productName || 'PAIN RELIEF BALM').toUpperCase(), colX.desc + 4, tableY + 6.2);
+
     doc.setFont(fontName, 'normal');
-    doc.text(String(item.unit || 'Pcs'), colX.unit + (colW.unit / 2), tableY + 5.5, { align: 'center' });
+    doc.text(String(boxVal), colX.box + (colW.box / 2), tableY + 6.2, { align: 'center' });
+    doc.text(String(weightVal), colX.weight + (colW.weight / 2), tableY + 6.2, { align: 'center' });
+
+    doc.setFont(fontName, 'bold');
+    doc.text(String(qtyVal), colX.del + colW.del - 4, tableY + 6.2, { align: 'right' });
+
+    doc.setFont(fontName, 'normal');
+    doc.text(String(unitVal), colX.unit + (colW.unit / 2), tableY + 6.2, { align: 'center' });
 
     tableY += rowH;
   });
 
-  // Acknowledgement Box
-  const ackY = tableY + 6;
-  doc.rect(leftX, ackY, contentWidth, 20);
-  doc.setFont(fontName, 'bold');
-  doc.setFontSize(8);
-  doc.text('DELIVERY ACKNOWLEDGEMENT & RECEIPT', leftX + 4, ackY + 5.5);
-  doc.setFont(fontName, 'normal');
-  doc.setFontSize(7.5);
-  doc.text('Received the above goods in full quantity and sound condition. Any discrepancy must be reported within 24 hours.', leftX + 4, ackY + 11);
-  doc.text(`Status: ${slip.deliveryStatus || 'Delivered'} | Reference: ${slip.deliverySlipNumber}`, leftX + 4, ackY + 16);
+  // Table Footer Row: TOTAL DELIVERED:
+  const footerH = 9.5;
+  doc.rect(leftX, tableY, contentWidth, footerH);
+  doc.line(colX.box, tableY, colX.box, tableY + footerH);
+  doc.line(colX.weight, tableY, colX.weight, tableY + footerH);
+  doc.line(colX.del, tableY, colX.del, tableY + footerH);
+  doc.line(colX.unit, tableY, colX.unit, tableY + footerH);
 
-  // Seal & Signature
-  const sigY = 248;
-  doc.line(leftX + 4, sigY, leftX + 56, sigY);
   doc.setFont(fontName, 'bold');
-  doc.setFontSize(7.5);
-  doc.text('RECEIVER SIGNATURE', leftX + 30, sigY + 4.5, { align: 'center' });
+  doc.setFontSize(8.8);
+  doc.text('TOTAL DELIVERED:', colX.box - 4, tableY + 6.2, { align: 'right' });
+
+  doc.text(String(slip.totalBoxes || totalBoxes || 1), colX.box + (colW.box / 2), tableY + 6.2, { align: 'center' });
+  doc.text(String(slip.totalWeight || '18.9kg'), colX.weight + (colW.weight / 2), tableY + 6.2, { align: 'center' });
+  doc.text(String(totalDeliveredQty), colX.del + colW.del - 4, tableY + 6.2, { align: 'right' });
+
+  doc.setFont(fontName, 'normal');
+  doc.text('Units', colX.unit + (colW.unit / 2), tableY + 6.2, { align: 'center' });
+
+  tableY += footerH;
+
+  // 4. DELIVERY RECEIVER ACKNOWLEDGEMENT Box (Enlarged to 26mm height with upper spacing)
+  const ackY = tableY + 8;
+  const ackH = 26;
+  doc.rect(leftX, ackY, contentWidth, ackH);
+
+  doc.setFont(fontName, 'bold');
+  doc.setFontSize(9);
+  doc.text('DELIVERY RECEIVER ACKNOWLEDGEMENT', leftX + 4.5, ackY + 6.5);
+
+  const col1X = leftX + 4.5;
+  const col2X = leftX + 75;
+  const col3X = leftX + 145;
+
+  doc.setFont(fontName, 'bold');
+  doc.setFontSize(8.5);
+  doc.text('NAME:', col1X, ackY + 13.5);
+  doc.setFont(fontName, 'normal');
+  doc.setFontSize(9.5);
+  doc.text(String(slip.receiverName || slip.customerName || 'MR. ARAFAT').toUpperCase(), col1X, ackY + 20.5);
+
+  doc.setFont(fontName, 'bold');
+  doc.setFontSize(8.5);
+  doc.text('PHONE:', col2X, ackY + 13.5);
+  doc.setFont(fontName, 'normal');
+  doc.setFontSize(9.5);
+  doc.text(String(slip.receiverPhone || slip.phone || '01811781105'), col2X, ackY + 20.5);
+
+  doc.setFont(fontName, 'bold');
+  doc.setFontSize(8.5);
+  doc.text('DESIGNATION:', col3X, ackY + 13.5);
+  doc.setFont(fontName, 'normal');
+  doc.setFontSize(9.5);
+  doc.text(String(slip.receiverDesignation || '-'), col3X, ackY + 20.5);
+
+  // 5. OFFICIAL CIRCULAR BLUE SEAL & SIGNATURE STAMP AT BOTTOM RIGHT ONLY (Seal size: 29mm)
+  const sigY = 250;
+  const sealW = 29;
+  const sealH = 29;
+  const sealCenterX = rightX - 34;
 
   if (BISMILLAH_SIGNATURE_DATA_URI) {
     try {
-      doc.addImage(BISMILLAH_SIGNATURE_DATA_URI, 'PNG', 146, sigY - 30, 36, 36);
-    } catch {}
+      doc.addImage(BISMILLAH_SIGNATURE_DATA_URI, 'PNG', sealCenterX - (sealW / 2), sigY - sealH - 3, sealW, sealH);
+    } catch (sigErr) {
+      console.warn('Seal image embed error:', sigErr);
+    }
   }
-  doc.line(rightX - 60, sigY, rightX - 4, sigY);
+
+  const lineW = 60;
+  doc.setDrawColor(0, 0, 0);
+  doc.setLineWidth(0.35);
+  doc.line(sealCenterX - (lineW / 2), sigY, sealCenterX + (lineW / 2), sigY);
+
   doc.setFont(fontName, 'bold');
-  doc.setFontSize(7.5);
-  doc.text('BISMILLAH MULTITRADE CORPORATION', rightX - 32, sigY + 4.5, { align: 'center' });
+  doc.setFontSize(8.5);
+  doc.text('BISMILLAH MULTITRADE', sealCenterX, sigY + 5.5, { align: 'center' });
+  doc.text('CORPORATION', sealCenterX, sigY + 9.8, { align: 'center' });
 
   return Buffer.from(doc.output('arraybuffer'));
 }

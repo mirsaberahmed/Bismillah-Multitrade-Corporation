@@ -14,7 +14,8 @@ import {
   Edit,
   Trash2,
   MessageSquare,
-  Send
+  Send,
+  FileText
 } from 'lucide-react';
 import { useData } from '../../context/DataContext';
 import { DeliverySlip, DeliveryStatus } from '../../types';
@@ -267,11 +268,11 @@ export const DeliverySlipList: React.FC<Props> = ({ onSelectInvoice }) => {
                             setWhatsAppSlip(slip);
                             setWhatsAppMode('whatsapp');
                           }}
-                          className="flex items-center gap-1 px-2 py-1 bg-emerald-600/20 hover:bg-emerald-600/35 text-emerald-300 rounded text-xs font-semibold border border-emerald-500/30 transition-colors cursor-pointer"
+                          className="p-1.5 bg-emerald-600/20 hover:bg-emerald-600/35 text-emerald-300 rounded border border-emerald-500/30 transition-colors cursor-pointer"
                           title="Send Delivery Slip PDF directly through WhatsApp"
+                          aria-label="Send WhatsApp"
                         >
-                          <MessageSquare size={13} />
-                          <span>Send WhatsApp</span>
+                          <MessageSquare size={15} />
                         </button>
 
                         {/* Send Text (Prepared Text Only) */}
@@ -281,11 +282,11 @@ export const DeliverySlipList: React.FC<Props> = ({ onSelectInvoice }) => {
                             setWhatsAppSlip(slip);
                             setWhatsAppMode('text');
                           }}
-                          className="flex items-center gap-1 px-2 py-1 bg-zinc-800 hover:bg-zinc-700 text-zinc-300 hover:text-white rounded text-xs font-semibold border border-zinc-700 transition-colors cursor-pointer"
+                          className="p-1.5 bg-zinc-800 hover:bg-zinc-700 text-zinc-300 hover:text-white rounded border border-zinc-700 transition-colors cursor-pointer"
                           title="Send only the prepared text message through WhatsApp"
+                          aria-label="Send Text"
                         >
-                          <Send size={13} className="text-emerald-400" />
-                          <span>Send Text</span>
+                          <Send size={15} className="text-emerald-400" />
                         </button>
                         {/* Download PDF */}
                         <button
@@ -293,6 +294,7 @@ export const DeliverySlipList: React.FC<Props> = ({ onSelectInvoice }) => {
                           disabled={isDownloadingPdf && pdfSlip?.id === slip.id}
                           className="p-1.5 bg-zinc-800 hover:bg-zinc-700 rounded text-amber-400 hover:text-amber-300 disabled:opacity-50"
                           title="Download Delivery Slip as PDF"
+                          aria-label="Download PDF"
                         >
                           <Download size={15} />
                         </button>
@@ -301,15 +303,18 @@ export const DeliverySlipList: React.FC<Props> = ({ onSelectInvoice }) => {
                           onClick={() => setSlipToDelete(slip)}
                           className="p-1.5 bg-red-950/40 hover:bg-red-900/60 rounded text-red-400 border border-red-900/40 transition-colors"
                           title="Delete Delivery Slip"
+                          aria-label="Delete Delivery Slip"
                         >
                           <Trash2 size={15} />
                         </button>
                         {/* Open Associated Invoice */}
                         <button
                           onClick={() => onSelectInvoice(slip.invoiceId)}
-                          className="px-2.5 py-1 bg-zinc-800 hover:bg-zinc-700 rounded text-[11px] text-zinc-200 font-semibold"
+                          className="p-1.5 bg-zinc-800 hover:bg-zinc-700 rounded text-zinc-300 hover:text-amber-400 transition-colors"
+                          title="Open Associated Invoice"
+                          aria-label="Open Associated Invoice"
                         >
-                          Invoice
+                          <FileText size={15} />
                         </button>
                       </div>
                     </td>

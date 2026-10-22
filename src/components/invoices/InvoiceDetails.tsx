@@ -22,7 +22,8 @@ import {
   Trash2,
   Eye,
   MessageSquare,
-  Send
+  Send,
+  Layers
 } from 'lucide-react';
 import { useData } from '../../context/DataContext';
 import {
@@ -578,16 +579,16 @@ export const InvoiceDetails: React.FC<Props> = ({ invoiceId, onBack, onEdit }) =
             </div>
           </div>
 
-          {/* Action Button Strip: Exact Suite of Actions Requested */}
-          <div className="flex flex-wrap items-center gap-2">
+          {/* Action Button Strip: Clean Icon-Only Suite */}
+          <div className="flex flex-wrap items-center gap-1.5 sm:gap-2">
             {/* 1. Print Invoice */}
             <button
               onClick={() => triggerPrint('invoice')}
-              className="flex items-center gap-1.5 px-3 py-2 bg-zinc-800 hover:bg-zinc-700 text-zinc-100 rounded-lg text-xs font-semibold border border-zinc-700 transition-colors"
-              title="Print A4 Invoice"
+              className="p-2.5 bg-zinc-800 hover:bg-zinc-700 text-amber-400 rounded-lg border border-zinc-700 transition-colors shadow-xs cursor-pointer active:scale-95"
+              title="Print Invoice"
+              aria-label="Print Invoice"
             >
-              <Printer size={15} className="text-amber-400" />
-              <span>Print Invoice</span>
+              <Printer size={16} />
             </button>
 
             {/* Send Invoice via WhatsApp (PDF Attachment) */}
@@ -606,11 +607,11 @@ export const InvoiceDetails: React.FC<Props> = ({ invoiceId, onBack, onEdit }) =
                   defaultMode: 'whatsapp'
                 });
               }}
-              className="flex items-center gap-1.5 px-3 py-2 bg-emerald-600 hover:bg-emerald-500 text-white rounded-lg text-xs font-bold transition-all shadow-xs cursor-pointer"
-              title="Send Invoice PDF directly through WhatsApp"
+              className="p-2.5 bg-emerald-600 hover:bg-emerald-500 text-white rounded-lg transition-all shadow-xs cursor-pointer active:scale-95"
+              title="Send WhatsApp"
+              aria-label="Send WhatsApp"
             >
-              <MessageSquare size={15} />
-              <span>Send WhatsApp</span>
+              <MessageSquare size={16} />
             </button>
 
             {/* Send Text (Prepared Text Only) */}
@@ -629,11 +630,11 @@ export const InvoiceDetails: React.FC<Props> = ({ invoiceId, onBack, onEdit }) =
                   defaultMode: 'text'
                 });
               }}
-              className="flex items-center gap-1.5 px-3 py-2 bg-zinc-800 hover:bg-zinc-700 text-zinc-100 rounded-lg text-xs font-semibold border border-zinc-700 transition-colors cursor-pointer"
-              title="Send only the prepared text message through WhatsApp"
+              className="p-2.5 bg-zinc-800 hover:bg-zinc-700 text-emerald-400 rounded-lg border border-zinc-700 transition-colors cursor-pointer shadow-xs active:scale-95"
+              title="Send Text"
+              aria-label="Send Text"
             >
-              <Send size={14} className="text-emerald-400" />
-              <span>Send Text</span>
+              <Send size={16} />
             </button>
 
             {/* 2. Record Payment */}
@@ -642,51 +643,51 @@ export const InvoiceDetails: React.FC<Props> = ({ invoiceId, onBack, onEdit }) =
                 setPaymentAmount(invoice.balanceDue);
                 setShowPaymentModal(true);
               }}
-              className="flex items-center gap-1.5 px-3 py-2 bg-emerald-700 hover:bg-emerald-600 text-white rounded-lg text-xs font-semibold transition-colors"
-              title="Record customer collection against invoice"
+              className="p-2.5 bg-emerald-700 hover:bg-emerald-600 text-white rounded-lg transition-colors cursor-pointer shadow-xs active:scale-95"
+              title="Record Payment"
+              aria-label="Record Payment"
             >
-              <CreditCard size={15} />
-              <span>Record Payment</span>
+              <CreditCard size={16} />
             </button>
 
-            {/* 3. Create Delivery Slip (The star requested integration) */}
+            {/* 3. Create Delivery Slip */}
             <button
               onClick={openCreateDeliverySlip}
-              className="flex items-center gap-1.5 px-3.5 py-2 bg-blue-600 hover:bg-blue-500 text-white rounded-lg text-xs font-bold shadow-md shadow-blue-500/20 transition-all active:scale-[0.98]"
-              title="Generate linked Delivery Slip from this Invoice"
+              className="p-2.5 bg-blue-600 hover:bg-blue-500 text-white rounded-lg shadow-md shadow-blue-500/20 transition-all cursor-pointer active:scale-95"
+              title="Create Delivery Slip"
+              aria-label="Create Delivery Slip"
             >
-              <Truck size={15} />
-              <span>Create Delivery Slip</span>
+              <Truck size={16} />
             </button>
 
-            {/* 4. Print Combo (Invoice + Delivery Slip) */}
+            {/* 4. Print Combo (Invoice + Delivery Slip 2 Pages) - Bold Combo Icon */}
             <button
               onClick={() => triggerPrint('combo')}
-              className="flex items-center gap-1.5 px-3 py-2 bg-zinc-800 hover:bg-zinc-700 text-zinc-200 rounded-lg text-xs font-semibold border border-zinc-700 transition-colors"
-              title="Print Invoice & Delivery Slip on separate pages"
+              className="p-2.5 bg-blue-950/70 hover:bg-blue-900 text-blue-400 rounded-lg border border-blue-500/60 transition-colors cursor-pointer shadow-xs active:scale-95"
+              title="Combo Print (Invoice & Delivery Slip on 2 Separate Pages)"
+              aria-label="Combo Print"
             >
-              <Printer size={14} className="text-blue-400" />
-              <span>Combo Print</span>
+              <Layers size={17} className="stroke-[2.5]" />
             </button>
 
             {/* 5. Edit Invoice */}
             <button
               onClick={() => onEdit(invoice.id)}
-              className="flex items-center gap-1.5 px-3 py-2 bg-zinc-800 hover:bg-zinc-700 text-zinc-200 rounded-lg text-xs font-semibold border border-zinc-700 transition-colors"
+              className="p-2.5 bg-zinc-800 hover:bg-zinc-700 text-blue-400 rounded-lg border border-zinc-700 transition-colors cursor-pointer shadow-xs active:scale-95"
               title="Edit Invoice"
+              aria-label="Edit Invoice"
             >
-              <Edit size={14} className="text-blue-400" />
-              <span>Edit Invoice</span>
+              <Edit size={16} />
             </button>
 
             {/* 6. Delete Invoice */}
             <button
               onClick={() => setShowDeleteInvoiceModal(true)}
-              className="flex items-center gap-1.5 px-3 py-2 bg-red-950/40 hover:bg-red-900/60 text-red-400 rounded-lg text-xs font-semibold border border-red-900/40 transition-colors"
+              className="p-2.5 bg-red-950/40 hover:bg-red-900/60 text-red-400 rounded-lg border border-red-900/40 transition-colors cursor-pointer shadow-xs active:scale-95"
               title="Delete Invoice"
+              aria-label="Delete Invoice"
             >
-              <Trash2 size={14} />
-              <span>Delete</span>
+              <Trash2 size={16} />
             </button>
           </div>
         </div>
@@ -1007,42 +1008,42 @@ export const InvoiceDetails: React.FC<Props> = ({ invoiceId, onBack, onEdit }) =
                         {/* View Delivery Slip */}
                         <button
                           onClick={() => setActiveSlipModal({ slip, mode: 'view' })}
-                          className="flex items-center gap-1 px-2.5 py-1 bg-zinc-800 hover:bg-zinc-700 text-emerald-400 rounded text-xs font-semibold border border-zinc-700 transition-colors"
+                          className="p-1.5 bg-zinc-800 hover:bg-zinc-700 text-emerald-400 rounded border border-zinc-700 transition-colors"
                           title="View Delivery Slip Preview"
+                          aria-label="View Delivery Slip"
                         >
-                          <Eye size={13} />
-                          <span>View Slip</span>
+                          <Eye size={14} />
                         </button>
 
                         {/* Edit Delivery Slip */}
                         <button
                           onClick={() => setActiveSlipModal({ slip, mode: 'edit' })}
-                          className="flex items-center gap-1 px-2.5 py-1 bg-zinc-800 hover:bg-zinc-700 text-blue-400 rounded text-xs font-semibold border border-zinc-700 transition-colors"
+                          className="p-1.5 bg-zinc-800 hover:bg-zinc-700 text-blue-400 rounded border border-zinc-700 transition-colors"
                           title="Edit Delivery Slip Details"
+                          aria-label="Edit Delivery Slip"
                         >
-                          <Edit size={13} />
-                          <span>Edit</span>
+                          <Edit size={14} />
                         </button>
 
                         {/* Print Delivery Slip */}
                         <button
                           onClick={() => setActiveSlipModal({ slip, mode: 'view' })}
-                          className="flex items-center gap-1 px-2.5 py-1 bg-zinc-800 hover:bg-zinc-700 text-zinc-200 rounded text-xs font-medium border border-zinc-700 transition-colors"
+                          className="p-1.5 bg-zinc-800 hover:bg-zinc-700 text-zinc-200 hover:text-amber-400 rounded border border-zinc-700 transition-colors"
                           title="Print Delivery Slip"
+                          aria-label="Print Delivery Slip"
                         >
-                          <Printer size={13} />
-                          <span>Print</span>
+                          <Printer size={14} />
                         </button>
 
                         {/* Download PDF Delivery Slip */}
                         <button
                           onClick={() => handleDownloadSlipPdf(slip)}
                           disabled={isDownloadingPdf && selectedSlipForPdf?.id === slip.id}
-                          className="flex items-center gap-1 px-2.5 py-1 bg-zinc-800 hover:bg-zinc-700 text-amber-400 rounded text-xs font-medium border border-zinc-700 transition-colors disabled:opacity-50"
-                          title="Download Delivery Slip as PDF"
+                          className="p-1.5 bg-zinc-800 hover:bg-zinc-700 text-amber-400 rounded border border-zinc-700 transition-colors disabled:opacity-50"
+                          title="Download Delivery Slip PDF"
+                          aria-label="Download Delivery Slip PDF"
                         >
-                          <Download size={13} />
-                          <span>{isDownloadingPdf && selectedSlipForPdf?.id === slip.id ? 'Saving PDF...' : 'PDF'}</span>
+                          <Download size={14} />
                         </button>
 
                         {/* Send Delivery Slip via WhatsApp (PDF Attachment) */}
@@ -1061,11 +1062,11 @@ export const InvoiceDetails: React.FC<Props> = ({ invoiceId, onBack, onEdit }) =
                               defaultMode: 'whatsapp'
                             });
                           }}
-                          className="flex items-center gap-1 px-2.5 py-1 bg-emerald-800/80 hover:bg-emerald-700 text-white rounded text-xs font-semibold border border-emerald-700 transition-colors cursor-pointer"
-                          title="Send Delivery Slip PDF directly through WhatsApp"
+                          className="p-1.5 bg-emerald-800/80 hover:bg-emerald-700 text-white rounded border border-emerald-700 transition-colors cursor-pointer"
+                          title="Send Delivery Slip WhatsApp"
+                          aria-label="Send Delivery Slip WhatsApp"
                         >
-                          <MessageSquare size={13} />
-                          <span>Send WhatsApp</span>
+                          <MessageSquare size={14} />
                         </button>
 
                         {/* Send Text (Prepared Text Only) */}
@@ -1084,20 +1085,21 @@ export const InvoiceDetails: React.FC<Props> = ({ invoiceId, onBack, onEdit }) =
                               defaultMode: 'text'
                             });
                           }}
-                          className="flex items-center gap-1 px-2 py-1 bg-zinc-800 hover:bg-zinc-700 text-zinc-300 hover:text-white rounded text-xs font-semibold border border-zinc-700 transition-colors cursor-pointer"
-                          title="Send only the prepared text message through WhatsApp"
+                          className="p-1.5 bg-zinc-800 hover:bg-zinc-700 text-emerald-400 rounded border border-zinc-700 transition-colors cursor-pointer"
+                          title="Send Text Message"
+                          aria-label="Send Text Message"
                         >
-                          <Send size={13} className="text-emerald-400" />
-                          <span>Send Text</span>
+                          <Send size={14} />
                         </button>
 
                         {/* Delete Delivery Slip */}
                         <button
                           onClick={() => setSlipToDelete(slip)}
-                          className="p-1 bg-red-950/40 hover:bg-red-900/60 text-red-400 rounded text-xs border border-red-900/40 transition-colors"
+                          className="p-1.5 bg-red-950/40 hover:bg-red-900/60 text-red-400 rounded border border-red-900/40 transition-colors"
                           title="Delete Delivery Slip"
+                          aria-label="Delete Delivery Slip"
                         >
-                          <Trash2 size={13} />
+                          <Trash2 size={14} />
                         </button>
 
                         {slip.deliveryStatus !== 'Delivered' && (

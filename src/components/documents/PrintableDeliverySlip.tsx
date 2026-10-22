@@ -17,20 +17,20 @@ export const PrintableDeliverySlip: React.FC<Props> = ({ deliverySlip, settings 
   return (
     <div
       id={`printable-delivery-slip-${deliverySlip.id}`}
-      className="printable-sheet bg-white text-black w-full max-w-4xl mx-auto p-6 font-sans print:p-0 print:max-w-[190mm] print:mx-auto text-xs leading-normal print:text-[10px] print:leading-tight select-none"
+      className="printable-sheet bg-white text-black w-full max-w-4xl mx-auto p-8 font-sans print:p-2 print:max-w-[195mm] print:mx-auto text-sm leading-normal print:text-xs print:leading-normal select-none"
     >
       {/* Header */}
-      <div className="border-b border-black pb-3 mb-4 print:pb-2 print:mb-2">
-        <div className="flex justify-between items-start gap-4 print:gap-2">
+      <div className="border-b border-black pb-4 mb-6 print:pb-3 print:mb-4">
+        <div className="flex justify-between items-start gap-5 print:gap-3">
           {/* Company Details */}
           <div className="flex-1">
-            <h1 className="text-xl print:text-lg font-black tracking-tight text-black uppercase mb-0.5">
+            <h1 className="text-2xl print:text-xl font-black tracking-tight text-black uppercase mb-1">
               {settings.companyName}
             </h1>
-            <p className="text-black font-bold text-[11px] print:text-[10px] tracking-wider uppercase mb-1.5 print:mb-1">
+            <p className="text-black font-bold text-xs print:text-[11px] tracking-wider uppercase mb-2 print:mb-1.5">
               {settings.businessType}
             </p>
-            <div className="text-black text-[11px] print:text-[9.5px] space-y-0.5 leading-tight">
+            <div className="text-black text-xs print:text-[11px] space-y-1 print:space-y-0.5 leading-snug">
               <p>{settings.address}</p>
               <p>
                 <span className="font-semibold">Phone:</span> {settings.phonePrimary}
@@ -47,10 +47,10 @@ export const PrintableDeliverySlip: React.FC<Props> = ({ deliverySlip, settings 
 
           {/* Delivery Slip Label & Core Reference */}
           <div className="text-right">
-            <div className="inline-block border border-black bg-white text-black px-4 py-1.5 print:px-3 print:py-0.5 font-bold text-lg print:text-sm tracking-widest uppercase mb-3 print:mb-1">
+            <div className="inline-block border border-black bg-white text-black px-5 py-2 print:px-4 print:py-1 font-black text-xl print:text-sm tracking-widest uppercase mb-3 print:mb-1.5">
               DELIVERY SLIP
             </div>
-            <div className="space-y-1 print:space-y-0.5 text-xs print:text-[10px] text-black">
+            <div className="space-y-1.5 print:space-y-0.5 text-xs print:text-[11px] text-black">
               <p>
                 <span className="font-medium">Delivery Slip No:</span>{' '}
                 <strong className="font-mono text-sm print:text-xs">{deliverySlip.deliverySlipNumber}</strong>
@@ -74,47 +74,47 @@ export const PrintableDeliverySlip: React.FC<Props> = ({ deliverySlip, settings 
         </div>
       </div>
 
-      {/* Two-Column Deliver To & Delivery Information (Normal 1px border) */}
-      <div className="grid grid-cols-2 gap-4 mb-4 print:gap-3 print:mb-2">
-        {/* Deliver To */}
-        <div className="border border-black bg-white p-3 print:p-2 flex flex-col justify-between">
+      {/* Two-Column Deliver To & Delivery Information (Bigger boxes, Upper & Lower space created) */}
+      <div className="grid grid-cols-2 gap-5 mb-6 print:gap-4 print:mb-4">
+        {/* Deliver To Box */}
+        <div className="border border-black bg-white p-4 print:p-3 flex flex-col justify-between min-h-[120px] print:min-h-[100px]">
           <div>
-            <div className="text-[11px] print:text-[9.5px] font-bold tracking-wider text-black uppercase mb-1">
+            <div className="text-xs print:text-[11px] font-black tracking-wider text-black uppercase mb-1.5">
               DELIVER TO
             </div>
-            <p className="font-bold text-black text-sm print:text-xs">{deliverySlip.customerName}</p>
+            <p className="font-black text-black text-base print:text-sm">{deliverySlip.customerName}</p>
             {deliverySlip.companyName && deliverySlip.companyName !== deliverySlip.customerName && (
-              <p className="text-xs print:text-[10px] font-semibold text-black">{deliverySlip.companyName}</p>
+              <p className="text-xs print:text-[11px] font-bold text-black mt-0.5">{deliverySlip.companyName}</p>
             )}
-            <p className="text-xs print:text-[10px] text-black mt-0.5 whitespace-pre-line leading-relaxed print:leading-tight">
+            <p className="text-xs print:text-[11px] text-black mt-1 whitespace-pre-line leading-relaxed print:leading-snug">
               {deliverySlip.deliveryAddress || 'Address on file'}
             </p>
           </div>
-          <div className="mt-2.5 pt-1.5 print:mt-1 print:pt-1 border-t border-black text-xs print:text-[10px] space-y-0.5 text-black">
+          <div className="mt-3 pt-2 print:mt-1.5 print:pt-1 border-t border-black text-xs print:text-[11px] space-y-1 text-black">
             {deliverySlip.contactPerson && (
-              <p><span className="font-medium">Contact Person:</span> {deliverySlip.contactPerson}</p>
+              <p><span className="font-medium">Contact Person:</span> <strong>{deliverySlip.contactPerson}</strong></p>
             )}
             {deliverySlip.phone && (
-              <p><span className="font-medium">Phone:</span> {deliverySlip.phone}</p>
+              <p><span className="font-medium">Phone:</span> <strong>{deliverySlip.phone}</strong></p>
             )}
           </div>
         </div>
 
-        {/* Delivery Information */}
-        <div className="border border-black bg-white p-3 print:p-2 flex flex-col justify-between">
+        {/* Delivery Information Box */}
+        <div className="border border-black bg-white p-4 print:p-3 flex flex-col justify-between min-h-[120px] print:min-h-[100px]">
           <div>
-            <div className="text-[11px] print:text-[9.5px] font-bold tracking-wider text-black uppercase mb-1.5 print:mb-1">
+            <div className="text-xs print:text-[11px] font-black tracking-wider text-black uppercase mb-2">
               DELIVERY INFORMATION
             </div>
-            <div className="space-y-2 print:space-y-1 text-xs print:text-[10px] text-black">
+            <div className="space-y-3 print:space-y-1.5 text-xs print:text-[11px] text-black">
               <div>
-                <span className="font-medium block text-[11px] print:text-[9.5px] uppercase mb-0.5">Delivery Method:</span>
-                <span className="text-sm print:text-xs font-bold">{deliverySlip.deliveryMethod || 'Courier'}</span>
+                <span className="font-medium block text-xs print:text-[10px] uppercase mb-0.5 text-neutral-700">Delivery Method:</span>
+                <span className="text-base print:text-xs font-black">{deliverySlip.deliveryMethod || 'Courier'}</span>
               </div>
 
               <div>
-                <span className="font-medium block text-[11px] print:text-[9.5px] uppercase mb-0.5">Delivery Status:</span>
-                <span className="text-sm print:text-xs font-bold uppercase tracking-wide">
+                <span className="font-medium block text-xs print:text-[10px] uppercase mb-0.5 text-neutral-700">Delivery Status:</span>
+                <span className="text-base print:text-xs font-black uppercase tracking-wide">
                   {deliverySlip.deliveryStatus === 'Delivered'
                     ? 'Delivered'
                     : deliverySlip.deliveryStatus === 'Scheduled'
@@ -127,17 +127,17 @@ export const PrintableDeliverySlip: React.FC<Props> = ({ deliverySlip, settings 
         </div>
       </div>
 
-      {/* Delivery Items Table - Description, Box, Weight, Delivered Qty, Unit in separate columns/boxes */}
-      <div className="mb-4 print:mb-2">
-        <table className="w-full border-collapse text-left text-xs print:text-[10px] border border-black">
+      {/* Delivery Items Table (Lower space from boxes, larger row heights & fonts) */}
+      <div className="mb-6 print:mb-4">
+        <table className="w-full border-collapse text-left text-xs print:text-[11px] border border-black">
           <thead>
-            <tr className="bg-white text-black font-bold border-b border-black">
-              <th className="p-2 print:py-1 print:px-1.5 w-10 text-center border-r border-black">SL</th>
-              <th className="p-2 print:py-1 print:px-2 border-r border-black">Description</th>
-              <th className="p-2 print:py-1 print:px-1.5 w-16 text-center border-r border-black">Box</th>
-              <th className="p-2 print:py-1 print:px-1.5 w-16 text-center border-r border-black">Weight</th>
-              <th className="p-2 print:py-1 print:px-2 w-24 text-right border-r border-black">Delivered Qty</th>
-              <th className="p-2 print:py-1 print:px-1.5 w-14 text-center">Unit</th>
+            <tr className="bg-white text-black font-black border-b border-black">
+              <th className="p-2.5 print:py-2 print:px-2 w-12 text-center border-r border-black">SL</th>
+              <th className="p-2.5 print:py-2 print:px-2.5 border-r border-black">Description</th>
+              <th className="p-2.5 print:py-2 print:px-2 w-20 text-center border-r border-black">Box</th>
+              <th className="p-2.5 print:py-2 print:px-2 w-20 text-center border-r border-black">Weight</th>
+              <th className="p-2.5 print:py-2 print:px-2.5 w-28 text-right border-r border-black">Delivered Qty</th>
+              <th className="p-2.5 print:py-2 print:px-2 w-16 text-center">Unit</th>
             </tr>
           </thead>
           <tbody>
@@ -146,89 +146,78 @@ export const PrintableDeliverySlip: React.FC<Props> = ({ deliverySlip, settings 
                 key={item.id || index}
                 className="border-b border-black bg-white"
               >
-                <td className="p-2 print:py-1 print:px-1.5 text-center text-black font-medium border-r border-black">{index + 1}</td>
-                <td className="p-2 print:py-1 print:px-2 border-r border-black">
-                  <p className="font-bold text-black text-xs print:text-[10px]">{item.productName}</p>
+                <td className="p-2.5 print:py-2 print:px-2 text-center text-black font-semibold border-r border-black">{index + 1}</td>
+                <td className="p-2.5 print:py-2 print:px-2.5 border-r border-black">
+                  <p className="font-black text-black text-sm print:text-xs">{item.productName}</p>
                   {item.description && (
-                    <p className="text-[11px] print:text-[9.5px] text-black leading-snug mt-0.5 font-normal">{item.description}</p>
+                    <p className="text-xs print:text-[10px] text-black leading-snug mt-0.5 font-normal">{item.description}</p>
                   )}
                 </td>
-                <td className="p-2 print:py-1 print:px-1.5 text-center text-black font-semibold text-xs print:text-[10px] border-r border-black">
+                <td className="p-2.5 print:py-2 print:px-2 text-center text-black font-bold text-xs print:text-[11px] border-r border-black">
                   {item.boxCount || item.boxes || '-'}
                 </td>
-                <td className="p-2 print:py-1 print:px-1.5 text-center text-black font-semibold text-xs print:text-[10px] border-r border-black">
+                <td className="p-2.5 print:py-2 print:px-2 text-center text-black font-bold text-xs print:text-[11px] border-r border-black">
                   {item.weight ? (typeof item.weight === 'number' ? `${item.weight} kg` : item.weight) : '-'}
                 </td>
-                <td className="p-2 print:py-1 print:px-2 text-right font-mono font-bold text-black text-sm print:text-xs border-r border-black">
+                <td className="p-2.5 print:py-2 print:px-2.5 text-right font-mono font-black text-black text-base print:text-xs border-r border-black">
                   {item.deliveredQuantity}
                 </td>
-                <td className="p-2 print:py-1 print:px-1.5 text-center text-black font-medium text-xs print:text-[9.5px]">{item.unit}</td>
+                <td className="p-2.5 print:py-2 print:px-2 text-center text-black font-semibold text-xs print:text-[10px]">{item.unit}</td>
               </tr>
             ))}
           </tbody>
           <tfoot>
-            <tr className="bg-white font-bold border-t border-black">
-              <td colSpan={2} className="p-2 print:py-1 print:px-2 text-right text-xs print:text-[10px] uppercase tracking-wider text-black border-r border-black">
+            <tr className="bg-white font-black border-t border-black">
+              <td colSpan={2} className="p-2.5 print:py-2 print:px-2.5 text-right text-xs print:text-[11px] uppercase tracking-wider text-black border-r border-black">
                 Total Delivered:
               </td>
-              <td className="p-2 print:py-1 print:px-1.5 text-center text-xs print:text-[10px] font-bold text-black border-r border-black">
+              <td className="p-2.5 print:py-2 print:px-2 text-center text-xs print:text-[11px] font-black text-black border-r border-black">
                 {deliverySlip.totalBoxes || '-'}
               </td>
-              <td className="p-2 print:py-1 print:px-1.5 text-center text-xs print:text-[10px] font-bold text-black border-r border-black">
+              <td className="p-2.5 print:py-2 print:px-2 text-center text-xs print:text-[11px] font-black text-black border-r border-black">
                 {deliverySlip.totalWeight || '-'}
               </td>
-              <td className="p-2 print:py-1 print:px-2 text-right font-mono text-sm print:text-xs font-bold text-black border-r border-black">
+              <td className="p-2.5 print:py-2 print:px-2.5 text-right font-mono text-base print:text-xs font-black text-black border-r border-black">
                 {totalDeliveredQty}
               </td>
-              <td className="p-2 print:py-1 print:px-1.5 text-center text-xs print:text-[10px] text-black font-medium">Units</td>
+              <td className="p-2.5 print:py-2 print:px-2 text-center text-xs print:text-[11px] text-black font-semibold">Units</td>
             </tr>
           </tfoot>
         </table>
       </div>
 
-      {/* Receiver Information (Only Name, Phone, Designation - No line underneath) */}
-      <div className="border border-black bg-white p-3 print:p-2 mb-4 print:mb-2 text-xs print:text-[10px]">
-        <span className="text-[11px] print:text-[9.5px] font-bold text-black uppercase tracking-wider block mb-1">
+      {/* Receiver Information Box (Bigger box, Upper & Lower space created) */}
+      <div className="border border-black bg-white p-4 print:p-3 mb-8 print:mb-5 text-xs print:text-[11px]">
+        <span className="text-xs print:text-[11px] font-black text-black uppercase tracking-wider block mb-2.5">
           DELIVERY RECEIVER ACKNOWLEDGEMENT
         </span>
-        <div className="grid grid-cols-3 gap-3 text-black">
+        <div className="grid grid-cols-3 gap-4 text-black">
           <div>
-            <span className="font-medium block text-[10px] uppercase mb-0.5">Name:</span>
-            <span className="font-bold text-black text-xs print:text-[10px]">{deliverySlip.receiverName || '-'}</span>
+            <span className="font-semibold block text-xs print:text-[10px] uppercase mb-1 text-neutral-700">Name:</span>
+            <span className="font-black text-black text-sm print:text-xs">{deliverySlip.receiverName || '-'}</span>
           </div>
           <div>
-            <span className="font-medium block text-[10px] uppercase mb-0.5">Phone:</span>
-            <span className="font-bold text-black text-xs print:text-[10px]">{deliverySlip.receiverPhone || '-'}</span>
+            <span className="font-semibold block text-xs print:text-[10px] uppercase mb-1 text-neutral-700">Phone:</span>
+            <span className="font-black text-black text-sm print:text-xs">{deliverySlip.receiverPhone || '-'}</span>
           </div>
           <div>
-            <span className="font-medium block text-[10px] uppercase mb-0.5">Designation:</span>
-            <span className="font-bold text-black text-xs print:text-[10px]">{deliverySlip.receiverDesignation || '-'}</span>
+            <span className="font-semibold block text-xs print:text-[10px] uppercase mb-1 text-neutral-700">Designation:</span>
+            <span className="font-black text-black text-sm print:text-xs">{deliverySlip.receiverDesignation || '-'}</span>
           </div>
         </div>
       </div>
 
-      {/* Signatures Footer - Receiver on Left, Official Seal & Signature on Right */}
-      <div className="flex justify-between items-end pt-3 mt-4 print:mt-1 print:pt-1 px-4 print:px-2 text-center text-xs print:text-[10px] text-black">
-        <div>
-          <div className="h-[24mm] print:h-[15mm] flex items-end justify-center pb-1">
-            <div className="w-48 print:w-40 border-b border-black"></div>
-          </div>
-          <div className="pt-1 font-bold text-black uppercase tracking-wide">
-            RECEIVER / CUSTOMER SIGNATURE
-          </div>
-        </div>
-
-        <div>
-          <div className="h-[24mm] print:h-[15mm] flex flex-col items-center justify-end pb-1">
-            <img
-              src={BISMILLAH_SIGNATURE_DATA_URI}
-              alt="Bismillah Multitrade Official Seal & Signature"
-              className="w-[24mm] h-[24mm] print:w-[15mm] print:h-[15mm] object-contain mb-0.5 select-none pointer-events-none"
-            />
-            <div className="w-56 print:w-48 border-b border-black"></div>
-          </div>
-          <div className="pt-1 font-bold text-black uppercase tracking-wide">
-            BISMILLAH MULTITRADE CORPORATION
+      {/* Official Seal & Signature on Right Only (Seal size: 29mm) */}
+      <div className="flex justify-end items-end pt-4 mt-8 print:mt-6 print:pt-2 px-4 print:px-2 text-center text-xs print:text-[11px] text-black">
+        <div className="flex flex-col items-center">
+          <img
+            src={BISMILLAH_SIGNATURE_DATA_URI}
+            alt="Bismillah Multitrade Official Seal & Signature"
+            className="w-[29mm] h-[29mm] print:w-[29mm] print:h-[29mm] object-contain mb-1.5 select-none pointer-events-none"
+          />
+          <div className="w-64 print:w-56 border-b border-black mb-1.5"></div>
+          <div className="font-black text-black uppercase tracking-wide leading-tight text-xs print:text-[11px]">
+            BISMILLAH MULTITRADE<br />CORPORATION
           </div>
         </div>
       </div>
