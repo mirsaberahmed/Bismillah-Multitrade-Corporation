@@ -2,7 +2,7 @@ import { jsPDF } from 'jspdf';
 import path from 'path';
 import fs from 'fs';
 import { fileURLToPath } from 'url';
-import { BISMILLAH_SIGNATURE_DATA_URI } from '../src/data/signatureData';
+import { BISMILLAH_SIGNATURE_DATA_URI } from '../src/data/signatureData.ts';
 
 const __filename = fileURLToPath(import.meta.url);
 const __dirname = path.dirname(__filename);

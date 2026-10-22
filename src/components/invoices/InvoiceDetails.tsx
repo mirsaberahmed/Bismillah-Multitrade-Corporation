@@ -391,19 +391,18 @@ export const InvoiceDetails: React.FC<Props> = ({ invoiceId, onBack, onEdit }) =
 
   // Print triggers
   const triggerPrint = (mode: 'invoice' | 'slip' | 'combo' | 'receipt', slip?: DeliverySlip, payment?: PaymentRecord) => {
-    setPrintMode(mode);
-    if (slip) {
-      setSelectedSlipForPrint(slip);
-      setActiveSlipModal({ slip, mode: 'view' });
-      setTimeout(() => {
-        printElement(`printable-delivery-slip-${slip.id}`);
-      }, 250);
-      return;
-    }
     if (mode === 'invoice') {
+      setPrintMode('none');
       setShowInvoicePrintModal(true);
       return;
     }
+    if (slip) {
+      setPrintMode('none');
+      setSelectedSlipForPrint(slip);
+      setActiveSlipModal({ slip, mode: 'view' });
+      return;
+    }
+    setPrintMode(mode);
     if (payment) setSelectedPaymentForPrint(payment);
     setTimeout(() => {
       try {
@@ -448,10 +447,10 @@ export const InvoiceDetails: React.FC<Props> = ({ invoiceId, onBack, onEdit }) =
 
   return (
     <div className="space-y-6 pb-12">
-      {/* Hidden Print Container (activated by window.print via CSS @media print) */}
+      {/* Hidden Print Container (activated by window.print via CSS @media print only when not viewing in modal) */}
       <div className="hidden print:block">
-        {printMode === 'invoice' && <PrintableInvoice invoice={invoice} settings={settings} />}
-        {printMode === 'slip' && selectedSlipForPrint && (
+        {printMode === 'invoice' && !showInvoicePrintModal && <PrintableInvoice invoice={invoice} settings={settings} />}
+        {printMode === 'slip' && selectedSlipForPrint && !activeSlipModal && (
           <PrintableDeliverySlip deliverySlip={selectedSlipForPrint} settings={settings} />
         )}
         {printMode === 'combo' && (
@@ -523,7 +522,7 @@ export const InvoiceDetails: React.FC<Props> = ({ invoiceId, onBack, onEdit }) =
       </div>
 
       {/* Off-screen render container for high resolution Delivery Slip PDF export */}
-      <div style={{ position: 'fixed', left: '0', top: 0, width: '800px', zIndex: -9999, background: '#ffffff', pointerEvents: 'none' }}>
+      <div className="print:hidden" style={{ position: 'fixed', left: '0', top: 0, width: '800px', zIndex: -9999, background: '#ffffff', pointerEvents: 'none' }}>
         {selectedSlipForPdf && (
           <div id={`pdf-render-slip-${selectedSlipForPdf.id}`}>
             <PrintableDeliverySlip deliverySlip={selectedSlipForPdf} settings={settings} />
@@ -2092,6 +2091,7 @@ export const InvoiceDetails: React.FC<Props> = ({ invoiceId, onBack, onEdit }) =
       {/* Offscreen Printable Containers for High-Fidelity PDF Generation */}
       <div
         id={`offscreen-invoice-container-${invoice.id}`}
+        className="print:hidden"
         style={{
           position: 'fixed',
           left: '0',
@@ -2109,6 +2109,7 @@ export const InvoiceDetails: React.FC<Props> = ({ invoiceId, onBack, onEdit }) =
         <div
           key={`offscreen-slip-${s.id}`}
           id={`modal-printable-slip-${s.id}`}
+          className="print:hidden"
           style={{
             position: 'fixed',
             left: '0',

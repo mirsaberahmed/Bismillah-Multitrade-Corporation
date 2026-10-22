@@ -108,7 +108,7 @@ export const DeliverySlipList: React.FC<Props> = ({ onSelectInvoice }) => {
       </div>
 
       {/* Off-screen container for PDF download */}
-      <div style={{ position: 'fixed', left: '0', top: 0, width: '800px', zIndex: -9999, background: '#ffffff', pointerEvents: 'none' }}>
+      <div className="print:hidden" style={{ position: 'fixed', left: '0', top: 0, width: '800px', zIndex: -9999, background: '#ffffff', pointerEvents: 'none' }}>
         {pdfSlip && (
           <div id={`pdf-slip-list-${pdfSlip.id}`}>
             <PrintableDeliverySlip deliverySlip={pdfSlip} settings={settings} />
@@ -355,6 +355,7 @@ export const DeliverySlipList: React.FC<Props> = ({ onSelectInvoice }) => {
         <>
           <div
             id={`list-printable-slip-${whatsAppSlip.id}`}
+            className="print:hidden"
             style={{
               position: 'fixed',
               left: '0',

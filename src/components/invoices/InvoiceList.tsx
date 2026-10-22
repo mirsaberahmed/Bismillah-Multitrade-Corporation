@@ -516,6 +516,7 @@ export const InvoiceList: React.FC<Props> = ({
           {whatsAppModal.invoice && (
             <div
               id={`invoice-list-printable-${whatsAppModal.invoice.id}`}
+              className="print:hidden"
               style={{
                 position: 'fixed',
                 left: '0',

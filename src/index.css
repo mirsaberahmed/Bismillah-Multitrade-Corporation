@@ -149,20 +149,19 @@
 @media print {
   @page {
     size: A4 portrait;
-    margin: 10mm 12mm 10mm 12mm;
+    margin: 6mm 8mm 6mm 8mm;
   }
   
   html, body {
     background-color: #ffffff !important;
     background: #ffffff !important;
     color: #000000 !important;
-    font-size: 10.5pt;
+    font-size: 10pt;
     margin: 0 !important;
     padding: 0 !important;
-    overflow: visible !important;
-    height: auto !important;
-    max-height: none !important;
     width: 100% !important;
+    -webkit-print-color-adjust: exact !important;
+    print-color-adjust: exact !important;
   }
 
   #root, #root > div, main {
@@ -171,9 +170,6 @@
     color: #000000 !important;
     margin: 0 !important;
     padding: 0 !important;
-    overflow: visible !important;
-    height: auto !important;
-    max-height: none !important;
     width: 100% !important;
   }
 
@@ -184,8 +180,24 @@
   button,
   .print\:hidden,
   [class*="print:hidden"],
-  .no-print {
+  .no-print,
+  [style*="zIndex: -9999"],
+  [style*="z-index: -9999"],
+  [style*="-9999"],
+  .offscreen-printable,
+  [id^="offscreen-"],
+  [id^="pdf-render-"],
+  [id^="pdf-slip-list-"],
+  [id^="invoice-list-printable-"],
+  [id^="list-printable-slip-"] {
     display: none !important;
+    visibility: hidden !important;
+    height: 0 !important;
+    max-height: 0 !important;
+    overflow: hidden !important;
+    position: absolute !important;
+    left: -99999px !important;
+    pointer-events: none !important;
   }
 
   /* Reset modal overlays and backdrops during print so no dark boxes or borders appear */
@@ -198,23 +210,30 @@
     margin: 0 !important;
     width: 100% !important;
     max-width: 100% !important;
-    overflow: visible !important;
     box-shadow: none !important;
     border: none !important;
     backdrop-filter: none !important;
     -webkit-backdrop-filter: none !important;
   }
 
-  /* Centered printable sheet with even 4-sided breathing room */
+  /* Centered printable sheet strictly constrained to a single A4 page */
   .printable-sheet {
     width: 100% !important;
-    max-width: 185mm !important;
+    max-width: 190mm !important;
+    max-height: 282mm !important;
     margin-left: auto !important;
     margin-right: auto !important;
     padding: 0 !important;
     box-shadow: none !important;
     border: none !important;
     background-color: #ffffff !important;
+    page-break-inside: avoid !important;
+    break-inside: avoid !important;
+    page-break-after: avoid !important;
+    break-after: avoid !important;
+    page-break-before: avoid !important;
+    break-before: avoid !important;
+    overflow: hidden !important;
   }
 
   /* Force display of print-specific containers */
@@ -242,7 +261,7 @@
     break-after: page !important;
     page-break-inside: avoid !important;
     break-inside: avoid !important;
-    max-height: 275mm !important;
+    max-height: 280mm !important;
     overflow: hidden !important;
   }
 
@@ -253,27 +272,35 @@
     break-after: avoid !important;
     page-break-inside: avoid !important;
     break-inside: avoid !important;
-    max-height: 275mm !important;
+    max-height: 280mm !important;
     overflow: hidden !important;
   }
   
   .print-container {
     width: 100% !important;
-    max-width: 185mm !important;
+    max-width: 190mm !important;
+    max-height: 282mm !important;
     margin-left: auto !important;
     margin-right: auto !important;
     padding: 0 !important;
     box-shadow: none !important;
     border: none !important;
+    overflow: hidden !important;
+    page-break-inside: avoid !important;
+    break-inside: avoid !important;
+    page-break-after: avoid !important;
+    break-after: avoid !important;
   }
 
   table {
-    page-break-inside: auto;
+    page-break-inside: avoid !important;
+    break-inside: avoid !important;
     width: 100% !important;
   }
 
   tr {
-    page-break-inside: avoid;
+    page-break-inside: avoid !important;
+    break-inside: avoid !important;
     page-break-after: auto;
   }
 
