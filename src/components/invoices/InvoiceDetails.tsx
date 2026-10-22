@@ -40,6 +40,7 @@ import { PrintableDeliverySlip } from '../documents/PrintableDeliverySlip';
 import { PrintableMoneyReceipt } from '../documents/PrintableMoneyReceipt';
 import { DeliverySlipModal } from '../delivery/DeliverySlipModal';
 import { InvoicePrintModal } from './InvoicePrintModal';
+import { ComboPrintModal } from '../documents/ComboPrintModal';
 import { ConfirmModal } from '../common/ConfirmModal';
 import { printElement } from '../../utils/printHelper';
 import { WhatsAppSendModal } from '../common/WhatsAppSendModal';
@@ -78,6 +79,7 @@ export const InvoiceDetails: React.FC<Props> = ({ invoiceId, onBack, onEdit }) =
   const [selectedSlipForPrint, setSelectedSlipForPrint] = useState<DeliverySlip | null>(null);
   const [selectedPaymentForPrint, setSelectedPaymentForPrint] = useState<PaymentRecord | null>(null);
   const [showInvoicePrintModal, setShowInvoicePrintModal] = useState(false);
+  const [showComboPrintModal, setShowComboPrintModal] = useState(false);
   const [activeSlipModal, setActiveSlipModal] = useState<{ slip: DeliverySlip; mode: 'view' | 'edit' } | null>(null);
   const [showDeleteInvoiceModal, setShowDeleteInvoiceModal] = useState(false);
   const [slipToDelete, setSlipToDelete] = useState<DeliverySlip | null>(null);
@@ -397,6 +399,11 @@ export const InvoiceDetails: React.FC<Props> = ({ invoiceId, onBack, onEdit }) =
       setShowInvoicePrintModal(true);
       return;
     }
+    if (mode === 'combo') {
+      setPrintMode('none');
+      setShowComboPrintModal(true);
+      return;
+    }
     if (slip) {
       setPrintMode('none');
       setSelectedSlipForPrint(slip);
@@ -460,20 +467,48 @@ export const InvoiceDetails: React.FC<Props> = ({ invoiceId, onBack, onEdit }) =
             <div
               className="print-page combo-invoice-page"
               style={{
+                pageBreakBefore: 'avoid',
+                breakBefore: 'avoid',
                 pageBreakAfter: 'always',
                 breakAfter: 'page',
-                marginBottom: '0'
+                marginBottom: '0',
+                clear: 'both'
               }}
             >
               <PrintableInvoice invoice={invoice} settings={settings} />
             </div>
+
+            {/* STRICT PAGE BREAK SENTINEL */}
+            <div
+              className="combo-page-break"
+              style={{
+                pageBreakBefore: 'always',
+                breakBefore: 'page',
+                pageBreakAfter: 'always',
+                breakAfter: 'page',
+                height: 0,
+                minHeight: 0,
+                maxHeight: 0,
+                lineHeight: 0,
+                margin: 0,
+                padding: 0,
+                border: 'none',
+                clear: 'both',
+                display: 'block'
+              }}
+            />
+
             {/* Page 2: Delivery Slip strictly on second page, avoiding trailing blank page */}
             {(invoiceSlips[0] || true) && (
               <div
                 className="print-page combo-slip-page"
                 style={{
+                  pageBreakBefore: 'always',
+                  breakBefore: 'page',
                   pageBreakAfter: 'avoid',
-                  breakAfter: 'avoid'
+                  breakAfter: 'avoid',
+                  marginTop: '0',
+                  clear: 'both'
                 }}
               >
                 <PrintableDeliverySlip
@@ -2022,6 +2057,15 @@ export const InvoiceDetails: React.FC<Props> = ({ invoiceId, onBack, onEdit }) =
         settings={settings}
         isOpen={showInvoicePrintModal}
         onClose={() => setShowInvoicePrintModal(false)}
+      />
+
+      {/* Combo Print Document Modal (Invoice + Delivery Slip 2 Pages) */}
+      <ComboPrintModal
+        invoice={invoice}
+        deliverySlip={invoiceSlips[0] || null}
+        settings={settings}
+        isOpen={showComboPrintModal}
+        onClose={() => setShowComboPrintModal(false)}
       />
 
       {/* Delivery Slip View / Edit / Delete Modal */}

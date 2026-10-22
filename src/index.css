@@ -164,13 +164,27 @@
     print-color-adjust: exact !important;
   }
 
-  #root, #root > div, main {
+  /* Complete ancestor unclipping during print: remove 100vh, overflow-hidden, and flex clipping */
+  #root,
+  #root > div,
+  main,
+  div[class*="h-screen"],
+  div[class*="overflow-hidden"],
+  div[class*="overflow-y-auto"],
+  div[class*="flex-1"] {
     background-color: #ffffff !important;
     background: #ffffff !important;
     color: #000000 !important;
+    height: auto !important;
+    min-height: 0 !important;
+    max-height: none !important;
+    overflow: visible !important;
+    display: block !important;
+    float: none !important;
+    position: static !important;
+    width: 100% !important;
     margin: 0 !important;
     padding: 0 !important;
-    width: 100% !important;
   }
 
   /* When printing, hide all app chrome, sidebars, navbars, and buttons */
@@ -214,9 +228,10 @@
     border: none !important;
     backdrop-filter: none !important;
     -webkit-backdrop-filter: none !important;
+    overflow: visible !important;
   }
 
-  /* Centered printable sheet strictly constrained to a single A4 page */
+  /* Base printable sheet styling */
   .printable-sheet {
     width: 100% !important;
     max-width: 190mm !important;
@@ -229,11 +244,7 @@
     background-color: #ffffff !important;
     page-break-inside: avoid !important;
     break-inside: avoid !important;
-    page-break-after: avoid !important;
-    break-after: avoid !important;
-    page-break-before: avoid !important;
-    break-before: avoid !important;
-    overflow: hidden !important;
+    overflow: visible !important;
   }
 
   /* Force display of print-specific containers */
@@ -251,34 +262,93 @@
     break-before: page !important;
   }
 
+  /* Combo print container */
   .combo-print-wrapper {
-    page-break-after: avoid !important;
-    break-after: avoid !important;
+    display: block !important;
+    width: 100% !important;
+    height: auto !important;
+    min-height: 0 !important;
+    max-height: none !important;
+    margin: 0 !important;
+    padding: 0 !important;
+    overflow: visible !important;
+    page-break-inside: auto !important;
+    break-inside: auto !important;
   }
 
+  /* Page 1: Sales Invoice - strictly on page 1, ends with page break */
   .combo-invoice-page {
+    display: block !important;
+    width: 100% !important;
+    max-width: 190mm !important;
+    margin-left: auto !important;
+    margin-right: auto !important;
+    margin-top: 0 !important;
+    margin-bottom: 0 !important;
+    padding: 0 !important;
+    height: auto !important;
+    min-height: 250mm !important;
+    max-height: 275mm !important;
+    overflow: visible !important;
+    page-break-before: avoid !important;
+    break-before: avoid !important;
     page-break-after: always !important;
     break-after: page !important;
     page-break-inside: avoid !important;
     break-inside: avoid !important;
-    max-height: 280mm !important;
-    overflow: hidden !important;
+    clear: both !important;
   }
 
   .combo-invoice-page .printable-sheet {
+    page-break-before: avoid !important;
+    break-before: avoid !important;
     page-break-after: always !important;
     break-after: page !important;
+    page-break-inside: avoid !important;
+    break-inside: avoid !important;
+    overflow: visible !important;
+    max-height: 275mm !important;
   }
 
+  /* Strict Page Break Element between Invoice and Delivery Slip */
+  .combo-page-break {
+    display: block !important;
+    height: 0 !important;
+    min-height: 0 !important;
+    max-height: 0 !important;
+    line-height: 0 !important;
+    margin: 0 !important;
+    padding: 0 !important;
+    border: none !important;
+    clear: both !important;
+    page-break-before: always !important;
+    break-before: page !important;
+    page-break-after: always !important;
+    break-after: page !important;
+    visibility: hidden !important;
+  }
+
+  /* Page 2: Delivery Slip - starts on page 2, avoids following break */
   .combo-slip-page {
+    display: block !important;
+    width: 100% !important;
+    max-width: 190mm !important;
+    margin-left: auto !important;
+    margin-right: auto !important;
+    margin-top: 0 !important;
+    margin-bottom: 0 !important;
+    padding: 0 !important;
+    height: auto !important;
+    min-height: 250mm !important;
+    max-height: 275mm !important;
+    overflow: visible !important;
     page-break-before: always !important;
     break-before: page !important;
     page-break-after: avoid !important;
     break-after: avoid !important;
     page-break-inside: avoid !important;
     break-inside: avoid !important;
-    max-height: 280mm !important;
-    overflow: hidden !important;
+    clear: both !important;
   }
 
   .combo-slip-page .printable-sheet {
@@ -286,6 +356,10 @@
     break-before: page !important;
     page-break-after: avoid !important;
     break-after: avoid !important;
+    page-break-inside: avoid !important;
+    break-inside: avoid !important;
+    overflow: visible !important;
+    max-height: 275mm !important;
   }
   
   .print-container {
