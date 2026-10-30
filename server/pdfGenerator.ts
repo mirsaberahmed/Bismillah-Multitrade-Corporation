@@ -128,23 +128,23 @@ export function generateInvoicePdf(invoice: any, settings: CompanySettings): Buf
   const rightX = 196;
   const contentWidth = 182;
 
-  // 1. TOP HEADER (Spacious, prominent and balanced for A4)
+  // 1. TOP HEADER (Starts at exactly 1 inch / 25.4mm from top of page)
   doc.setFont(fontName, 'bold');
   doc.setFontSize(16.5);
   doc.setTextColor(0, 0, 0);
-  doc.text((settings.companyName || 'BISMILLAH MULTITRADE CORPORATION').toUpperCase(), leftX, 16.5);
+  doc.text((settings.companyName || 'BISMILLAH MULTITRADE CORPORATION').toUpperCase(), leftX, 25.4);
 
   doc.setFontSize(9);
   doc.setFont(fontName, 'bold');
   doc.setTextColor(0, 0, 0);
-  doc.text((settings.businessType || 'IMPORT & EXPORT CONCERN / TRADING COMPANY').toUpperCase(), leftX, 21.5);
+  doc.text((settings.businessType || 'IMPORT & EXPORT CONCERN / TRADING COMPANY').toUpperCase(), leftX, 30.4);
 
   doc.setFont(fontName, 'normal');
   doc.setFontSize(8.2);
   doc.setTextColor(0, 0, 0);
-  doc.text(settings.address || 'Ananda Nibash, South Shewrapara, Mirpur, Dhaka-1216, Bangladesh', leftX, 26.2);
-  doc.text(`Phone: ${settings.phonePrimary || '+880 1312-893729'}${settings.phoneSecondary ? ` | ${settings.phoneSecondary}` : ' | +880 1400-967693'}`, leftX, 30.5);
-  doc.text(`Email: ${settings.email || 'info@bismillahmultitrade.com'}${settings.website ? ` | ${settings.website}` : ' | www.bismillahmultitrade.com'}`, leftX, 34.8);
+  doc.text(settings.address || 'Ananda Nibash, South Shewrapara, Mirpur, Dhaka-1216, Bangladesh', leftX, 35.1);
+  doc.text(`Phone: ${settings.phonePrimary || '+880 1312-893729'}${settings.phoneSecondary ? ` | ${settings.phoneSecondary}` : ' | +880 1400-967693'}`, leftX, 39.4);
+  doc.text(`Email: ${settings.email || 'info@bismillahmultitrade.com'}${settings.website ? ` | ${settings.website}` : ' | www.bismillahmultitrade.com'}`, leftX, 43.7);
 
   // Top Right: INVOICE Badge Box & Details
   const badgeW = 48;
@@ -152,12 +152,12 @@ export function generateInvoicePdf(invoice: any, settings: CompanySettings): Buf
   const badgeX = rightX - badgeW;
   doc.setDrawColor(0, 0, 0);
   doc.setLineWidth(0.35);
-  doc.rect(badgeX, 10.5, badgeW, badgeH);
+  doc.rect(badgeX, 19.4, badgeW, badgeH);
 
   doc.setFont(fontName, 'bold');
   doc.setFontSize(11.5);
   doc.setTextColor(0, 0, 0);
-  doc.text('INVOICE', badgeX + (badgeW / 2), 17, { align: 'center' });
+  doc.text('INVOICE', badgeX + (badgeW / 2), 25.9, { align: 'center' });
 
   // Invoice Metadata (under badge, right-aligned)
   const printHeaderRightRow = (label: string, value: string, yPos: number) => {
@@ -170,14 +170,14 @@ export function generateInvoicePdf(invoice: any, settings: CompanySettings): Buf
     doc.text(label, rightX - valWidth - 1, yPos, { align: 'right' });
   };
 
-  printHeaderRightRow('Invoice No: ', String(invoice.invoiceNumber || 'INV_2026-161426'), 25);
-  printHeaderRightRow('Date: ', formatDateStr(invoice.invoiceDate) || '12 Oct 2026', 29.5);
-  printHeaderRightRow('Due Date: ', formatDateStr(invoice.dueDate) || '04 Nov 2026', 34);
+  printHeaderRightRow('Invoice No: ', String(invoice.invoiceNumber || 'INV_2026-161426'), 33.9);
+  printHeaderRightRow('Date: ', formatDateStr(invoice.invoiceDate) || '12 Oct 2026', 38.4);
+  printHeaderRightRow('Due Date: ', formatDateStr(invoice.dueDate) || '04 Nov 2026', 42.9);
 
   // Divider Line below Header
   doc.setDrawColor(0, 0, 0);
   doc.setLineWidth(0.35);
-  doc.line(leftX, 39.5, rightX, 39.5);
+  doc.line(leftX, 47.5, rightX, 47.5);
 
   // 2. TWO COLUMN INFO BOXES (Upper & Lower space created, box height enlarged to 42mm)
   const boxY = 46.5;
@@ -411,20 +411,20 @@ export function generateDeliverySlipPdf(slip: any, settings: CompanySettings): B
   const rightX = 196;
   const contentWidth = 182;
 
-  // 1. HEADER (Spacious, prominent and balanced for A4)
+  // 1. HEADER (Starts at exactly 1 inch / 25.4mm from top of page)
   doc.setFont(fontName, 'bold');
   doc.setFontSize(16.5);
-  doc.text((settings.companyName || 'BISMILLAH MULTITRADE CORPORATION').toUpperCase(), leftX, 16.5);
+  doc.text((settings.companyName || 'BISMILLAH MULTITRADE CORPORATION').toUpperCase(), leftX, 25.4);
 
   doc.setFontSize(9);
   doc.setFont(fontName, 'bold');
-  doc.text((settings.businessType || 'IMPORT & EXPORT CONCERN / TRADING COMPANY').toUpperCase(), leftX, 21.5);
+  doc.text((settings.businessType || 'IMPORT & EXPORT CONCERN / TRADING COMPANY').toUpperCase(), leftX, 30.4);
 
   doc.setFont(fontName, 'normal');
   doc.setFontSize(8.2);
-  doc.text(settings.address || 'Ananda Nibash, South Shewrapara, Mirpur, Dhaka-1216, Bangladesh', leftX, 26.2);
-  doc.text(`Phone: ${settings.phonePrimary || '+880 1312-893729'}${settings.phoneSecondary ? ` | ${settings.phoneSecondary}` : ' | +880 1400-967693'}`, leftX, 30.5);
-  doc.text(`Email: ${settings.email || 'info@bismillahmultitrade.com'}${settings.website ? ` | ${settings.website}` : ' | www.bismillahmultitrade.com'}`, leftX, 34.8);
+  doc.text(settings.address || 'Ananda Nibash, South Shewrapara, Mirpur, Dhaka-1216, Bangladesh', leftX, 35.1);
+  doc.text(`Phone: ${settings.phonePrimary || '+880 1312-893729'}${settings.phoneSecondary ? ` | ${settings.phoneSecondary}` : ' | +880 1400-967693'}`, leftX, 39.4);
+  doc.text(`Email: ${settings.email || 'info@bismillahmultitrade.com'}${settings.website ? ` | ${settings.website}` : ' | www.bismillahmultitrade.com'}`, leftX, 43.7);
 
   // DELIVERY SLIP Box
   const badgeW = 52;
@@ -432,10 +432,10 @@ export function generateDeliverySlipPdf(slip: any, settings: CompanySettings): B
   const badgeX = rightX - badgeW;
   doc.setDrawColor(0, 0, 0);
   doc.setLineWidth(0.35);
-  doc.rect(badgeX, 10.5, badgeW, badgeH);
+  doc.rect(badgeX, 19.4, badgeW, badgeH);
   doc.setFont(fontName, 'bold');
   doc.setFontSize(11.5);
-  doc.text('DELIVERY SLIP', badgeX + (badgeW / 2), 17, { align: 'center' });
+  doc.text('DELIVERY SLIP', badgeX + (badgeW / 2), 25.9, { align: 'center' });
 
   // Right Reference Rows
   const printSlipRightRow = (label: string, value: string, yPos: number) => {
@@ -448,13 +448,13 @@ export function generateDeliverySlipPdf(slip: any, settings: CompanySettings): B
     doc.text(label, rightX - valWidth - 1, yPos, { align: 'right' });
   };
 
-  printSlipRightRow('Delivery Slip No: ', String(slip.deliverySlipNumber || 'DS-2026-4702'), 25);
-  printSlipRightRow('Invoice No: ', String(slip.invoiceNumber || 'INV_2026-161425'), 29.5);
-  printSlipRightRow('Delivery Date: ', formatDateStr(slip.slipDate || slip.deliveryDate) || '16 Oct 2026', 34);
+  printSlipRightRow('Delivery Slip No: ', String(slip.deliverySlipNumber || 'DS-2026-4702'), 33.9);
+  printSlipRightRow('Invoice No: ', String(slip.invoiceNumber || 'INV_2026-161425'), 38.4);
+  printSlipRightRow('Delivery Date: ', formatDateStr(slip.slipDate || slip.deliveryDate) || '16 Oct 2026', 42.9);
 
   // Top Full Width Separator Line
   doc.setLineWidth(0.35);
-  doc.line(leftX, 39.5, rightX, 39.5);
+  doc.line(leftX, 47.5, rightX, 47.5);
 
   // 2. TWO BOXES: DELIVER TO & DELIVERY INFORMATION (Upper & Lower space created, box height enlarged to 42mm)
   const boxY = 46.5;

@@ -71,7 +71,9 @@ export function generateInvoiceWhatsAppText(invoice: SalesInvoice, companyName =
   if (invoice.companyName) lines.push(`Company: ${invoice.companyName}`);
   lines.push(`Date: ${invoice.invoiceDate}`);
   if (invoice.dueDate) lines.push(`Due Date: ${invoice.dueDate}`);
-  lines.push(`Payment Status: *${invoice.paymentStatus}*`);
+  const isPaid = ((invoice.balanceDue <= 0.01 || invoice.paidAmount >= invoice.grandTotal - 0.01) && invoice.grandTotal > 0) || invoice.paymentStatus === 'Paid';
+  const displayStatus = isPaid ? 'Paid' : invoice.paymentStatus;
+  lines.push(`Payment Status: *${displayStatus}*`);
   if (invoice.salesPerson) lines.push(`Executive: ${invoice.salesPerson}`);
   lines.push(`────────────────────`);
   lines.push(`*ITEMS ORDERED:*`);

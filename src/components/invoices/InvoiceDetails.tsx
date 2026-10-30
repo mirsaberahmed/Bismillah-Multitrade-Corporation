@@ -478,33 +478,13 @@ export const InvoiceDetails: React.FC<Props> = ({ invoiceId, onBack, onEdit }) =
               <PrintableInvoice invoice={invoice} settings={settings} />
             </div>
 
-            {/* STRICT PAGE BREAK SENTINEL */}
-            <div
-              className="combo-page-break"
-              style={{
-                pageBreakBefore: 'always',
-                breakBefore: 'page',
-                pageBreakAfter: 'always',
-                breakAfter: 'page',
-                height: 0,
-                minHeight: 0,
-                maxHeight: 0,
-                lineHeight: 0,
-                margin: 0,
-                padding: 0,
-                border: 'none',
-                clear: 'both',
-                display: 'block'
-              }}
-            />
-
             {/* Page 2: Delivery Slip strictly on second page, avoiding trailing blank page */}
             {(invoiceSlips[0] || true) && (
               <div
                 className="print-page combo-slip-page"
                 style={{
-                  pageBreakBefore: 'always',
-                  breakBefore: 'page',
+                  pageBreakBefore: 'auto',
+                  breakBefore: 'auto',
                   pageBreakAfter: 'avoid',
                   breakAfter: 'avoid',
                   marginTop: '0',
@@ -587,17 +567,23 @@ export const InvoiceDetails: React.FC<Props> = ({ invoiceId, onBack, onEdit }) =
                 <span className="font-mono text-xl font-black text-amber-400">
                   {invoice.invoiceNumber}
                 </span>
-                <span className={`px-2 py-0.5 rounded text-[10px] font-bold uppercase ${
-                  invoice.paymentStatus === 'Paid'
-                    ? 'bg-emerald-950 text-emerald-400 border border-emerald-800/60'
-                    : invoice.paymentStatus === 'Partially Paid'
-                    ? 'bg-blue-950 text-blue-400 border border-blue-800/60'
-                    : invoice.paymentStatus === 'Overdue'
-                    ? 'bg-red-950 text-red-400 border border-red-800/60'
-                    : 'bg-amber-950 text-amber-400 border border-amber-800/60'
-                }`}>
-                  {invoice.paymentStatus}
-                </span>
+                {(() => {
+                  const isPaid = ((invoice.balanceDue || 0) <= 0.01 || (invoice.paidAmount || 0) >= (invoice.grandTotal || 0) - 0.01) && (invoice.grandTotal || 0) > 0;
+                  const effStatus = isPaid ? 'Paid' : invoice.paymentStatus;
+                  return (
+                    <span className={`px-2 py-0.5 rounded text-[10px] font-bold uppercase ${
+                      effStatus === 'Paid'
+                        ? 'bg-emerald-950 text-emerald-400 border border-emerald-800/60'
+                        : effStatus === 'Partially Paid'
+                        ? 'bg-blue-950 text-blue-400 border border-blue-800/60'
+                        : effStatus === 'Overdue'
+                        ? 'bg-red-950 text-red-400 border border-red-800/60'
+                        : 'bg-amber-950 text-amber-400 border border-amber-800/60'
+                    }`}>
+                      {effStatus}
+                    </span>
+                  );
+                })()}
                 <span className={`px-2 py-0.5 rounded text-[10px] font-bold ${
                   invoice.deliveryStatus === 'Delivered'
                     ? 'bg-emerald-950 text-emerald-300'

@@ -192,6 +192,47 @@ const defaultSuperAdmin: UserAccount = {
   lastLoginAt: '2026-10-14 09:30 AM'
 };
 
+export const sanitizeInvoice = (inv: SalesInvoice): SalesInvoice => {
+  const grandTotal = Math.round((Number(inv.grandTotal) || 0) * 100) / 100;
+  const paidAmount = Math.round((Number(inv.paidAmount) || 0) * 100) / 100;
+  const calculatedDue = Math.max(0, Math.round((grandTotal - paidAmount) * 100) / 100);
+  const rawDue = typeof inv.balanceDue === 'number' ? Math.round(inv.balanceDue * 100) / 100 : calculatedDue;
+  const effectiveDue = Math.min(rawDue, calculatedDue);
+
+  const isFullyPaid = grandTotal > 0 && (
+    paidAmount >= grandTotal - 0.01 ||
+    effectiveDue <= 0.01
+  );
+
+  let paymentStatus: PaymentStatus = inv.paymentStatus;
+  let finalDue = effectiveDue;
+
+  if (isFullyPaid) {
+    paymentStatus = 'Paid';
+    finalDue = 0;
+  } else if (paidAmount > 0) {
+    paymentStatus = 'Partially Paid';
+    finalDue = calculatedDue;
+  } else {
+    const isOverdue = inv.dueDate && new Date(inv.dueDate) < new Date();
+    paymentStatus = isOverdue ? 'Overdue' : 'Unpaid';
+    finalDue = grandTotal;
+  }
+
+  return {
+    ...inv,
+    grandTotal,
+    paidAmount,
+    balanceDue: finalDue,
+    paymentStatus
+  };
+};
+
+export const sanitizeInvoices = (list: SalesInvoice[]): SalesInvoice[] => {
+  if (!Array.isArray(list)) return [];
+  return list.map(sanitizeInvoice);
+};
+
 export const DataProvider: React.FC<{ children: React.ReactNode }> = ({ children }) => {
   // Load initial from localStorage or defaults
   const [settings, setSettings] = useState<CompanySettings>(() => {
@@ -244,7 +285,7 @@ export const DataProvider: React.FC<{ children: React.ReactNode }> = ({ children
 
   const [invoices, setInvoices] = useState<SalesInvoice[]>(() => {
     const saved = localStorage.getItem(STORAGE_PREFIX + 'invoices');
-    return saved ? JSON.parse(saved) : initialInvoices;
+    return saved ? sanitizeInvoices(JSON.parse(saved)) : initialInvoices;
   });
 
   const [deliverySlips, setDeliverySlips] = useState<DeliverySlip[]>(() => {
@@ -466,7 +507,7 @@ export const DataProvider: React.FC<{ children: React.ReactNode }> = ({ children
       case 'products': setProducts(parsedData); break;
       case 'customers': setCustomers(parsedData); break;
       case 'suppliers': setSuppliers(parsedData); break;
-      case 'invoices': setInvoices(parsedData); break;
+      case 'invoices': setInvoices(sanitizeInvoices(parsedData)); break;
       case 'deliverySlips': setDeliverySlips(parsedData); break;
       case 'deliveryReturns': setDeliveryReturns(parsedData); break;
       case 'purchaseInvoices': setPurchaseInvoices(parsedData); break;
@@ -637,7 +678,8 @@ export const DataProvider: React.FC<{ children: React.ReactNode }> = ({ children
       const resolvedSettings = getAuthoritativeSection('settings', settings);
       const resolvedCategories = getAuthoritativeSection<ProductCategory[]>('categories', categories);
       const resolvedProducts = getAuthoritativeSection<Product[]>('products', products);
-      const resolvedInvoices = getAuthoritativeSection<SalesInvoice[]>('invoices', invoices);
+      const rawInvoices = getAuthoritativeSection<SalesInvoice[]>('invoices', invoices);
+      const resolvedInvoices = sanitizeInvoices(rawInvoices);
       const resolvedCustomers = getAuthoritativeSection<Customer[]>('customers', customers);
       const resolvedSuppliers = getAuthoritativeSection<Supplier[]>('suppliers', suppliers);
       const resolvedDeliverySlips = getAuthoritativeSection<DeliverySlip[]>('deliverySlips', deliverySlips);
@@ -746,6 +788,24 @@ export const DataProvider: React.FC<{ children: React.ReactNode }> = ({ children
       if (broadcastChannelRef.current) broadcastChannelRef.current.close();
     };
   }, []);
+
+  // Self-heal any existing invoices where payment status and balance due are out of sync
+  useEffect(() => {
+    let changed = false;
+    const healed = invoices.map(inv => {
+      const sanitized = sanitizeInvoice(inv);
+      if (sanitized.paymentStatus !== inv.paymentStatus || Math.abs(sanitized.balanceDue - (inv.balanceDue || 0)) > 0.001) {
+        changed = true;
+        return sanitized;
+      }
+      return inv;
+    });
+
+    if (changed) {
+      setInvoices(healed);
+      syncSectionLive('invoices', healed);
+    }
+  }, [invoices]);
 
   // Background watcher for any batch state changes
   useEffect(() => {
@@ -1112,12 +1172,14 @@ export const DataProvider: React.FC<{ children: React.ReactNode }> = ({ children
       (invoiceData.previousDue || 0) +
       (invoiceData.roundAdjustment || 0);
 
-    const paid = invoiceData.paidAmount || 0;
-    const balanceDue = Math.max(0, grandTotalCalculated - paid);
+    const roundedGrandTotal = Math.round(grandTotalCalculated * 100) / 100;
+    const paid = Math.round((Number(invoiceData.paidAmount) || 0) * 100) / 100;
+    const balanceDue = Math.max(0, Math.round((roundedGrandTotal - paid) * 100) / 100);
 
-    // Calculate payment status
+    // Calculate payment status with robust rounding
+    const isFullyPaid = (paid >= roundedGrandTotal - 0.01 || balanceDue <= 0.01) && roundedGrandTotal > 0;
     let paymentStatus: PaymentStatus = 'Unpaid';
-    if (paid >= grandTotalCalculated && grandTotalCalculated > 0) {
+    if (isFullyPaid) {
       paymentStatus = 'Paid';
     } else if (paid > 0) {
       paymentStatus = 'Partially Paid';
@@ -1182,10 +1244,10 @@ export const DataProvider: React.FC<{ children: React.ReactNode }> = ({ children
       itemDiscount: Math.round(itemDiscountTotal * 100) / 100,
       vatAmount: Math.round(overallVat * 100) / 100,
       taxAmount: Math.round(overallTax * 100) / 100,
-      grandTotal: Math.round(grandTotalCalculated * 100) / 100,
+      grandTotal: roundedGrandTotal,
       paidAmount: paid,
-      balanceDue: Math.round(balanceDue * 100) / 100,
-      amountInWords: numberToWordsBDT(Math.round(grandTotalCalculated * 100) / 100),
+      balanceDue: isFullyPaid ? 0 : Math.round(balanceDue * 100) / 100,
+      amountInWords: numberToWordsBDT(roundedGrandTotal),
       paymentStatus,
       deliveryStatus: invoiceData.deliveryStatus || 'Ready for Delivery',
       deliverySlipIds: invoiceData.deliverySlipIds || [],
@@ -2103,19 +2165,20 @@ export const DataProvider: React.FC<{ children: React.ReactNode }> = ({ children
 
     // Dynamic calculations for Partial vs Full Paid status
     const inv = payment.invoiceId ? invoices.find(i => i.id === payment.invoiceId) : null;
-    const totalAmt = (inv ? inv.grandTotal : 0) || payment.totalAmount || payment.amount;
+    const totalAmt = Math.round(((inv ? inv.grandTotal : 0) || payment.totalAmount || payment.amount) * 100) / 100;
     const existingPaymentsTotal = payments
       .filter(p => p.invoiceId === payment.invoiceId && p.id !== payment.id)
       .reduce((sum, p) => sum + p.amount, 0);
-    const newPaid = existingPaymentsTotal + payment.amount;
-    const newDue = Math.max(0, totalAmt - newPaid);
-    const cleanStatus: 'Unpaid' | 'Partial' | 'Paid' = newDue <= 0 ? 'Paid' : (newPaid > 0 ? 'Partial' : 'Unpaid');
+    const newPaid = Math.round((existingPaymentsTotal + payment.amount) * 100) / 100;
+    const newDue = Math.max(0, Math.round((totalAmt - newPaid) * 100) / 100);
+    const isFullyPaid = (newDue <= 0.01 || newPaid >= totalAmt - 0.01) && totalAmt > 0;
+    const cleanStatus: 'Unpaid' | 'Partial' | 'Paid' = isFullyPaid ? 'Paid' : (newPaid > 0 ? 'Partial' : 'Unpaid');
 
     const fullPayment: PaymentRecord = {
       ...payment,
       totalAmount: totalAmt,
       paidAmount: newPaid,
-      dueAmount: newDue,
+      dueAmount: isFullyPaid ? 0 : newDue,
       paymentStatus: cleanStatus,
       amountInWords: numberToWordsBDT(payment.amount)
     };
@@ -2129,8 +2192,10 @@ export const DataProvider: React.FC<{ children: React.ReactNode }> = ({ children
       if (fullPayment.invoiceId) {
         const nextInvoices = invoices.map(invItem => {
           if (invItem.id === fullPayment.invoiceId) {
+            const itemTotal = Math.round(invItem.grandTotal * 100) / 100;
+            const itemPaid = (newDue <= 0.01 || newPaid >= itemTotal - 0.01) && itemTotal > 0;
             let status: PaymentStatus = 'Partially Paid';
-            if (newPaid >= invItem.grandTotal) {
+            if (itemPaid) {
               status = 'Paid';
             } else if (newPaid === 0) {
               status = 'Unpaid';
@@ -2138,7 +2203,7 @@ export const DataProvider: React.FC<{ children: React.ReactNode }> = ({ children
             return {
               ...invItem,
               paidAmount: newPaid,
-              balanceDue: newDue,
+              balanceDue: itemPaid ? 0 : newDue,
               paymentStatus: status,
               paymentIds: Array.from(new Set([...(invItem.paymentIds || []), fullPayment.id]))
             };
@@ -2180,21 +2245,22 @@ export const DataProvider: React.FC<{ children: React.ReactNode }> = ({ children
 
     const diff = updated.amount - existing.amount;
     const inv = updated.invoiceId ? invoices.find(i => i.id === updated.invoiceId) : null;
-    const totalAmt = (inv ? inv.grandTotal : 0) || updated.totalAmount || updated.amount;
+    const totalAmt = Math.round(((inv ? inv.grandTotal : 0) || updated.totalAmount || updated.amount) * 100) / 100;
 
     const otherPaymentsTotal = payments
       .filter(p => p.invoiceId === updated.invoiceId && p.id !== updated.id)
       .reduce((sum, p) => sum + p.amount, 0);
-    const newPaidForInv = otherPaymentsTotal + updated.amount;
-    const newDueForInv = Math.max(0, totalAmt - newPaidForInv);
-    const statusForInv: PaymentStatus = newDueForInv <= 0 ? 'Paid' : (newPaidForInv > 0 ? 'Partially Paid' : 'Unpaid');
-    const paymentStatusClean: 'Unpaid' | 'Partial' | 'Paid' = newDueForInv <= 0 ? 'Paid' : (newPaidForInv > 0 ? 'Partial' : 'Unpaid');
+    const newPaidForInv = Math.round((otherPaymentsTotal + updated.amount) * 100) / 100;
+    const newDueForInv = Math.max(0, Math.round((totalAmt - newPaidForInv) * 100) / 100);
+    const isPaid = (newDueForInv <= 0.01 || newPaidForInv >= totalAmt - 0.01) && totalAmt > 0;
+    const statusForInv: PaymentStatus = isPaid ? 'Paid' : (newPaidForInv > 0 ? 'Partially Paid' : 'Unpaid');
+    const paymentStatusClean: 'Unpaid' | 'Partial' | 'Paid' = isPaid ? 'Paid' : (newPaidForInv > 0 ? 'Partial' : 'Unpaid');
 
     const formattedPayment: PaymentRecord = {
       ...updated,
       totalAmount: totalAmt,
       paidAmount: newPaidForInv,
-      dueAmount: newDueForInv,
+      dueAmount: isPaid ? 0 : newDueForInv,
       paymentStatus: paymentStatusClean,
       amountInWords: numberToWordsBDT(updated.amount),
       updatedAt: new Date().toISOString()
@@ -2211,7 +2277,7 @@ export const DataProvider: React.FC<{ children: React.ReactNode }> = ({ children
           return {
             ...i,
             paidAmount: newPaidForInv,
-            balanceDue: newDueForInv,
+            balanceDue: isPaid ? 0 : newDueForInv,
             paymentStatus: statusForInv
           };
         }
@@ -2252,12 +2318,13 @@ export const DataProvider: React.FC<{ children: React.ReactNode }> = ({ children
           const remainingPaymentsTotal = payments
             .filter(p => p.invoiceId === inv.id && p.id !== id)
             .reduce((sum, p) => sum + p.amount, 0);
-          const revertedDue = Math.max(0, inv.grandTotal - remainingPaymentsTotal);
-          const revertedStatus: PaymentStatus = revertedDue <= 0 ? 'Paid' : (remainingPaymentsTotal > 0 ? 'Partially Paid' : 'Unpaid');
+          const rawRevertedDue = Math.max(0, Math.round((inv.grandTotal - remainingPaymentsTotal) * 100) / 100);
+          const isPaid = (rawRevertedDue <= 0.01 || remainingPaymentsTotal >= inv.grandTotal - 0.01) && inv.grandTotal > 0;
+          const revertedStatus: PaymentStatus = isPaid ? 'Paid' : (remainingPaymentsTotal > 0 ? 'Partially Paid' : 'Unpaid');
           return {
             ...inv,
             paidAmount: remainingPaymentsTotal,
-            balanceDue: revertedDue,
+            balanceDue: isPaid ? 0 : rawRevertedDue,
             paymentStatus: revertedStatus,
             paymentIds: (inv.paymentIds || []).filter(pid => pid !== id)
           };

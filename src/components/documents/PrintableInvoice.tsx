@@ -16,7 +16,7 @@ export const PrintableInvoice: React.FC<Props> = ({ invoice, settings, showPayme
   return (
     <div
       id={`printable-invoice-${invoice.id}`}
-      className="printable-sheet bg-white text-black w-full max-w-4xl mx-auto p-8 font-sans print:p-2 print:max-w-[195mm] print:mx-auto text-sm leading-normal print:text-xs print:leading-normal select-none"
+      className="printable-sheet bg-white text-black w-full max-w-4xl mx-auto p-8 font-sans print:p-0 print:pt-0 print:max-w-full print:mx-0 text-sm leading-normal print:text-xs print:leading-normal select-none"
     >
       {/* Header */}
       <div className="border-b border-black pb-4 mb-6 print:pb-3 print:mb-4">
@@ -128,7 +128,11 @@ export const PrintableInvoice: React.FC<Props> = ({ invoice, settings, showPayme
               {shouldShowPayment && (
                 <>
                   <span className="font-medium">Payment Status:</span>
-                  <span className="font-bold uppercase">{invoice.paymentStatus}</span>
+                  <span className="font-bold uppercase">
+                    {((invoice.balanceDue <= 0.01 || invoice.paidAmount >= invoice.grandTotal - 0.01) && invoice.grandTotal > 0)
+                      ? 'PAID'
+                      : invoice.paymentStatus}
+                  </span>
                 </>
               )}
 

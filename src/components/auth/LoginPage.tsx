@@ -11,7 +11,8 @@ import {
   KeyRound,
   Check,
   UserPlus,
-  X
+  X,
+  Loader2
 } from 'lucide-react';
 import { BalmBottleLogo } from '../common/BalmBottleLogo';
 import { useData } from '../../context/DataContext';
@@ -22,6 +23,15 @@ interface LoginPageProps {
 }
 
 const REMEMBER_ME_KEY = 'bismillah_erp_remembered_username_v2';
+
+// In-Memory cache for uniqueness availability check with 3-minute TTL
+interface CachedAvailability {
+  available: boolean;
+  message?: string;
+  timestamp: number;
+}
+const availabilityCache = new Map<string, CachedAvailability>();
+const AVAILABILITY_CACHE_TTL_MS = 3 * 60 * 1000; // 3 minutes
 
 const PUBLIC_REGISTER_ROLES: UserRole[] = [
   'Super Admin',
@@ -89,10 +99,175 @@ export const LoginPage: React.FC<LoginPageProps> = ({ onLoginSuccess }) => {
   const [scanVerified, setScanVerified] = useState(false);
   const scanIntervalRef = useRef<number | null>(null);
 
+  // Uniqueness validation states: 'idle' | 'checking' | 'available' | 'taken' | 'error'
+  const [emailStatus, setEmailStatus] = useState<'idle' | 'checking' | 'available' | 'taken' | 'error'>('idle');
+  const [emailStatusMsg, setEmailStatusMsg] = useState('');
+  const [usernameStatus, setUsernameStatus] = useState<'idle' | 'checking' | 'available' | 'taken' | 'error'>('idle');
+  const [usernameStatusMsg, setUsernameStatusMsg] = useState('');
+
+  // Race-condition sequence ID and AbortControllers (ensures latest keystroke always wins)
+  const emailReqSeqRef = useRef<number>(0);
+  const emailAbortControllerRef = useRef<AbortController | null>(null);
+  const usernameReqSeqRef = useRef<number>(0);
+  const usernameAbortControllerRef = useRef<AbortController | null>(null);
+
+  // Debounced email check (350ms)
+  useEffect(() => {
+    const cleanEmail = regEmail.trim().toLowerCase();
+    if (!cleanEmail || !cleanEmail.includes('@') || cleanEmail.length < 5) {
+      setEmailStatus('idle');
+      setEmailStatusMsg('');
+      return;
+    }
+
+    const cacheKey = `email:${cleanEmail}`;
+    const cached = availabilityCache.get(cacheKey);
+    if (cached && Date.now() - cached.timestamp < AVAILABILITY_CACHE_TTL_MS) {
+      setEmailStatus(cached.available ? 'available' : 'taken');
+      setEmailStatusMsg(cached.message || (cached.available ? 'Email is available' : 'This email address is already registered.'));
+      return;
+    }
+
+    setEmailStatus('checking');
+    setEmailStatusMsg('');
+
+    const currentSeq = ++emailReqSeqRef.current;
+    if (emailAbortControllerRef.current) {
+      emailAbortControllerRef.current.abort();
+    }
+    const controller = new AbortController();
+    emailAbortControllerRef.current = controller;
+
+    const timer = window.setTimeout(async () => {
+      try {
+        const res = await fetch(`/api/auth/check-availability?field=email&value=${encodeURIComponent(cleanEmail)}`, {
+          signal: controller.signal
+        });
+        const data = await res.json();
+        // Guard: Stale out-of-order response ignored
+        if (currentSeq !== emailReqSeqRef.current) return;
+
+        if (data && data.ok) {
+          availabilityCache.set(cacheKey, {
+            available: !!data.available,
+            message: data.message,
+            timestamp: Date.now()
+          });
+          setEmailStatus(data.available ? 'available' : 'taken');
+          setEmailStatusMsg(data.message || (data.available ? 'Email is available' : 'This email address is already registered.'));
+        } else {
+          setEmailStatus('idle');
+          setEmailStatusMsg('');
+        }
+      } catch (err: any) {
+        if (err.name === 'AbortError') return;
+        if (currentSeq === emailReqSeqRef.current) {
+          setEmailStatus('idle');
+          setEmailStatusMsg('');
+        }
+      }
+    }, 350);
+
+    return () => {
+      window.clearTimeout(timer);
+    };
+  }, [regEmail]);
+
+  // Debounced username check (350ms)
+  useEffect(() => {
+    const cleanUsername = regUsername.trim().toLowerCase();
+    if (!cleanUsername || cleanUsername.length < 3) {
+      setUsernameStatus('idle');
+      setUsernameStatusMsg('');
+      return;
+    }
+
+    const cacheKey = `username:${cleanUsername}`;
+    const cached = availabilityCache.get(cacheKey);
+    if (cached && Date.now() - cached.timestamp < AVAILABILITY_CACHE_TTL_MS) {
+      setUsernameStatus(cached.available ? 'available' : 'taken');
+      setUsernameStatusMsg(cached.message || (cached.available ? 'Username is available' : 'This username is already taken.'));
+      return;
+    }
+
+    setUsernameStatus('checking');
+    setUsernameStatusMsg('');
+
+    const currentSeq = ++usernameReqSeqRef.current;
+    if (usernameAbortControllerRef.current) {
+      usernameAbortControllerRef.current.abort();
+    }
+    const controller = new AbortController();
+    usernameAbortControllerRef.current = controller;
+
+    const timer = window.setTimeout(async () => {
+      try {
+        const res = await fetch(`/api/auth/check-availability?field=username&value=${encodeURIComponent(cleanUsername)}`, {
+          signal: controller.signal
+        });
+        const data = await res.json();
+        // Guard: Stale out-of-order response ignored
+        if (currentSeq !== usernameReqSeqRef.current) return;
+
+        if (data && data.ok) {
+          availabilityCache.set(cacheKey, {
+            available: !!data.available,
+            message: data.message,
+            timestamp: Date.now()
+          });
+          setUsernameStatus(data.available ? 'available' : 'taken');
+          setUsernameStatusMsg(data.message || (data.available ? 'Username is available' : 'This username is already taken.'));
+        } else {
+          setUsernameStatus('idle');
+          setUsernameStatusMsg('');
+        }
+      } catch (err: any) {
+        if (err.name === 'AbortError') return;
+        if (currentSeq === usernameReqSeqRef.current) {
+          setUsernameStatus('idle');
+          setUsernameStatusMsg('');
+        }
+      }
+    }, 350);
+
+    return () => {
+      window.clearTimeout(timer);
+    };
+  }, [regUsername]);
+
+  // Comprehensive Password Security Checklist (6 rules)
+  const passLengthMet = regPassword.length >= 8;
+  const passUpperMet = /[A-Z]/.test(regPassword);
+  const passLowerMet = /[a-z]/.test(regPassword);
+  const passNumMet = /[0-9]/.test(regPassword);
+  const passSpecialMet = /[!@#$%^&*()_+\-=[\]{};':"\\|,.<>/?`~]/.test(regPassword);
+  const passNoSpacesMet = regPassword.length > 0 && regPassword === regPassword.trim();
+  const isPasswordValid = passLengthMet && passUpperMet && passLowerMet && passNumMet && passSpecialMet && passNoSpacesMet;
+  const isConfirmMatch = regPassword.length > 0 && regConfirmPassword.length > 0 && regPassword === regConfirmPassword;
+  const confirmMismatch = regConfirmPassword.length > 0 && regPassword !== regConfirmPassword;
+
+  const canSubmitRegister =
+    isPasswordValid &&
+    isConfirmMatch &&
+    emailStatus !== 'taken' &&
+    usernameStatus !== 'taken' &&
+    emailStatus !== 'checking' &&
+    usernameStatus !== 'checking' &&
+    regFullName.trim().length > 0 &&
+    regEmail.trim().length > 0 &&
+    regUsername.trim().length > 0 &&
+    !isLoading;
+
   useEffect(() => {
     return () => {
       if (scanIntervalRef.current) {
         window.clearInterval(scanIntervalRef.current);
+      }
+      if (emailAbortControllerRef.current) {
+        emailAbortControllerRef.current.abort();
+      }
+      if (usernameAbortControllerRef.current) {
+        usernameAbortControllerRef.current.abort();
       }
     };
   }, []);
@@ -338,8 +513,14 @@ export const LoginPage: React.FC<LoginPageProps> = ({ onLoginSuccess }) => {
     setError('');
     setNotice('');
 
-    if (!regFullName.trim() || !regUsername.trim() || !regEmail.trim() || !regPassword.trim()) {
+    if (!regFullName.trim() || !regUsername.trim() || !regEmail.trim() || !regPassword) {
       setError('Please fill in all required fields.');
+      return;
+    }
+
+    // Client-side rule verification before submission
+    if (!isPasswordValid) {
+      setError('Password does not meet all security requirements.');
       return;
     }
 
@@ -348,8 +529,13 @@ export const LoginPage: React.FC<LoginPageProps> = ({ onLoginSuccess }) => {
       return;
     }
 
-    if (regPassword.length < 4) {
-      setError('Password must be at least 4 characters.');
+    if (emailStatus === 'taken') {
+      setError(emailStatusMsg || 'This email address is already registered.');
+      return;
+    }
+
+    if (usernameStatus === 'taken') {
+      setError(usernameStatusMsg || 'This username is already taken.');
       return;
     }
 
@@ -368,17 +554,41 @@ export const LoginPage: React.FC<LoginPageProps> = ({ onLoginSuccess }) => {
           department: regDepartment,
           designation: regDesignation,
           role: regRole,
-          password: regPassword.trim()
+          password: regPassword
         })
       });
 
       const result = await response.json();
 
       if (!response.ok || !result.ok) {
-        setError(result.error || 'Failed to create account.');
+        // Catch server-side duplicate conflicts and update live field states
+        const errMsg = result.error || 'Failed to create account.';
+        if (result.field === 'email' || errMsg.toLowerCase().includes('email')) {
+          setEmailStatus('taken');
+          setEmailStatusMsg(errMsg);
+          availabilityCache.set(`email:${regEmail.trim().toLowerCase()}`, {
+            available: false,
+            message: errMsg,
+            timestamp: Date.now()
+          });
+        }
+        if (result.field === 'username' || errMsg.toLowerCase().includes('username')) {
+          setUsernameStatus('taken');
+          setUsernameStatusMsg(errMsg);
+          availabilityCache.set(`username:${regUsername.trim().toLowerCase()}`, {
+            available: false,
+            message: errMsg,
+            timestamp: Date.now()
+          });
+        }
+
+        setError(errMsg);
         setIsLoading(false);
         return;
       }
+
+      // Invalidate cache immediately on successful registration so new account is recognized as registered
+      availabilityCache.clear();
 
       const newUser: UserAccount = {
         id: result.user.id,
@@ -402,25 +612,9 @@ export const LoginPage: React.FC<LoginPageProps> = ({ onLoginSuccess }) => {
       }
       logActivity('User Registration', `New user ${newUser.username} registered`);
       onLoginSuccess(newUser);
-    } catch {
-      // Local fallback
-      const localUser: UserAccount = {
-        id: `usr-${Date.now()}`,
-        name: regFullName.trim(),
-        fullName: regFullName.trim(),
-        username: regUsername.trim(),
-        email: regEmail.trim(),
-        phone: regMobile.trim(),
-        role: regRole,
-        department: regDepartment,
-        designation: regDesignation,
-        status: 'Active',
-        active: true,
-        permissions: ['All Modules'],
-        createdAt: new Date().toISOString()
-      };
-      setCurrentUser(localUser);
-      onLoginSuccess(localUser);
+    } catch (err: any) {
+      console.error('Registration network error:', err);
+      setError('Connection error while contacting server. Please check your network and try again.');
     } finally {
       setIsLoading(false);
     }
@@ -786,33 +980,85 @@ export const LoginPage: React.FC<LoginPageProps> = ({ onLoginSuccess }) => {
                       />
                     </div>
                     <div>
-                      <label className="block text-[11px] font-bold text-slate-700 mb-1">
-                        USERNAME *
-                      </label>
+                      <div className="flex items-center justify-between mb-1">
+                        <label className="block text-[11px] font-bold text-slate-700">
+                          USERNAME *
+                        </label>
+                        {usernameStatus === 'checking' && (
+                          <span className="text-[10px] text-blue-600 font-medium flex items-center gap-1">
+                            <Loader2 size={10} className="animate-spin" /> Checking...
+                          </span>
+                        )}
+                        {usernameStatus === 'available' && (
+                          <span className="text-[10px] text-emerald-600 font-semibold flex items-center gap-0.5">
+                            <Check size={11} className="stroke-[3]" /> Available
+                          </span>
+                        )}
+                        {usernameStatus === 'taken' && (
+                          <span className="text-[10px] text-rose-600 font-semibold flex items-center gap-0.5">
+                            <X size={11} className="stroke-[3]" /> Taken
+                          </span>
+                        )}
+                      </div>
                       <input
                         type="text"
                         required
                         placeholder="akil"
                         value={regUsername}
                         onChange={(e) => setRegUsername(e.target.value)}
-                        className="w-full bg-slate-50 border border-slate-200 focus:border-[#f97316] focus:bg-white rounded-lg px-3 py-2 text-xs text-slate-900 focus:outline-none"
+                        className={`w-full bg-slate-50 border rounded-lg px-3 py-2 text-xs text-slate-900 focus:outline-none transition-colors ${
+                          usernameStatus === 'taken'
+                            ? 'border-rose-300 focus:border-rose-500 bg-rose-50/30'
+                            : usernameStatus === 'available'
+                            ? 'border-emerald-300 focus:border-emerald-500 bg-emerald-50/20'
+                            : 'border-slate-200 focus:border-[#f97316] focus:bg-white'
+                        }`}
                       />
+                      {usernameStatus === 'taken' && usernameStatusMsg && (
+                        <p className="text-[10px] text-rose-600 mt-1">{usernameStatusMsg}</p>
+                      )}
                     </div>
                   </div>
 
                   <div className="grid grid-cols-1 sm:grid-cols-2 gap-2.5">
                     <div>
-                      <label className="block text-[11px] font-bold text-slate-700 mb-1">
-                        EMAIL ADDRESS *
-                      </label>
+                      <div className="flex items-center justify-between mb-1">
+                        <label className="block text-[11px] font-bold text-slate-700">
+                          EMAIL ADDRESS *
+                        </label>
+                        {emailStatus === 'checking' && (
+                          <span className="text-[10px] text-blue-600 font-medium flex items-center gap-1">
+                            <Loader2 size={10} className="animate-spin" /> Checking...
+                          </span>
+                        )}
+                        {emailStatus === 'available' && (
+                          <span className="text-[10px] text-emerald-600 font-semibold flex items-center gap-0.5">
+                            <Check size={11} className="stroke-[3]" /> Available
+                          </span>
+                        )}
+                        {emailStatus === 'taken' && (
+                          <span className="text-[10px] text-rose-600 font-semibold flex items-center gap-0.5">
+                            <X size={11} className="stroke-[3]" /> Already registered
+                          </span>
+                        )}
+                      </div>
                       <input
                         type="email"
                         required
                         placeholder="admin@bismillah.com"
                         value={regEmail}
                         onChange={(e) => setRegEmail(e.target.value)}
-                        className="w-full bg-slate-50 border border-slate-200 focus:border-[#f97316] focus:bg-white rounded-lg px-3 py-2 text-xs text-slate-900 focus:outline-none"
+                        className={`w-full bg-slate-50 border rounded-lg px-3 py-2 text-xs text-slate-900 focus:outline-none transition-colors ${
+                          emailStatus === 'taken'
+                            ? 'border-rose-300 focus:border-rose-500 bg-rose-50/30'
+                            : emailStatus === 'available'
+                            ? 'border-emerald-300 focus:border-emerald-500 bg-emerald-50/20'
+                            : 'border-slate-200 focus:border-[#f97316] focus:bg-white'
+                        }`}
                       />
+                      {emailStatus === 'taken' && emailStatusMsg && (
+                        <p className="text-[10px] text-rose-600 mt-1">{emailStatusMsg}</p>
+                      )}
                     </div>
                     <div>
                       <label className="block text-[11px] font-bold text-slate-700 mb-1">
@@ -871,13 +1117,26 @@ export const LoginPage: React.FC<LoginPageProps> = ({ onLoginSuccess }) => {
                         placeholder="••••••••"
                         value={regPassword}
                         onChange={(e) => setRegPassword(e.target.value)}
-                        className="w-full bg-slate-50 border border-slate-200 focus:border-[#f97316] focus:bg-white rounded-lg px-3 py-2 text-xs text-slate-900 focus:outline-none"
+                        className={`w-full bg-slate-50 border rounded-lg px-3 py-2 text-xs text-slate-900 focus:outline-none transition-colors ${
+                          regPassword.length > 0 && !isPasswordValid
+                            ? 'border-amber-300 focus:border-amber-500'
+                            : regPassword.length > 0 && isPasswordValid
+                            ? 'border-emerald-300 focus:border-emerald-500'
+                            : 'border-slate-200 focus:border-[#f97316] focus:bg-white'
+                        }`}
                       />
                     </div>
                     <div>
-                      <label className="block text-[11px] font-bold text-slate-700 mb-1">
-                        CONFIRM PASSWORD *
-                      </label>
+                      <div className="flex items-center justify-between mb-1">
+                        <label className="block text-[11px] font-bold text-slate-700">
+                          CONFIRM PASSWORD *
+                        </label>
+                        {isConfirmMatch && (
+                          <span className="text-[10px] text-emerald-600 font-semibold flex items-center gap-0.5">
+                            <Check size={11} className="stroke-[3]" /> Match
+                          </span>
+                        )}
+                      </div>
                       <input
                         type="password"
                         autoComplete="new-password"
@@ -885,15 +1144,59 @@ export const LoginPage: React.FC<LoginPageProps> = ({ onLoginSuccess }) => {
                         placeholder="••••••••"
                         value={regConfirmPassword}
                         onChange={(e) => setRegConfirmPassword(e.target.value)}
-                        className="w-full bg-slate-50 border border-slate-200 focus:border-[#f97316] focus:bg-white rounded-lg px-3 py-2 text-xs text-slate-900 focus:outline-none"
+                        className={`w-full bg-slate-50 border rounded-lg px-3 py-2 text-xs text-slate-900 focus:outline-none transition-colors ${
+                          confirmMismatch
+                            ? 'border-rose-300 focus:border-rose-500 bg-rose-50/20'
+                            : isConfirmMatch
+                            ? 'border-emerald-300 focus:border-emerald-500 bg-emerald-50/20'
+                            : 'border-slate-200 focus:border-[#f97316] focus:bg-white'
+                        }`}
                       />
+                      {confirmMismatch && (
+                        <p className="text-[10px] text-rose-600 mt-1 font-medium">
+                          Passwords do not match.
+                        </p>
+                      )}
                     </div>
                   </div>
 
+                  {/* Live Password Security Checklist */}
+                  {regPassword.length > 0 && (
+                    <div className="p-2.5 bg-slate-50 border border-slate-200 rounded-lg text-[10px] space-y-1">
+                      <p className="font-bold text-slate-600 text-[10px] uppercase tracking-wider mb-1">Password Requirements</p>
+                      <div className="grid grid-cols-2 gap-x-2 gap-y-1 text-slate-600">
+                        <div className={`flex items-center gap-1.5 ${passLengthMet ? 'text-emerald-700 font-semibold' : 'text-slate-500'}`}>
+                          {passLengthMet ? <Check size={12} className="text-emerald-600 shrink-0 stroke-[3]" /> : <span className="w-1.5 h-1.5 rounded-full bg-slate-400 shrink-0 ml-1 mr-0.5" />}
+                          <span>At least 8 characters</span>
+                        </div>
+                        <div className={`flex items-center gap-1.5 ${passUpperMet ? 'text-emerald-700 font-semibold' : 'text-slate-500'}`}>
+                          {passUpperMet ? <Check size={12} className="text-emerald-600 shrink-0 stroke-[3]" /> : <span className="w-1.5 h-1.5 rounded-full bg-slate-400 shrink-0 ml-1 mr-0.5" />}
+                          <span>One uppercase letter (A-Z)</span>
+                        </div>
+                        <div className={`flex items-center gap-1.5 ${passLowerMet ? 'text-emerald-700 font-semibold' : 'text-slate-500'}`}>
+                          {passLowerMet ? <Check size={12} className="text-emerald-600 shrink-0 stroke-[3]" /> : <span className="w-1.5 h-1.5 rounded-full bg-slate-400 shrink-0 ml-1 mr-0.5" />}
+                          <span>One lowercase letter (a-z)</span>
+                        </div>
+                        <div className={`flex items-center gap-1.5 ${passNumMet ? 'text-emerald-700 font-semibold' : 'text-slate-500'}`}>
+                          {passNumMet ? <Check size={12} className="text-emerald-600 shrink-0 stroke-[3]" /> : <span className="w-1.5 h-1.5 rounded-full bg-slate-400 shrink-0 ml-1 mr-0.5" />}
+                          <span>One number (0-9)</span>
+                        </div>
+                        <div className={`flex items-center gap-1.5 ${passSpecialMet ? 'text-emerald-700 font-semibold' : 'text-slate-500'}`}>
+                          {passSpecialMet ? <Check size={12} className="text-emerald-600 shrink-0 stroke-[3]" /> : <span className="w-1.5 h-1.5 rounded-full bg-slate-400 shrink-0 ml-1 mr-0.5" />}
+                          <span>One special character (!@#$)</span>
+                        </div>
+                        <div className={`flex items-center gap-1.5 ${passNoSpacesMet ? 'text-emerald-700 font-semibold' : 'text-slate-500'}`}>
+                          {passNoSpacesMet ? <Check size={12} className="text-emerald-600 shrink-0 stroke-[3]" /> : <span className="w-1.5 h-1.5 rounded-full bg-slate-400 shrink-0 ml-1 mr-0.5" />}
+                          <span>No leading/trailing spaces</span>
+                        </div>
+                      </div>
+                    </div>
+                  )}
+
                   <button
                     type="submit"
-                    disabled={isLoading}
-                    className="w-full mt-2 py-3 px-4 bg-[#0f1f38] hover:bg-[#162a4a] text-white font-bold text-xs sm:text-sm rounded-xl shadow-md transition-all flex items-center justify-center gap-2 cursor-pointer disabled:opacity-50"
+                    disabled={!canSubmitRegister}
+                    className="w-full mt-2 py-3 px-4 bg-[#0f1f38] hover:bg-[#162a4a] text-white font-bold text-xs sm:text-sm rounded-xl shadow-md transition-all flex items-center justify-center gap-2 cursor-pointer disabled:opacity-50 disabled:cursor-not-allowed"
                   >
                     <UserPlus size={16} />
                     <span>{isLoading ? 'Creating Account...' : 'Register'}</span>

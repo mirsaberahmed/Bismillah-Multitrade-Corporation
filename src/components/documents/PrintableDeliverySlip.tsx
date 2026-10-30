@@ -17,7 +17,7 @@ export const PrintableDeliverySlip: React.FC<Props> = ({ deliverySlip, settings 
   return (
     <div
       id={`printable-delivery-slip-${deliverySlip.id}`}
-      className="printable-sheet bg-white text-black w-full max-w-4xl mx-auto p-8 font-sans print:p-2 print:max-w-[195mm] print:mx-auto text-sm leading-normal print:text-xs print:leading-normal select-none"
+      className="printable-sheet bg-white text-black w-full max-w-4xl mx-auto p-8 font-sans print:p-0 print:pt-0 print:max-w-full print:mx-0 text-sm leading-normal print:text-xs print:leading-normal select-none"
     >
       {/* Header */}
       <div className="border-b border-black pb-4 mb-6 print:pb-3 print:mb-4">

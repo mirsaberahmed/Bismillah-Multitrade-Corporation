@@ -93,7 +93,11 @@ export const PrintableInvoiceAndChallan: React.FC<Props> = ({
               {showPaymentDetails && (
                 <p>
                   <span className="font-medium">Status:</span>{' '}
-                  <span className="font-bold uppercase">{invoice.paymentStatus}</span>
+                  <span className="font-bold uppercase">
+                    {((invoice.balanceDue <= 0.01 || invoice.paidAmount >= invoice.grandTotal - 0.01) && invoice.grandTotal > 0)
+                      ? 'PAID'
+                      : invoice.paymentStatus}
+                  </span>
                 </p>
               )}
             </div>

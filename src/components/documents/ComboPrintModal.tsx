@@ -209,39 +209,19 @@ export const ComboPrintModal: React.FC<Props> = ({
               </div>
             </div>
 
-            {/* STRICT PAGE BREAK SENTINEL: Separates Page 1 and Page 2 in print */}
-            <div
-              className="combo-page-break"
-              style={{
-                pageBreakBefore: 'always',
-                breakBefore: 'page',
-                pageBreakAfter: 'always',
-                breakAfter: 'page',
-                height: 0,
-                minHeight: 0,
-                maxHeight: 0,
-                lineHeight: 0,
-                margin: 0,
-                padding: 0,
-                border: 'none',
-                clear: 'both',
-                display: 'block'
-              }}
-            />
-
-            {/* Visual Page 2 Indicator on Screen */}
+            {/* Visual Page 2 Indicator on Screen (Hidden during print) */}
             <div className="print:hidden my-6 flex items-center justify-between text-xs text-zinc-400 font-mono px-1">
               <div className="h-px bg-zinc-800 flex-1 mr-4" />
               <span className="font-bold text-blue-400 uppercase tracking-wide">● Page 2: Delivery Slip / Challan</span>
               <div className="h-px bg-zinc-800 flex-1 ml-4" />
             </div>
 
-            {/* PAGE 2: Delivery Slip */}
+            {/* PAGE 2: Delivery Slip (Strictly on Page 2, no middle page) */}
             <div
               className="combo-slip-page bg-white rounded-xl shadow-xl overflow-hidden border border-zinc-200 print:border-none print:shadow-none print:rounded-none print:overflow-visible"
               style={{
-                pageBreakBefore: 'always',
-                breakBefore: 'page',
+                pageBreakBefore: 'auto',
+                breakBefore: 'auto',
                 pageBreakAfter: 'avoid',
                 breakAfter: 'avoid',
                 clear: 'both'

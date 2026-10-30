@@ -616,15 +616,21 @@ export const Dashboard: React.FC<DashboardProps> = ({
                       {formatCurrency(inv.balanceDue, inv.currency)}
                     </td>
                     <td className="py-2.5 px-2 text-center whitespace-nowrap">
-                      <span className={`px-2 py-0.5 rounded text-[10px] font-bold ${
-                        inv.paymentStatus === 'Paid'
-                          ? 'bg-emerald-100 text-emerald-800'
-                          : inv.paymentStatus === 'Partially Paid'
-                          ? 'bg-blue-100 text-blue-800'
-                          : 'bg-rose-100 text-rose-800'
-                      }`}>
-                        {inv.paymentStatus}
-                      </span>
+                      {(() => {
+                        const isPaid = ((inv.balanceDue <= 0.01 || inv.paidAmount >= inv.grandTotal - 0.01) && inv.grandTotal > 0) || inv.paymentStatus === 'Paid';
+                        const effStatus = isPaid ? 'Paid' : inv.paymentStatus;
+                        return (
+                          <span className={`px-2 py-0.5 rounded text-[10px] font-bold ${
+                            effStatus === 'Paid'
+                              ? 'bg-emerald-100 text-emerald-800'
+                              : effStatus === 'Partially Paid'
+                              ? 'bg-blue-100 text-blue-800'
+                              : 'bg-rose-100 text-rose-800'
+                          }`}>
+                            {effStatus}
+                          </span>
+                        );
+                      })()}
                     </td>
                     <td className="py-2.5 px-2 text-center whitespace-nowrap">
                       <span className={`px-2 py-0.5 rounded text-[10px] font-bold ${

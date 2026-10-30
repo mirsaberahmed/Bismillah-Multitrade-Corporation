@@ -339,11 +339,11 @@ export const InvoiceForm: React.FC<Props> = ({ invoiceId, onCancel, onSuccess })
       roundAdjustment,
       grandTotal,
       paidAmount,
-      balanceDue,
+      balanceDue: ((balanceDue <= 0.01 || paidAmount >= grandTotal - 0.01) && grandTotal > 0) ? 0 : balanceDue,
       amountInWords,
       showPaymentDetails,
       paymentStatus:
-        paidAmount >= grandTotal && grandTotal > 0
+        ((balanceDue <= 0.01 || paidAmount >= grandTotal - 0.01) && grandTotal > 0)
           ? 'Paid'
           : paidAmount > 0
           ? 'Partially Paid'

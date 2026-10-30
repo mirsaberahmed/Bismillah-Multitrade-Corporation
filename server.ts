@@ -177,13 +177,51 @@ function createBlankTenantState(user: RegisteredUserRecord) {
 }
 
 // Load or Initialize Users Registry
+// In-Memory cache for users registry to guarantee zero async race-conditions and instant read consistency
+let usersRegistryCache: RegisteredUserRecord[] | null = null;
+
+// Strong Password Validation Rule Checker on Server
+export function validatePasswordStrength(password: string): { valid: boolean; error?: string } {
+  if (!password || typeof password !== 'string') {
+    return { valid: false, error: 'Password is required.' };
+  }
+  if (password !== password.trim()) {
+    return { valid: false, error: 'Password must not contain leading or trailing spaces.' };
+  }
+  if (password.length < 8) {
+    return { valid: false, error: 'Password must be at least 8 characters long.' };
+  }
+  if (!/[A-Z]/.test(password)) {
+    return { valid: false, error: 'Password must contain at least one uppercase letter (A-Z).' };
+  }
+  if (!/[a-z]/.test(password)) {
+    return { valid: false, error: 'Password must contain at least one lowercase letter (a-z).' };
+  }
+  if (!/[0-9]/.test(password)) {
+    return { valid: false, error: 'Password must contain at least one number (0-9).' };
+  }
+  if (!/[!@#$%^&*()_+\-=[\]{};':"\\|,.<>/?`~]/.test(password)) {
+    return { valid: false, error: 'Password must contain at least one special character (!@#$%^&* etc).' };
+  }
+  return { valid: true };
+}
+
+// Load or Initialize Users Registry
 function loadUsersRegistry(): RegisteredUserRecord[] {
+  if (usersRegistryCache && usersRegistryCache.length > 0) {
+    return usersRegistryCache;
+  }
+
   if (fs.existsSync(USERS_FILE)) {
     try {
       const raw = fs.readFileSync(USERS_FILE, 'utf-8');
-      return JSON.parse(raw);
-    } catch {
-      return [];
+      const parsed = JSON.parse(raw);
+      if (Array.isArray(parsed) && parsed.length > 0) {
+        usersRegistryCache = parsed;
+        return parsed;
+      }
+    } catch (err) {
+      console.warn('Error reading USERS_FILE, attempting recovery:', err);
     }
   }
 
@@ -198,8 +236,8 @@ function loadUsersRegistry(): RegisteredUserRecord[] {
           return {
             id: u.id || `usr-${Date.now()}`,
             fullName: u.fullName || u.name || 'Business User',
-            username: (u.username || 'user').toLowerCase(),
-            email: (u.email || '').toLowerCase(),
+            username: (u.username || 'user').trim().toLowerCase(),
+            email: (u.email || '').trim().toLowerCase(),
             phone: u.phone || '',
             employeeId: u.employeeId || 'EMP-001',
             department: u.department || 'Administration',
@@ -252,12 +290,30 @@ function loadUsersRegistry(): RegisteredUserRecord[] {
     });
   }
 
-  fs.writeFileSync(USERS_FILE, JSON.stringify(initialUsers, null, 2), 'utf-8');
+  usersRegistryCache = initialUsers;
+  try {
+    fs.writeFileSync(USERS_FILE, JSON.stringify(initialUsers, null, 2), 'utf-8');
+  } catch {}
   return initialUsers;
 }
 
 function saveUsersRegistry(users: RegisteredUserRecord[]) {
-  fs.writeFileSync(USERS_FILE, JSON.stringify(users, null, 2), 'utf-8');
+  // Update memory cache synchronously first so all concurrent reads receive exact state
+  usersRegistryCache = [...users];
+
+  // Write atomically using a temporary file and rename to avoid partial writes during concurrent requests
+  const tempFile = path.join(DATA_DIR, `users_registry_${Date.now()}_${Math.random().toString(36).substring(2, 8)}.tmp`);
+  try {
+    fs.writeFileSync(tempFile, JSON.stringify(users, null, 2), 'utf-8');
+    fs.renameSync(tempFile, USERS_FILE);
+  } catch (err) {
+    try {
+      fs.writeFileSync(USERS_FILE, JSON.stringify(users, null, 2), 'utf-8');
+    } catch {}
+    if (fs.existsSync(tempFile)) {
+      try { fs.unlinkSync(tempFile); } catch {}
+    }
+  }
 }
 
 // Tenant Data Helpers
@@ -590,6 +646,64 @@ async function startServer() {
   // 1. AUTHENTICATION & REGISTRATION API (Strict Email, No Duplicates, Multi-Tenant)
   // =========================================================================
 
+  // Endpoint: Pre-check Email & Username Availability (Debounced & Async Safe)
+  const handleCheckAvailability = (req: express.Request, res: express.Response) => {
+    try {
+      const field = (req.query.field || req.body.field || '') as string;
+      const rawValue = (req.query.value || req.body.value || '') as string;
+
+      if (!field || !rawValue) {
+        res.status(400).json({ ok: false, error: 'Both "field" (email|username) and "value" are required.' });
+        return;
+      }
+
+      const users = loadUsersRegistry();
+
+      if (field === 'email') {
+        const cleanEmail = rawValue.trim().toLowerCase();
+        // Basic format check
+        if (!cleanEmail || !cleanEmail.includes('@') || cleanEmail.length < 5) {
+          res.json({ ok: true, available: false, field: 'email', error: 'Invalid email format.' });
+          return;
+        }
+        const exists = users.some(u => (u.email || '').trim().toLowerCase() === cleanEmail);
+        res.json({
+          ok: true,
+          available: !exists,
+          field: 'email',
+          value: cleanEmail,
+          message: exists ? 'Email address is already registered.' : 'Email is available.'
+        });
+        return;
+      }
+
+      if (field === 'username') {
+        const cleanUsername = rawValue.trim().toLowerCase();
+        if (!cleanUsername || cleanUsername.length < 3) {
+          res.json({ ok: true, available: false, field: 'username', error: 'Username must be at least 3 characters.' });
+          return;
+        }
+        const exists = users.some(u => (u.username || '').trim().toLowerCase() === cleanUsername);
+        res.json({
+          ok: true,
+          available: !exists,
+          field: 'username',
+          value: cleanUsername,
+          message: exists ? 'Username is already taken.' : 'Username is available.'
+        });
+        return;
+      }
+
+      res.status(400).json({ ok: false, error: 'Field must be either "email" or "username".' });
+    } catch (err) {
+      console.error('Error checking availability:', err);
+      res.status(500).json({ ok: false, error: 'Server error while checking availability.' });
+    }
+  };
+
+  app.get('/api/auth/check-availability', handleCheckAvailability);
+  app.post('/api/auth/check-availability', handleCheckAvailability);
+
   // Endpoint: Register New User Account
   app.post('/api/auth/register', (req, res) => {
     try {
@@ -610,31 +724,36 @@ async function startServer() {
         return;
       }
 
-      if (!password || password.length < 4) {
-        res.status(400).json({ ok: false, error: 'Password must be at least 4 characters.' });
+      // Server-Side Password Policy Enforcement
+      const passCheck = validatePasswordStrength(password);
+      if (!passCheck.valid) {
+        res.status(400).json({ ok: false, error: passCheck.error || 'Password does not meet security requirements.' });
         return;
       }
 
       const cleanEmail = email.trim().toLowerCase();
       const cleanUsername = username.trim().toLowerCase();
 
+      // Read current authoritative user registry
       const users = loadUsersRegistry();
 
       // Rule 1: Strict Check - No duplicate emails
-      const existingEmailUser = users.find(u => u.email.toLowerCase() === cleanEmail);
+      const existingEmailUser = users.find(u => (u.email || '').trim().toLowerCase() === cleanEmail);
       if (existingEmailUser) {
         res.status(409).json({
           ok: false,
+          field: 'email',
           error: 'This email address is already registered. Each account requires a unique email address.'
         });
         return;
       }
 
       // Rule 2: Strict Check - No duplicate usernames
-      const existingUsername = users.find(u => u.username.toLowerCase() === cleanUsername);
+      const existingUsername = users.find(u => (u.username || '').trim().toLowerCase() === cleanUsername);
       if (existingUsername) {
         res.status(409).json({
           ok: false,
+          field: 'username',
           error: 'This username is already taken. Please choose a different username.'
         });
         return;

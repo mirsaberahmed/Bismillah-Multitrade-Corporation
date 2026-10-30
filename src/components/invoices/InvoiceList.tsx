@@ -66,6 +66,16 @@ export const InvoiceList: React.FC<Props> = ({
     mode: 'whatsapp'
   });
 
+  const getEffectivePaymentStatus = (inv: SalesInvoice): PaymentStatus => {
+    const grandTotal = Math.round((Number(inv.grandTotal) || 0) * 100) / 100;
+    const paid = Math.round((Number(inv.paidAmount) || 0) * 100) / 100;
+    const due = Math.round((Number(inv.balanceDue) || 0) * 100) / 100;
+    if (grandTotal > 0 && (due <= 0.01 || paid >= grandTotal - 0.01)) {
+      return 'Paid';
+    }
+    return inv.paymentStatus;
+  };
+
   // Apply date range
   const { start: presetStart, end: presetEnd } = getDateRangePreset(dateRangePreset);
   const effectiveStart = dateRangePreset === 'custom' ? customStartDate : presetStart;
@@ -83,7 +93,8 @@ export const InvoiceList: React.FC<Props> = ({
       (inv.poNumber && inv.poNumber.toLowerCase().includes(q));
 
     // Status filters
-    const matchPayment = paymentFilter === 'all' || inv.paymentStatus === paymentFilter;
+    const effectivePayment = getEffectivePaymentStatus(inv);
+    const matchPayment = paymentFilter === 'all' || effectivePayment === paymentFilter;
     const matchDelivery = deliveryFilter === 'all' || inv.deliveryStatus === deliveryFilter;
 
     // Date filter
@@ -108,7 +119,7 @@ export const InvoiceList: React.FC<Props> = ({
       'Grand Total': i.grandTotal,
       'Paid Amount': i.paidAmount,
       'Balance Due': i.balanceDue,
-      'Payment Status': i.paymentStatus,
+      'Payment Status': getEffectivePaymentStatus(i),
       'Delivery Status': i.deliveryStatus,
       'PO Number': i.poNumber || ''
     }));
@@ -123,7 +134,7 @@ export const InvoiceList: React.FC<Props> = ({
       'Grand Total': i.grandTotal,
       'Paid': i.paidAmount,
       'Due': i.balanceDue,
-      'Payment Status': i.paymentStatus,
+      'Payment Status': getEffectivePaymentStatus(i),
       'Delivery Status': i.deliveryStatus
     }));
     exportToCSV(exportData, `Invoices_${new Date().toISOString().slice(0, 10)}`);
@@ -370,17 +381,22 @@ export const InvoiceList: React.FC<Props> = ({
                       </span>
                     </td>
                     <td className="p-3 text-center">
-                      <span className={`inline-block px-2 py-0.5 rounded text-[10px] font-bold uppercase ${
-                        inv.paymentStatus === 'Paid'
-                          ? 'bg-emerald-950 text-emerald-400 border border-emerald-800/60'
-                          : inv.paymentStatus === 'Partially Paid'
-                          ? 'bg-blue-950 text-blue-400 border border-blue-800/60'
-                          : inv.paymentStatus === 'Overdue'
-                          ? 'bg-red-950 text-red-400 border border-red-800/60'
-                          : 'bg-amber-950 text-amber-400 border border-amber-800/60'
-                      }`}>
-                        {inv.paymentStatus}
-                      </span>
+                      {(() => {
+                        const effStatus = getEffectivePaymentStatus(inv);
+                        return (
+                          <span className={`inline-block px-2 py-0.5 rounded text-[10px] font-bold uppercase ${
+                            effStatus === 'Paid'
+                              ? 'bg-emerald-950 text-emerald-400 border border-emerald-800/60'
+                              : effStatus === 'Partially Paid'
+                              ? 'bg-blue-950 text-blue-400 border border-blue-800/60'
+                              : effStatus === 'Overdue'
+                              ? 'bg-red-950 text-red-400 border border-red-800/60'
+                              : 'bg-amber-950 text-amber-400 border border-amber-800/60'
+                          }`}>
+                            {effStatus}
+                          </span>
+                        );
+                      })()}
                     </td>
                     <td className="p-3 text-center">
                       <div className="flex flex-col items-center gap-0.5">
