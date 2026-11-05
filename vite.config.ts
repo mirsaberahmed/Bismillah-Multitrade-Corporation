@@ -10,6 +10,26 @@ export default defineConfig(() => {
       alias: {
         '@': path.resolve(import.meta.dirname || '.', '.'),
       },
+      dedupe: [
+        'firebase',
+        'firebase/app',
+        'firebase/auth',
+        'firebase/firestore',
+        '@firebase/app',
+        '@firebase/component',
+        '@firebase/firestore',
+        '@firebase/auth',
+        '@firebase/util',
+      ],
+    },
+    optimizeDeps: {
+      include: [
+        'firebase/app',
+        'firebase/auth',
+        'firebase/firestore',
+        '@firebase/app',
+        '@firebase/component',
+      ],
     },
     server: {
       host: '0.0.0.0',

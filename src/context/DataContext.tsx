@@ -1165,14 +1165,14 @@ export const DataProvider: React.FC<{ children: React.ReactNode }> = ({ children
       overallVat +
       overallTax +
       (invoiceData.aitAmount || 0) +
-      (invoiceData.shippingCharge || 0) +
+      (invoiceData.shippingCharge || 0) -
       (invoiceData.transportCharge || 0) +
       (invoiceData.loadingCharge || 0) +
       (invoiceData.otherCharge || 0) +
       (invoiceData.previousDue || 0) +
       (invoiceData.roundAdjustment || 0);
 
-    const roundedGrandTotal = Math.round(grandTotalCalculated * 100) / 100;
+    const roundedGrandTotal = Math.max(0, Math.round(grandTotalCalculated * 100) / 100);
     const paid = Math.round((Number(invoiceData.paidAmount) || 0) * 100) / 100;
     const balanceDue = Math.max(0, Math.round((roundedGrandTotal - paid) * 100) / 100);
 

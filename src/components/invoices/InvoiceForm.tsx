@@ -278,7 +278,7 @@ export const InvoiceForm: React.FC<Props> = ({ invoiceId, onCancel, onSuccess })
       (netAfterDiscount +
         vatTotal +
         taxTotal +
-        aitAmount +
+        aitAmount -
         transportCharge +
         shippingCharge +
         loadingCharge +
@@ -1007,7 +1007,7 @@ export const InvoiceForm: React.FC<Props> = ({ invoiceId, onCancel, onSuccess })
           </div>
 
           <div className="flex justify-between items-center py-1 border-b border-zinc-800">
-            <span className="text-zinc-400">Transport / Courier Charge:</span>
+            <span className="text-zinc-400">Transportation Cost (-):</span>
             <input
               type="number"
               min="0"
@@ -1016,8 +1016,8 @@ export const InvoiceForm: React.FC<Props> = ({ invoiceId, onCancel, onSuccess })
               value={transportCharge === 0 ? '' : transportCharge}
               onFocus={(e) => e.target.select()}
               onClick={(e) => (e.target as HTMLInputElement).select()}
-              onChange={(e) => setTransportCharge(e.target.value === '' ? 0 : Number(e.target.value))}
-              className="w-32 bg-zinc-950 border border-zinc-700 rounded px-2 py-0.5 text-xs text-zinc-200 font-mono text-right focus:placeholder-transparent"
+              onChange={(e) => setTransportCharge(e.target.value === '' ? 0 : Math.max(0, Number(e.target.value)))}
+              className="w-32 bg-zinc-950 border border-zinc-700 rounded px-2 py-0.5 text-xs text-red-400 font-mono text-right focus:placeholder-transparent"
             />
           </div>
 

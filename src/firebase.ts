@@ -15,7 +15,21 @@ import {
 import firebaseConfig from '../firebase-applet-config.json';
 
 const app = initializeApp(firebaseConfig);
-export const db = getFirestore(app, firebaseConfig.firestoreDatabaseId);
+
+let firestoreDb: ReturnType<typeof getFirestore>;
+try {
+  firestoreDb = getFirestore(app, firebaseConfig.firestoreDatabaseId);
+} catch (e) {
+  console.warn('Initial getFirestore with databaseId failed, retrying default:', e);
+  try {
+    firestoreDb = getFirestore(app);
+  } catch (err) {
+    console.error('Fatal getFirestore failure:', err);
+    throw err;
+  }
+}
+
+export const db = firestoreDb;
 export const auth = getAuth(app);
 
 export const ORG_KEY = 'BISMILLAH-MULTITRADE-CORP';
@@ -75,6 +89,7 @@ export function handleFirestoreError(
 // Validate connection to Firestore on startup
 async function testConnection() {
   try {
+    if (!db) return;
     await getDocFromServer(doc(db, 'test', 'connection'));
   } catch (error) {
     if (error instanceof Error && error.message.includes('the client is offline')) {

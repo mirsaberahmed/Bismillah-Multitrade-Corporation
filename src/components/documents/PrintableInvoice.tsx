@@ -251,8 +251,8 @@ export const PrintableInvoice: React.FC<Props> = ({ invoice, settings, showPayme
 
             {invoice.transportCharge > 0 && (
               <div className="flex justify-between p-2 px-3 print:py-1 print:px-2 border-b border-black">
-                <span className="font-medium">Transport Charge:</span>
-                <span className="font-mono font-bold">{formatCurrency(invoice.transportCharge, invoice.currency)}</span>
+                <span className="font-medium">Transportation Cost:</span>
+                <span className="font-mono font-bold">-{formatCurrency(invoice.transportCharge, invoice.currency)}</span>
               </div>
             )}
 
