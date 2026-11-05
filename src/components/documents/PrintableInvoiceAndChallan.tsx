@@ -158,6 +158,12 @@ export const PrintableInvoiceAndChallan: React.FC<Props> = ({
                     <span className="font-mono">-{formatCurrency(invoice.transportCharge, invoice.currency)}</span>
                   </div>
                 )}
+                {invoice.roundAdjustment !== 0 && (
+                  <div className="flex justify-between p-1 px-2 border-b border-black">
+                    <span>Round Adjustment:</span>
+                    <span className="font-mono">-{formatCurrency(invoice.roundAdjustment, invoice.currency)}</span>
+                  </div>
+                )}
                 <div className="flex justify-between p-1 px-2 border-t border-black font-bold text-black">
                   <span>GRAND TOTAL:</span>
                   <span className="font-mono">{formatCurrency(invoice.grandTotal, invoice.currency)}</span>

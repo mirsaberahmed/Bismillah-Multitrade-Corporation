@@ -1169,7 +1169,7 @@ export const DataProvider: React.FC<{ children: React.ReactNode }> = ({ children
       (invoiceData.transportCharge || 0) +
       (invoiceData.loadingCharge || 0) +
       (invoiceData.otherCharge || 0) +
-      (invoiceData.previousDue || 0) +
+      (invoiceData.previousDue || 0) -
       (invoiceData.roundAdjustment || 0);
 
     const roundedGrandTotal = Math.max(0, Math.round(grandTotalCalculated * 100) / 100);

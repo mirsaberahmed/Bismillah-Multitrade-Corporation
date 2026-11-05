@@ -93,6 +93,9 @@ export function generateInvoiceWhatsAppText(invoice: SalesInvoice, companyName =
   if (invoice.transportCharge && invoice.transportCharge > 0) {
     lines.push(`Transportation Cost: -${currency} ${invoice.transportCharge.toLocaleString()}`);
   }
+  if (invoice.roundAdjustment && invoice.roundAdjustment !== 0) {
+    lines.push(`Round Adjustment: -${currency} ${invoice.roundAdjustment.toLocaleString()}`);
+  }
   if (invoice.vatAmount && invoice.vatAmount > 0) {
     lines.push(`VAT: ${currency} ${invoice.vatAmount.toLocaleString()}`);
   }

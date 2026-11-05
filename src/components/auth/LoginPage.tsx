@@ -769,16 +769,6 @@ export const LoginPage: React.FC<LoginPageProps> = ({ onLoginSuccess }) => {
             <p className="text-[10px] sm:text-[11px] font-bold tracking-[0.22em] text-[#f97316] uppercase whitespace-nowrap mb-6 px-4">
               IMPORT. EXPORT. GLOBAL TRADE
             </p>
-
-            {/* Official Motto Box: Semi-transparent dark rounded border box with side spacing */}
-            <div className="w-full max-w-[280px] sm:max-w-[310px] bg-black/40 border border-white/10 rounded-2xl px-5 py-3 shadow-inner backdrop-blur-xs mx-auto">
-              <p className="text-[9px] sm:text-[9.5px] font-bold text-[#f97316] uppercase tracking-[0.2em] whitespace-nowrap mb-1">
-                OFFICIAL MOTTO
-              </p>
-              <p className="text-[11px] sm:text-xs font-semibold text-white whitespace-nowrap not-italic leading-relaxed px-2">
-                “Reliable Trade, Stronger Tomorrow”
-              </p>
-            </div>
           </div>
 
           {/* Footer Text at the Bottom: Line above Developed by, slightly smaller font, side spacing */}

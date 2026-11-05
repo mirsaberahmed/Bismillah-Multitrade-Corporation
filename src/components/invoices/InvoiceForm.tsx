@@ -283,7 +283,7 @@ export const InvoiceForm: React.FC<Props> = ({ invoiceId, onCancel, onSuccess })
         shippingCharge +
         loadingCharge +
         otherCharge +
-        previousDue +
+        previousDue -
         roundAdjustment) * 100
     ) / 100
   );
@@ -1037,7 +1037,7 @@ export const InvoiceForm: React.FC<Props> = ({ invoiceId, onCancel, onSuccess })
           </div>
 
           <div className="flex justify-between items-center py-1 border-b border-zinc-800">
-            <span className="text-zinc-400">Round Adjustment (±):</span>
+            <span className="text-zinc-400">Round Adjustment (-):</span>
             <input
               type="number"
               step="any"
@@ -1046,7 +1046,7 @@ export const InvoiceForm: React.FC<Props> = ({ invoiceId, onCancel, onSuccess })
               onFocus={(e) => e.target.select()}
               onClick={(e) => (e.target as HTMLInputElement).select()}
               onChange={(e) => setRoundAdjustment(e.target.value === '' ? 0 : Number(e.target.value))}
-              className="w-32 bg-zinc-950 border border-zinc-700 rounded px-2 py-0.5 text-xs text-zinc-300 font-mono text-right focus:placeholder-transparent"
+              className="w-32 bg-zinc-950 border border-zinc-700 rounded px-2 py-0.5 text-xs text-red-400 font-mono text-right focus:placeholder-transparent"
             />
           </div>
 

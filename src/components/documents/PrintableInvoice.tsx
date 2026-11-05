@@ -280,7 +280,7 @@ export const PrintableInvoice: React.FC<Props> = ({ invoice, settings, showPayme
             {invoice.roundAdjustment !== 0 && (
               <div className="flex justify-between p-2 px-3 print:py-1 print:px-2 border-b border-black">
                 <span>Round Adjustment:</span>
-                <span className="font-mono font-bold">{formatCurrency(invoice.roundAdjustment, invoice.currency)}</span>
+                <span className="font-mono font-bold">-{formatCurrency(invoice.roundAdjustment, invoice.currency)}</span>
               </div>
             )}
 
